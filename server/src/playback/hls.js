@@ -26,6 +26,7 @@ function destroy(id) {
   const s = sessions.get(id);
   if (!s) return;
   try { s.proc && s.proc.kill("SIGKILL"); } catch { /* ya muerto */ }
+  try { s.abort && s.abort(); } catch { /* sin stream */ }
   try { clearTimeout(s.timer); } catch {}
   try { fs.rmSync(s.dir, { recursive: true, force: true }); } catch {}
   if (s.key && byKey.get(s.key) === id) byKey.delete(s.key);
@@ -95,6 +96,64 @@ export function startHls(rtspUrl, opts = {}) {
   timer.unref && timer.unref();
   sessions.set(id, { proc, dir, timer, key });
   if (key) byKey.set(key, id);
+  return { id, dir, url: `/api/playback/${id}/index.m3u8` };
+}
+
+// HLS desde un stream Node (Readable) en vez de RTSP. Para playback por ContentMgmt
+// download (MPEG-PS limpio de grabaciones H.264+). `open()` → Promise<{stream,abort}>.
+// `ss` (segundos) hace input-seek dentro del archivo descargado (seek exacto).
+export async function startHlsFromStream({ key, open, ss = 0, transcode = false, vod = false, dur = 0 } = {}) {
+  if (typeof open !== "function") throw new Error("open() requerido");
+  if (key && byKey.has(key)) {
+    const exId = byKey.get(key);
+    if (sessions.has(exId)) { touch(exId); return { id: exId, dir: sessions.get(exId).dir, url: `/api/playback/${exId}/index.m3u8`, reused: true }; }
+    byKey.delete(key);
+  }
+  if (sessions.size >= MAX_SESSIONS) destroy([...sessions.keys()][0]);
+  const id = randomUUID().replace(/-/g, "").slice(0, 12);
+  const dir = path.join(PLAYBACK_DIR, id);
+  fs.mkdirSync(dir, { recursive: true });
+  const args = [
+    "-nostdin",
+    "-fflags", "+genpts",
+    "-i", "pipe:0",
+    "-an",
+    ...(dur > 0 ? ["-t", String(Math.floor(dur))] : []),
+    ...(transcode
+      ? ["-c:v", "libx264", "-preset", "veryfast", "-tune", "zerolatency", "-profile:v", "baseline", "-pix_fmt", "yuv420p", "-g", "50", "-sc_threshold", "0"]
+      : ["-c:v", "copy", "-bsf:v", "dump_extra=freq=keyframe"]),
+    "-f", "hls", "-hls_time", "2",
+    // VOD/event: lista creciente, NO borra segmentos → el reproductor controla el
+    // ritmo (1x) y puede hacer seek dentro de lo ya producido. (El archivo del NVR
+    // se copia más rápido que realtime; en modo live los segmentos se borrarían
+    // antes de verlos.) `ss` no se usa: input-seek no funciona sobre un pipe.
+    ...(vod
+      ? ["-hls_list_size", "0", "-hls_flags", "append_list+independent_segments", "-hls_playlist_type", "event"]
+      : ["-hls_list_size", "8", "-hls_flags", "delete_segments+append_list+omit_endlist+independent_segments"]),
+    "-hls_segment_filename", path.join(dir, "seg_%03d.ts"),
+    path.join(dir, "index.m3u8"),
+  ];
+  const proc = spawn("ffmpeg", args, { stdio: ["pipe", "ignore", "pipe"] });
+  let errTail = "";
+  proc.stderr.on("data", (d) => { errTail = (errTail + d.toString()).slice(-1500); });
+  proc.on("error", (e) => { log.warn(`ffmpeg pb-stream no se lanzó (${e.message})`); destroy(id); });
+  proc.on("exit", (code) => { if (code && code !== 255) log.warn(`ffmpeg pb-stream ${id} salió ${code}: ${errTail.slice(-250)}`); });
+  proc.stdin.on("error", () => { /* EPIPE cuando ffmpeg cierra; ignorar */ });
+  const timer = setTimeout(() => destroy(id), SESSION_TTL_MS); timer.unref && timer.unref();
+  sessions.set(id, { proc, dir, timer, key, abort: () => {} });
+  if (key) byKey.set(key, id);
+  try {
+    const dl = await open();
+    const s = sessions.get(id);
+    if (!s) { try { dl.abort && dl.abort(); } catch { /* noop */ } throw new Error("sesión cancelada"); }
+    s.abort = dl.abort || (() => {});
+    dl.stream.on("error", () => { try { proc.stdin.end(); } catch { /* noop */ } });
+    dl.stream.on("end", () => { try { proc.stdin.end(); } catch { /* noop */ } });
+    dl.stream.pipe(proc.stdin);
+  } catch (e) {
+    destroy(id);
+    throw e;
+  }
   return { id, dir, url: `/api/playback/${id}/index.m3u8` };
 }
 

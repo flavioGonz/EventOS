@@ -6,7 +6,8 @@ import { Router } from "express";
 import { bus } from "../bus/redisBus.js";
 import { listEvents, getEvent, listOperators, queueState } from "../dispatch/store.js";
 import { getDispatch, list as listConfig, getProcedure, getVideo } from "../config/store.js";
-import { startHls, sessionFile, stopHls, keepAlive } from "../playback/hls.js";
+import { startHls, startHlsFromStream, sessionFile, stopHls, keepAlive } from "../playback/hls.js";
+import { searchSegment, openDownload, compactToMs } from "../playback/contentmgmt.js";
 import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
 import { verifyPin } from "../auth/pin.js";
 import { config } from "../config.js";
@@ -312,7 +313,7 @@ router.post("/playback-stream", async (req, res) => {
 
 // Playback por HLS transcodificado (mismo pipeline que el vivo, sin go2rtc → sin
 // el "Empty src" de MSE con el H264 corrupto). Devuelve la m3u8 de la sesión.
-router.post("/playback-hls", (req, res) => {
+router.post("/playback-hls", async (req, res) => {
   const body = req.body || {};
   const deviceId = String(body.deviceId || "");
   const start = String(body.start || ""), end = String(body.end || "");
@@ -321,20 +322,26 @@ router.post("/playback-hls", (req, res) => {
   try { devices = listConfig("devices"); } catch { /* store */ }
   const dev = devices.find((d) => d.id === deviceId);
   if (!dev) return res.status(404).json({ error: "no_device" });
-  const base = deviceLiveRtsp(dev, "main");
-  if (!base) return res.status(400).json({ error: "sin_rtsp" });
-  const root = (base.match(/^(rtsps?:\/\/[^/]+)/i) || [, base])[1];
+  if (!dev.ip || !dev.isapiPort || !dev.username) return res.status(400).json({ error: "sin_isapi" });
   const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
-  const rtsp = `${root}/Streaming/channels/${ch}02?starttime=${start}&endtime=${end}`;
-  let video = {}; try { video = getVideo(); } catch { /* store */ }
+  const startMs = compactToMs(start), endMs = compactToMs(end);
+  if (!Number.isFinite(startMs)) return res.status(400).json({ error: "bad_time" });
   try {
-    // La clave incluye el INSTANTE pedido → cada seek arranca su propia sesión
-    // ffmpeg (si reusáramos `pb:<id>` a secas, mover el playhead no recargaría
-    // la grabación del nuevo momento). El TTL/ DELETE limpian las viejas.
-    const s = startHls(rtsp, { key: `pb:${deviceId}:${start}`, transport: video.rtspTransport }); // transcode (SPS válido)
+    // Grabación H.264+: el restream RTSP del NVR es indecodificable, pero el DOWNLOAD
+    // de ContentMgmt entrega MPEG-PS limpio. El NVR graba el MAIN → track ch*100+1.
+    // Buscamos el segmento que cubre el instante, lo bajamos y hacemos input-seek (ss).
+    const seg = await searchSegment(dev, ch * 100 + 1, startMs - 60000, endMs);
+    if (!seg) return res.status(404).json({ error: "no_recording", message: "No hay grabación en ese instante." });
+    // El download arranca SIEMPRE al inicio del archivo del segmento (el NVR ignora
+    // Range y no recorta por tiempo). El input-seek de ffmpeg no funciona sobre un
+    // pipe → reproducimos como VOD desde el inicio del archivo y el reproductor
+    // hace seek dentro de lo producido. Acotamos cuánto producir (hasta el fin de
+    // la ventana pedida, máx 20 min) para no copiar archivos de ~80 min enteros.
+    const dur = Math.min(1200, Math.max(60, (endMs - seg.segStartMs) / 1000));
+    const s = await startHlsFromStream({ key: `pb:${deviceId}:${start}`, vod: true, dur, open: () => openDownload(dev, seg.uri) });
     res.json({ id: s.id, url: s.url });
   } catch (e) {
-    res.status(500).json({ error: "pb_failed", message: e.message });
+    res.status(502).json({ error: "pb_failed", message: e.message });
   }
 });
 
