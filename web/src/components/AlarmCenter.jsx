@@ -5,13 +5,12 @@
 // seleccionada + Mapa centrado en el cliente del evento. Reusa socket + acciones.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Glass, Icon, PriorityDot } from '../ui/primitives.jsx'
-import { Go2RtcView } from './CameraLive.jsx'
 import OperativeMap from './OperativeMap.jsx'
 import OperatorBar from './OperatorBar.jsx'
 import EventPopup from './EventPopup.jsx'
 import OperatorIdentity from './OperatorIdentity.jsx'
 import { eventTypeLabel, EVENT_TYPE_ICON, EVENT_TYPE_LABELS, priorityLabel, targetLabel, TARGET_ICON } from '../lib/labels.js'
-import { formatTime, sourceLine, priorityClass } from '../lib/format.js'
+import { formatTime, priorityClass, slaInfo } from '../lib/format.js'
 
 const LS_IGNORED = 'eventos.alarms.ignored'
 const LS_TABS = 'eventos.alarms.tabs'
@@ -30,29 +29,20 @@ function matchFilters(e, f) {
 }
 
 function RelatedMedia({ event }) {
-  const [mode, setMode] = useState('photo')
-  useEffect(() => { setMode('photo') }, [event && event.id])
   if (!event) {
-    return <div className="acrel__empty"><Icon name="camera" size={30} /><span>Seleccioná una alarma para ver su video y foto</span></div>
+    return <div className="acrel__empty"><Icon name="camera" size={30} /><span>Seleccioná una alarma para ver su foto</span></div>
   }
   const m = event.media || {}
   const img = m.evidenceUrl || m.snapshotUrl
-  const devId = event.source && event.source.deviceId
   return (
     <div className="acrel">
-      <div className="acrel__head">
-        <span className="acrel__title"><Icon name={EVENT_TYPE_ICON[event.type] || 'camera'} size={14} /> {event.title || eventTypeLabel(event.type)}</span>
-        <span className="acrel__time tnum">{formatTime(event.deviceTs || event.ts)}</span>
-        <span className="acrel__sp" />
-        <div className="acrel__toggle" role="group" aria-label="Foto o vivo">
-          <button type="button" className={mode === 'photo' ? 'is-on' : ''} onClick={() => setMode('photo')}>Foto</button>
-          <button type="button" className={mode === 'live' ? 'is-on' : ''} onClick={() => setMode('live')} disabled={!devId}>En vivo</button>
-        </div>
-      </div>
-      <div className="acrel__stage">
-        {mode === 'live' && devId
-          ? <Go2RtcView deviceId={devId} />
-          : (img ? <img className="acrel__img" src={img} alt="" /> : <div className="acrel__empty"><Icon name="camera" size={26} /><span>Sin imagen del momento</span></div>)}
+      {img
+        ? <img className="acrel__img" src={img} alt="" />
+        : <div className="acrel__empty"><Icon name="camera" size={26} /><span>Sin imagen del momento</span></div>}
+      <div className="acrel__cap">
+        <Icon name={EVENT_TYPE_ICON[event.type] || 'camera'} size={13} />
+        <span className="acrel__cap-title">{event.title || eventTypeLabel(event.type)}</span>
+        <span className="acrel__cap-sub">{(event.source && event.source.site) || ''} · {formatTime(event.deviceTs || event.ts)}</span>
       </div>
     </div>
   )
@@ -116,7 +106,11 @@ function NewTabForm({ sites, onSave, onClose }) {
 
 export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOperator, console: c, autoPopup, onToggleAutoPopup }) {
   const { status, redis, events, operators, summary, selfStats, actions } = c
-  const [tab, setTab] = useState('latest')
+  // Disposición de pestañas y vista activa POR USUARIO (se recuerda al loguearse).
+  const uid = (operator && (operator.operatorId || operator.id)) || 'anon'
+  const tabsKey = `${LS_TABS}.${uid}`
+  const activeKey = `eventos.alarms.active.${uid}`
+  const [tab, setTab] = useState(() => loadLS(activeKey, 'latest'))
   const [selId, setSelId] = useState(null)
   const [ignored, setIgnored] = useState(() => new Set(loadLS(LS_IGNORED, [])))
   const [showHistory, setShowHistory] = useState(false)
@@ -124,9 +118,10 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const [openId, setOpenId] = useState(null)
   const [sites, setSites] = useState([])
   const [groups, setGroups] = useState([])
-  const [customTabs, setCustomTabs] = useState(() => loadLS(LS_TABS, []))
+  const [customTabs, setCustomTabs] = useState(() => loadLS(tabsKey, []))
   const [newTabOpen, setNewTabOpen] = useState(false)
   const [flash, setFlash] = useState(() => new Set()) // ids recién llegados (animación)
+  const [, setTick] = useState(0) // re-render 1s para el contador de SLA
   const fwdRef = useRef(null)
   const seenRef = useRef(null)
   const acRef = useRef(null)
@@ -184,11 +179,18 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
     return () => document.removeEventListener('mousedown', onDown)
   }, [fwdOpen])
 
+  // Contador SLA: re-render cada 1s.
+  useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 1000); return () => clearInterval(t) }, [])
+  // Al cambiar de usuario, cargar SU disposición de pestañas y vista activa.
+  useEffect(() => { setCustomTabs(loadLS(tabsKey, [])); setTab(loadLS(activeKey, 'latest')) }, [tabsKey, activeKey])
+  // Recordar la pestaña activa por usuario.
+  useEffect(() => { saveLS(activeKey, tab) }, [tab, activeKey])
+
   const persistIgn = useCallback((next) => { setIgnored(next); saveLS(LS_IGNORED, [...next]) }, [])
   const ignore = useCallback((id) => { const n = new Set(ignored); n.add(id); persistIgn(n); if (selId === id) setSelId(null) }, [ignored, selId, persistIgn])
   const restore = useCallback((id) => { const n = new Set(ignored); n.delete(id); persistIgn(n) }, [ignored, persistIgn])
-  const addTab = (t) => { const next = [...customTabs, t]; setCustomTabs(next); saveLS(LS_TABS, next); setNewTabOpen(false); setTab(t.id) }
-  const delTab = (id) => { const next = customTabs.filter((t) => t.id !== id); setCustomTabs(next); saveLS(LS_TABS, next); if (tab === id) setTab('latest') }
+  const addTab = (t) => { const next = [...customTabs, t]; setCustomTabs(next); saveLS(tabsKey, next); setNewTabOpen(false); setTab(t.id) }
+  const delTab = (id) => { const next = customTabs.filter((t) => t.id !== id); setCustomTabs(next); saveLS(tabsKey, next); if (tab === id) setTab('latest') }
 
   const timesByKey = useMemo(() => {
     const m = new Map()
@@ -288,13 +290,13 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
             <thead>
               <tr>
                 <th className="alarmc__th-sel" />
-                <th>Alarma</th><th>Prioridad</th><th>Hora</th><th>Veces</th>
-                <th>Origen</th><th>Área</th><th>Evento</th><th>Operación</th>
+                <th>Alarma</th><th>Prioridad</th><th>SLA</th><th>Hora</th><th>Veces</th>
+                <th>Origen</th><th>Cliente</th><th>Área</th><th>Evento</th><th>Operación</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 && (
-                <tr className="alarmc__empty-row"><td colSpan={9}>
+                <tr className="alarmc__empty-row"><td colSpan={11}>
                   <div className="alarmc__empty"><Icon name="bell" size={26} /><span>Sin alarmas en esta pestaña</span></div>
                 </td></tr>
               )}
@@ -303,6 +305,9 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
                 const k = `${(e.source && e.source.deviceId) || '?'}|${e.type}`
                 const times = timesByKey.get(k) || 1
                 const sel = e.id === selId
+                const sla = slaInfo(e)
+                const src = e.source || {}
+                const origin = [src.deviceName || src.deviceId, (src.channel != null && src.channel !== '') ? `canal ${src.channel}` : null].filter(Boolean).join(' · ') || '—'
                 return (
                   <tr key={e.id} className={`alarmc__row ${sel ? 'is-sel' : ''} ${priorityClass(p)} ${flash.has(e.id) ? 'is-new' : ''}`}
                       onClick={() => setSelId(e.id)} onDoubleClick={() => setOpenId(e.id)}>
@@ -311,10 +316,12 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
                       {e.target && e.target !== 'none' && <Icon name={TARGET_ICON[e.target] || 'dot'} size={12} className={`alarmc__target alarmc__target--${e.target}`} title={`Objetivo: ${targetLabel(e.target)}`} />}
                     </td>
                     <td><span className={`alarmc__prio ${priorityClass(p)}`}><PriorityDot p={p} size={8} /> {priorityLabel(p)}</span></td>
+                    <td>{sla ? <span className={`alarmc__sla alarmc__sla--${sla.tone}`}>{sla.label}</span> : <span className="alarmc__dim">—</span>}</td>
                     <td className="tnum alarmc__dim">{formatTime(e.deviceTs || e.ts)}</td>
                     <td className="tnum">{times > 1 ? <span className="alarmc__times">{times}</span> : <span className="alarmc__dim">1</span>}</td>
-                    <td className="alarmc__dim">{sourceLine(e)}</td>
-                    <td className="alarmc__dim">{e.zone || (e.source && e.source.site) || '—'}</td>
+                    <td className="alarmc__dim">{origin}</td>
+                    <td className="alarmc__cli">{src.site || '—'}</td>
+                    <td className="alarmc__dim">{e.zone || '—'}</td>
                     <td>{eventTypeLabel(e.type)}</td>
                     <td className="alarmc__ops" onClick={(ev) => ev.stopPropagation()}>
                       {tab === 'ignored' ? (
@@ -336,7 +343,9 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
 
         <div className="alarmc__bottom">
           <section className="alarmc__panel">
-            <header className="alarmc__panel-head"><Icon name="video" size={14} /> Video y foto relacionada</header>
+            <header className="alarmc__panel-head"><Icon name="camera" size={14} /> Foto del evento
+              {selected && <span className="alarmc__panel-sub">· {selected.title || eventTypeLabel(selected.type)}</span>}
+            </header>
             <div className="alarmc__panel-body"><RelatedMedia event={selected} /></div>
           </section>
           <section className="alarmc__panel">

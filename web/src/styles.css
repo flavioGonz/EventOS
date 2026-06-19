@@ -2035,3 +2035,18 @@
 
 /* ajustes: bloque inferior mas alto + mapa mas angosto */
 .alarmc__bottom { height: clamp(320px, 44vh, 520px) !important; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr) !important; }
+
+
+/* SLA + Cliente + caption de foto (Centro) */
+.alarmc__sla { display:inline-block; padding:2px 9px; border-radius:999px; font-size:11px; font-weight:700; white-space:nowrap; }
+.alarmc__sla--ok { background:rgba(22,163,74,.15); color:#16a34a; }
+.alarmc__sla--warn { background:rgba(245,158,11,.20); color:#b45309; }
+.alarmc__sla--crit { background:rgba(239,68,68,.20); color:#ef4444; }
+.alarmc__cli { font-weight:600; }
+.alarmc__row.p1 td:first-child { box-shadow: inset 3px 0 0 #ef4444; }
+.alarmc__row.p2 td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
+.acrel { position:relative; height:100%; background:#05070b; }
+.acrel__img { width:100%; height:100%; object-fit:contain; display:block; }
+.acrel__cap { position:absolute; left:0; right:0; bottom:0; display:flex; align-items:center; gap:7px; padding:9px 12px; background:linear-gradient(transparent, rgba(0,0,0,.72)); color:#fff; font-size:12px; }
+.acrel__cap-title { font-weight:700; }
+.acrel__cap-sub { color:rgba(255,255,255,.78); margin-left:auto; font-variant-numeric:tabular-nums; }
