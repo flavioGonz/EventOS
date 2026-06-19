@@ -4,7 +4,7 @@
 // (Acuse, Reenviar a grupo, Ignorar, Video) y, abajo, Video&Foto de la alarma
 // seleccionada + Mapa centrado en el cliente del evento. Reusa socket + acciones.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Glass, Icon, PriorityDot } from '../ui/primitives.jsx'
+import { Glass, Icon, PriorityDot, Skeleton, Spinner } from '../ui/primitives.jsx'
 import { Go2RtcView, useCameraAnalytics, AnalyticsOverlay } from './CameraLive.jsx'
 import OperativeMap from './OperativeMap.jsx'
 import OperatorBar from './OperatorBar.jsx'
@@ -68,6 +68,23 @@ function RelatedMedia({ event }) {
   )
 }
 
+// Vivo del canal con skeleton mientras conecta (go2rtc tarda unos segundos).
+function LiveCell({ deviceId }) {
+  const [loading, setLoading] = useState(true)
+  useEffect(() => { setLoading(true); const t = setTimeout(() => setLoading(false), 2600); return () => clearTimeout(t) }, [deviceId])
+  return (
+    <div className="aclive">
+      <Go2RtcView key={deviceId} deviceId={deviceId} />
+      {loading && (
+        <div className="aclive__skel">
+          <Skeleton w="100%" h="100%" />
+          <span className="aclive__skel-txt"><Spinner size={14} /> conectando vivo…</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Popover para crear una pestaña por filtros.
 function NewTabForm({ sites, onSave, onClose }) {
   const [name, setName] = useState('')
@@ -125,7 +142,7 @@ function NewTabForm({ sites, onSave, onClose }) {
 }
 
 export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOperator, console: c, autoPopup, onToggleAutoPopup }) {
-  const { status, redis, events, operators, summary, selfStats, actions } = c
+  const { status, redis, events, operators, summary, selfStats, actions, alertEvent, clearAlert } = c
   // Disposición de pestañas y vista activa POR USUARIO (se recuerda al loguearse).
   const uid = (operator && (operator.operatorId || operator.id)) || 'anon'
   // Modo "tabla desacoplada": ventana limpia (solo tabs + tabla) para otro monitor.
@@ -221,6 +238,12 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
     }
     return () => { try { bc.close() } catch { /* noop */ } bcRef.current = null }
   }, [isTablePopout])
+  // Pop-up automático: al llegar una alarma (alertEvent), si el toggle está ON,
+  // abrir la verificación. Solo en la ventana principal (no en la tabla desacoplada).
+  useEffect(() => {
+    if (isTablePopout || !autoPopup || !alertEvent) return
+    setOpenId((cur) => cur || alertEvent.id)
+  }, [alertEvent, autoPopup, isTablePopout])
 
   const persistIgn = useCallback((next) => { setIgnored(next); saveLS(LS_IGNORED, [...next]) }, [])
   const ignore = useCallback((id) => { const n = new Set(ignored); n.add(id); persistIgn(n); if (selId === id) setSelId(null) }, [ignored, selId, persistIgn])
@@ -441,7 +464,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
             </header>
             <div className="alarmc__panel-body alarmc__livebody">
               {selected && selected.source && selected.source.deviceId
-                ? <Go2RtcView key={selected.source.deviceId} deviceId={selected.source.deviceId} />
+                ? <LiveCell deviceId={selected.source.deviceId} />
                 : <div className="acrel__empty"><Icon name="video" size={26} /><span>Seleccioná una alarma para ver el vivo del canal</span></div>}
             </div>
           </section>
@@ -456,7 +479,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
         </div>)}
       </div>
 
-      {!isTablePopout && openEvent && <EventPopup event={openEvent} operator={operator} actions={actions} onClose={() => setOpenId(null)} />}
+      {!isTablePopout && openEvent && <EventPopup event={openEvent} operator={operator} actions={actions} onClose={() => { setOpenId(null); if (clearAlert) clearAlert() }} />}
     </div>
   )
 }

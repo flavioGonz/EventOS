@@ -133,9 +133,11 @@ export default function OperatorBar({ operator, onChangeOperator, viewToggle, st
       </div>
 
       {onToggleAutoPopup && (
-        <button type="button" className={`opbar__popup ${autoPopup ? 'is-on' : ''}`} onClick={onToggleAutoPopup}
-          title={autoPopup ? 'Pop-up automático de alarmas: activado' : 'Pop-up automático de alarmas: desactivado'} aria-pressed={!!autoPopup}>
-          <Icon name="bell" size={14} /> Pop-up <b>{autoPopup ? 'ON' : 'OFF'}</b>
+        <button type="button" role="switch" aria-checked={!!autoPopup} className={`opbar__sw ${autoPopup ? 'is-on' : ''}`} onClick={onToggleAutoPopup}
+          title={autoPopup ? 'Pop-up automático de alarmas: activado' : 'Pop-up automático de alarmas: desactivado'}>
+          <Icon name="bell" size={14} />
+          <span className="opbar__sw-label">Pop-up</span>
+          <span className="opbar__sw-track"><span className="opbar__sw-knob" /></span>
         </button>
       )}
       <div className="opbar__spacer" />
