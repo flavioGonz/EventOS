@@ -39,8 +39,13 @@ function matchFilters(e, f) {
   return true
 }
 
+// ¿El deviceId corresponde a un dispositivo REAL de EventOS? (evita 404 contra
+// /api/camera/* cuando el evento trae un modelo como id, p.ej. simulador.)
+const isRealDev = (id) => /^dev_/.test(id || '')
+
 function RelatedMedia({ event }) {
-  const devId = event && event.source && event.source.deviceId
+  const rawDev = event && event.source && event.source.deviceId
+  const devId = isRealDev(rawDev) ? rawDev : null
   const ana = useCameraAnalytics(devId, !!devId)
   if (!event) {
     return <div className="acrel__empty"><Icon name="camera" size={30} /><span>Seleccioná una alarma para ver su foto</span></div>
@@ -54,10 +59,10 @@ function RelatedMedia({ event }) {
       {img
         ? (showAna
           ? <div className="acrel__stage">
-              <img className="acrel__imgc" src={img} alt="" />
+              <img className="acrel__imgc" src={img} alt="" onError={(ev) => { ev.currentTarget.style.visibility = 'hidden' }} />
               <AnalyticsOverlay rules={rules} space={(ana && ana.space) || 1000} />
             </div>
-          : <img className="acrel__img" src={img} alt="" />)
+          : <img className="acrel__img" src={img} alt="" onError={(ev) => { ev.currentTarget.style.visibility = 'hidden' }} />)
         : <div className="acrel__empty"><Icon name="camera" size={26} /><span>Sin imagen del momento</span></div>}
       <div className="acrel__cap">
         <Icon name={EVENT_TYPE_ICON[event.type] || 'camera'} size={13} />
@@ -463,9 +468,9 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
               {selected && selected.source && (selected.source.deviceName || selected.source.deviceId) && <span className="alarmc__panel-sub">· {selected.source.deviceName || `canal ${selected.source.channel || ''}`}</span>}
             </header>
             <div className="alarmc__panel-body alarmc__livebody">
-              {selected && selected.source && selected.source.deviceId
+              {selected && isRealDev(selected.source && selected.source.deviceId)
                 ? <LiveCell deviceId={selected.source.deviceId} />
-                : <div className="acrel__empty"><Icon name="video" size={26} /><span>Seleccioná una alarma para ver el vivo del canal</span></div>}
+                : <div className="acrel__empty"><Icon name="video" size={26} /><span>{selected ? 'Sin cámara en vivo asociada' : 'Seleccioná una alarma para ver el vivo del canal'}</span></div>}
             </div>
           </section>
           <section className="alarmc__panel">
