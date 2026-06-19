@@ -2,7 +2,9 @@
 // Layouts (2×2/3×3/4×4/spotlight), asignar cámaras a celdas, guardar presets,
 // AUTO-SPOTLIGHT por alarma (P1/P2 → su cámara salta a la celda principal),
 // CARRUSEL (rota cámaras), y POP-OUT a otra ventana/monitor. Las celdas usan
-// snapshot near-live (bajo costo); el spotlight/celda activa usa MJPEG en vivo.
+// snapshot near-live (bajo costo); la celda en vivo usa go2rtc (RTSP directo de
+// la cámara, transcodificado → SPS válido). Tope de vivos concurrentes para no
+// exceder el límite de RTSP del NVR ni saturar la CPU del transcode.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, Segmented, Button } from '../ui/primitives.jsx'
 import { Go2RtcView } from './CameraLive.jsx'
@@ -16,20 +18,26 @@ const LAYOUTS = [
 ]
 const layoutCells = (v) => (LAYOUTS.find((l) => l.value === v) || LAYOUTS[0]).cells
 const LS_PRESETS = 'eventos.wall.presets'
+// Tope de celdas en vivo a la vez. Cada vivo = 1 sesión RTSP→transcode contra el
+// NVR; pasarse satura el NVR (límite de streams concurrentes) y la CPU.
+const WALL_MAX_LIVE = 6
 
 function loadLS(key, fallback) { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback } catch { return fallback } }
 function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)) } catch { /* ignore */ } }
 
-// Celda: snapshot near-live, o MJPEG en vivo si `live`.
+// Celda: snapshot near-live, o vivo go2rtc si `live`. Si el snapshot falla
+// (cámara sin señal) muestra un estado claro en vez de imagen rota.
 function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, onMoveCell }) {
   const [t, setT] = useState(0)
   const [over, setOver] = useState(false)
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     if (!cam || live) return
     setT(Date.now())
-    const id = setInterval(() => setT(Date.now()), 1500) // ~near-live de bajo costo
+    const id = setInterval(() => setT(Date.now()), 2500) // near-live de bajo costo
     return () => clearInterval(id)
   }, [cam, live])
+  useEffect(() => { setFailed(false) }, [cam, live])
 
   return (
     <div className={`wallcell${focused ? ' is-focus' : ''}${cam ? '' : ' is-empty'}${over ? ' is-dragover' : ''}`}
@@ -43,7 +51,13 @@ function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, o
         <>
           {live
             ? <Go2RtcView deviceId={cam.id} />
-            : <img className="wallcell__img" alt="" src={`/api/camera/${cam.id}/snapshot${t ? `?t=${t}` : ''}`} />}
+            : (
+              <>
+                <img className="wallcell__img" alt="" src={`/api/camera/${cam.id}/snapshot${t ? `?t=${t}` : ''}`}
+                  onLoad={() => setFailed(false)} onError={() => setFailed(true)} />
+                {failed && <span className="wallcell__off"><Icon name="alert" size={18} /> sin señal</span>}
+              </>
+            )}
           <div className="wallcell__bar">
             <span className="wallcell__name">{cam.channel ? `#${cam.channel} ` : ''}{cam.name}</span>
             <span className="wallcell__sp" />
@@ -75,6 +89,7 @@ export default function Videowall() {
   const [focus, setFocus] = useState(0)                        // celda seleccionada
   const [cameras, setCameras] = useState([])
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickQuery, setPickQuery] = useState('')
   const [autoSpot, setAutoSpot] = useState(!!initial.autoSpot)
   const [carousel, setCarousel] = useState(false)
   const [carouselSec, setCarouselSec] = useState(initial.carouselSec || 10)
@@ -100,6 +115,21 @@ export default function Videowall() {
     setLive((l) => Array.from({ length: n }, (_, i) => (layout === 'spot' && i === 0 ? true : !!l[i])))
     if (focus >= n) setFocus(0)
   }, [layout]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // TOPE de vivos concurrentes: mantiene el orden en que se encendieron y, si se
+  // pasa de WALL_MAX_LIVE, apaga las más viejas. Declarativo → cubre toggle,
+  // auto-spotlight y carrusel sin lógica duplicada.
+  const liveOrder = useRef([])
+  useEffect(() => {
+    const on = live.map((v, k) => (v ? k : -1)).filter((k) => k >= 0)
+    liveOrder.current = [...liveOrder.current.filter((k) => on.includes(k)), ...on.filter((k) => !liveOrder.current.includes(k))]
+    if (liveOrder.current.length > WALL_MAX_LIVE) {
+      const drop = liveOrder.current.slice(0, liveOrder.current.length - WALL_MAX_LIVE)
+      liveOrder.current = liveOrder.current.slice(drop.length)
+      setLive((l) => { const nx = l.slice(); drop.forEach((k) => { nx[k] = false }); return nx })
+    }
+  }, [live])
+  const liveCount = useMemo(() => live.filter(Boolean).length, [live])
 
   const camById = useMemo(() => Object.fromEntries(cameras.map((c) => [c.id, c])), [cameras])
 
@@ -163,12 +193,16 @@ export default function Videowall() {
     window.open(`/wall?popout=1&screen=${next}`, `eventos-wall-${next}`, 'width=1600,height=900,menubar=no,toolbar=no')
   }
 
-  // Cámaras agrupadas por sitio para el selector.
+  // Cámaras agrupadas por sitio para el selector, con filtro de búsqueda.
   const grouped = useMemo(() => {
+    const q = pickQuery.trim().toLowerCase()
     const m = new Map()
-    for (const c of cameras) { const s = c.site || 'Sin sitio'; if (!m.has(s)) m.set(s, []); m.get(s).push(c) }
+    for (const c of cameras) {
+      if (q && !`${c.name || ''} #${c.channel || ''} ${c.site || ''}`.toLowerCase().includes(q)) continue
+      const s = c.site || 'Sin sitio'; if (!m.has(s)) m.set(s, []); m.get(s).push(c)
+    }
     return [...m.entries()]
-  }, [cameras])
+  }, [cameras, pickQuery])
 
   return (
     <div className={`wall${isPopout ? ' wall--popout' : ''}`}>
@@ -176,6 +210,11 @@ export default function Videowall() {
         {!isPopout && <a className="wall__back" href="/" title="Volver a la consola"><Icon name="console" size={16} /></a>}
         <span className="wall__brand"><Icon name="grid" size={16} /> Videowall{screen !== '1' ? ` · Monitor ${screen}` : ''}</span>
         <Segmented value={layout} onChange={setLayout} options={LAYOUTS.map((l) => ({ value: l.value, label: l.label }))} />
+        {liveCount > 0 && (
+          <span className={`wall__livecount${liveCount >= WALL_MAX_LIVE ? ' is-max' : ''}`} title="Cámaras en vivo a la vez (tope para proteger el NVR y la CPU)">
+            <Icon name="bolt" size={12} /> {liveCount}/{WALL_MAX_LIVE}
+          </span>
+        )}
         <span className="wall__sp" />
         <Button variant={autoSpot ? 'primary' : 'ghost'} size="sm" icon="bolt" onClick={() => setAutoSpot((v) => !v)} title="La cámara del evento P1/P2 salta a la celda principal">Auto-spotlight</Button>
         <Button variant={carousel ? 'primary' : 'ghost'} size="sm" icon="refresh" onClick={() => setCarousel((v) => !v)}>Carrusel</Button>
@@ -210,6 +249,12 @@ export default function Videowall() {
               <span>Celda {focus + 1} · elegí cámara</span>
               <button type="button" onClick={() => setPickerOpen(false)}><Icon name="x" size={16} /></button>
             </header>
+            <div className="wall__picksearch">
+              <Icon name="search" size={14} />
+              <input type="text" value={pickQuery} placeholder="Buscar cámara…" autoFocus
+                onChange={(e) => setPickQuery(e.target.value)} />
+              {pickQuery && <button type="button" onClick={() => setPickQuery('')} title="Limpiar"><Icon name="x" size={13} /></button>}
+            </div>
             <div className="wall__picklist">
               {grouped.map(([site, cams]) => (
                 <div key={site} className="wall__pickgrp">
@@ -221,7 +266,7 @@ export default function Videowall() {
                   ))}
                 </div>
               ))}
-              {cameras.length === 0 && <p className="help-block">No hay cámaras.</p>}
+              {grouped.length === 0 && <p className="help-block">{cameras.length === 0 ? 'No hay cámaras.' : 'Sin resultados.'}</p>}
             </div>
           </aside>
         )}
