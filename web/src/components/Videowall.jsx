@@ -1,0 +1,242 @@
+// Videowall — muro de cámaras multipantalla para centro de monitoreo.
+// Layouts (2×2/3×3/4×4/spotlight), asignar cámaras a celdas, guardar presets,
+// AUTO-SPOTLIGHT por alarma (P1/P2 → su cámara salta a la celda principal),
+// CARRUSEL (rota cámaras), y POP-OUT a otra ventana/monitor. Las celdas usan
+// snapshot near-live (bajo costo); el spotlight/celda activa usa MJPEG en vivo.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Icon, Segmented, Button } from '../ui/primitives.jsx'
+import { Go2RtcView } from './CameraLive.jsx'
+import { useConsole } from '../lib/socket.js'
+
+const LAYOUTS = [
+  { value: '2x2', label: '2×2', cells: 4 },
+  { value: '3x3', label: '3×3', cells: 9 },
+  { value: '4x4', label: '4×4', cells: 16 },
+  { value: 'spot', label: 'Spotlight 1+5', cells: 6 },
+]
+const layoutCells = (v) => (LAYOUTS.find((l) => l.value === v) || LAYOUTS[0]).cells
+const LS_PRESETS = 'eventos.wall.presets'
+
+function loadLS(key, fallback) { try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback } catch { return fallback } }
+function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val)) } catch { /* ignore */ } }
+
+// Celda: snapshot near-live, o MJPEG en vivo si `live`.
+function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, onMoveCell }) {
+  const [t, setT] = useState(0)
+  const [over, setOver] = useState(false)
+  useEffect(() => {
+    if (!cam || live) return
+    setT(Date.now())
+    const id = setInterval(() => setT(Date.now()), 1500) // ~near-live de bajo costo
+    return () => clearInterval(id)
+  }, [cam, live])
+
+  return (
+    <div className={`wallcell${focused ? ' is-focus' : ''}${cam ? '' : ' is-empty'}${over ? ' is-dragover' : ''}`}
+      onClick={onClick}
+      draggable={!!cam}
+      onDragStart={(e) => { e.dataTransfer.setData('text/cell', String(index)); e.dataTransfer.effectAllowed = 'move' }}
+      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!over) setOver(true) }}
+      onDragLeave={() => setOver(false)}
+      onDrop={(e) => { e.preventDefault(); setOver(false); const from = Number(e.dataTransfer.getData('text/cell')); if (!Number.isNaN(from) && from !== index) onMoveCell(from, index) }}>
+      {cam ? (
+        <>
+          {live
+            ? <Go2RtcView deviceId={cam.id} />
+            : <img className="wallcell__img" alt="" src={`/api/camera/${cam.id}/snapshot${t ? `?t=${t}` : ''}`} />}
+          <div className="wallcell__bar">
+            <span className="wallcell__name">{cam.channel ? `#${cam.channel} ` : ''}{cam.name}</span>
+            <span className="wallcell__sp" />
+            <button type="button" className={`wallcell__btn${live ? ' is-on' : ''}`} title="En vivo"
+              onClick={(e) => { e.stopPropagation(); onToggleLive() }}><Icon name="bolt" size={13} /></button>
+            <button type="button" className="wallcell__btn" title="Quitar"
+              onClick={(e) => { e.stopPropagation(); onClear() }}><Icon name="x" size={13} /></button>
+          </div>
+          {live && <span className="wallcell__live">● EN VIVO</span>}
+        </>
+      ) : (
+        <div className="wallcell__empty"><Icon name="camera" size={22} /><span>Asignar cámara</span></div>
+      )}
+    </div>
+  )
+}
+
+export default function Videowall() {
+  // `screen` = id de monitor; cada ventana tiene su propia config (multi-monitor
+  // en un solo PC: pop-out a ventanas independientes, una por monitor físico).
+  const params = useMemo(() => new URLSearchParams(window.location.search), [])
+  const isPopout = params.get('popout') === '1'
+  const screen = params.get('screen') || '1'
+  const LS = `eventos.wall.v1.${screen}`
+  const initial = loadLS(LS, { layout: 'spot', cells: [], live: [] })
+  const [layout, setLayout] = useState(initial.layout || 'spot')
+  const [cells, setCells] = useState(initial.cells || [])      // ids por celda
+  const [live, setLive] = useState(initial.live || [])         // bool por celda
+  const [focus, setFocus] = useState(0)                        // celda seleccionada
+  const [cameras, setCameras] = useState([])
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const [autoSpot, setAutoSpot] = useState(!!initial.autoSpot)
+  const [carousel, setCarousel] = useState(false)
+  const [carouselSec, setCarouselSec] = useState(initial.carouselSec || 10)
+  const [presets, setPresets] = useState(() => loadLS(LS_PRESETS, {}))
+
+  const n = layoutCells(layout)
+  const { events } = useConsole(null) // solo para escuchar alarmas (sin identidad)
+  const lastAlertId = useRef(null)
+
+  // Cargar cámaras (públicas).
+  useEffect(() => {
+    fetch('/api/cameras').then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (d && d.cameras) setCameras(d.cameras.filter((c) => c.type !== 'nvr'))
+    }).catch(() => {})
+  }, [])
+
+  // Persistir estado.
+  useEffect(() => { saveLS(LS, { layout, cells, live, autoSpot, carouselSec }) }, [layout, cells, live, autoSpot, carouselSec])
+
+  // Normaliza longitud de arrays al cambiar layout.
+  useEffect(() => {
+    setCells((c) => Array.from({ length: n }, (_, i) => c[i] || null))
+    setLive((l) => Array.from({ length: n }, (_, i) => (layout === 'spot' && i === 0 ? true : !!l[i])))
+    if (focus >= n) setFocus(0)
+  }, [layout]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const camById = useMemo(() => Object.fromEntries(cameras.map((c) => [c.id, c])), [cameras])
+
+  const assign = useCallback((camId) => {
+    setCells((c) => { const next = c.slice(); next[focus] = camId; return next })
+    setPickerOpen(false)
+  }, [focus])
+  const clearCell = (i) => setCells((c) => { const next = c.slice(); next[i] = null; return next })
+  const toggleLive = (i) => setLive((l) => { const next = l.slice(); next[i] = !next[i]; return next })
+  // Drag & drop: arrastrar una celda sobre otra las INTERCAMBIA (cámara + estado vivo).
+  const moveCell = useCallback((from, to) => {
+    setCells((c) => { const n = c.slice();[n[from], n[to]] = [n[to], n[from]]; return n })
+    setLive((l) => { const n = l.slice();[n[from], n[to]] = [n[to], n[from]]; return n })
+  }, [])
+
+  // AUTO-SPOTLIGHT: al llegar un evento P1/P2 nuevo, su cámara salta a la celda 0.
+  useEffect(() => {
+    if (!autoSpot || !events || !events.length) return
+    const top = events.find((e) => (e.priority ?? 5) <= 2 && e.status !== 'resolved')
+    if (!top || top.id === lastAlertId.current) return
+    const camId = top.source && top.source.deviceId
+    if (!camId || !camById[camId]) return
+    lastAlertId.current = top.id
+    if (layout !== 'spot') setLayout('spot')
+    setCells((c) => { const next = c.slice(); next[0] = camId; return next })
+    setLive((l) => { const next = l.slice(); next[0] = true; return next })
+    setFocus(0)
+  }, [events, autoSpot, camById, layout])
+
+  // CARRUSEL: rota las cámaras por las celdas cada N segundos.
+  useEffect(() => {
+    if (!carousel || cameras.length === 0) return
+    let offset = 0
+    const id = setInterval(() => {
+      offset = (offset + n) % Math.max(1, cameras.length)
+      setCells(() => Array.from({ length: n }, (_, i) => cameras[(offset + i) % cameras.length]?.id || null))
+    }, Math.max(3, carouselSec) * 1000)
+    return () => clearInterval(id)
+  }, [carousel, carouselSec, cameras, n])
+
+  const savePreset = () => {
+    const name = window.prompt('Nombre del preset:')
+    if (!name) return
+    const next = { ...presets, [name]: { layout, cells, live } }
+    setPresets(next); saveLS(LS_PRESETS, next)
+  }
+  const loadPreset = (name) => {
+    const p = presets[name]; if (!p) return
+    setLayout(p.layout); setCells(p.cells); setLive(p.live || [])
+  }
+  const delPreset = (name) => {
+    const next = { ...presets }; delete next[name]
+    setPresets(next); saveLS(LS_PRESETS, next)
+  }
+  const popOut = () => window.open(`/wall?popout=1&screen=${screen}`, `eventos-wall-${screen}`, 'width=1600,height=900')
+  const newMonitor = () => {
+    let last = Number(localStorage.getItem('eventos.wall.lastScreen') || 1)
+    if (!isFinite(last)) last = 1
+    const next = Math.max(last, Number(screen) || 1) + 1
+    try { localStorage.setItem('eventos.wall.lastScreen', String(next)) } catch { /* ignore */ }
+    window.open(`/wall?popout=1&screen=${next}`, `eventos-wall-${next}`, 'width=1600,height=900,menubar=no,toolbar=no')
+  }
+
+  // Cámaras agrupadas por sitio para el selector.
+  const grouped = useMemo(() => {
+    const m = new Map()
+    for (const c of cameras) { const s = c.site || 'Sin sitio'; if (!m.has(s)) m.set(s, []); m.get(s).push(c) }
+    return [...m.entries()]
+  }, [cameras])
+
+  return (
+    <div className={`wall${isPopout ? ' wall--popout' : ''}`}>
+      <header className="wall__toolbar">
+        {!isPopout && <a className="wall__back" href="/" title="Volver a la consola"><Icon name="console" size={16} /></a>}
+        <span className="wall__brand"><Icon name="grid" size={16} /> Videowall{screen !== '1' ? ` · Monitor ${screen}` : ''}</span>
+        <Segmented value={layout} onChange={setLayout} options={LAYOUTS.map((l) => ({ value: l.value, label: l.label }))} />
+        <span className="wall__sp" />
+        <Button variant={autoSpot ? 'primary' : 'ghost'} size="sm" icon="bolt" onClick={() => setAutoSpot((v) => !v)} title="La cámara del evento P1/P2 salta a la celda principal">Auto-spotlight</Button>
+        <Button variant={carousel ? 'primary' : 'ghost'} size="sm" icon="refresh" onClick={() => setCarousel((v) => !v)}>Carrusel</Button>
+        {carousel && (
+          <input className="wall__num" type="number" min="3" max="120" value={carouselSec}
+            onChange={(e) => setCarouselSec(Number(e.target.value) || 10)} title="Segundos por rotación" />
+        )}
+        <Button variant="ghost" size="sm" icon="camera" onClick={() => setPickerOpen((v) => !v)}>Cámaras</Button>
+        <Button variant="ghost" size="sm" icon="check" onClick={savePreset}>Guardar</Button>
+        {Object.keys(presets).length > 0 && (
+          <select className="wall__presets" value="" onChange={(e) => { if (e.target.value) loadPreset(e.target.value) }}>
+            <option value="">Presets…</option>
+            {Object.keys(presets).map((name) => <option key={name} value={name}>{name}</option>)}
+          </select>
+        )}
+        <Button variant="ghost" size="sm" icon="plus" onClick={newMonitor} title="Abrir otra ventana de wall (arrastrala a otro monitor)">Monitor</Button>
+        {!isPopout && <Button variant="ghost" size="sm" icon="expand" onClick={popOut} title="Abrir este wall en ventana aparte">Pop-out</Button>}
+      </header>
+
+      <div className="wall__body">
+        <div className={`wall__grid wall--${layout}`}>
+          {Array.from({ length: n }, (_, i) => (
+            <WallCell key={i} index={i} cam={camById[cells[i]] || null} live={!!live[i]} focused={focus === i}
+              onClick={() => { setFocus(i); if (!cells[i]) setPickerOpen(true) }}
+              onClear={() => clearCell(i)} onToggleLive={() => toggleLive(i)} onMoveCell={moveCell} />
+          ))}
+        </div>
+
+        {pickerOpen && (
+          <aside className="wall__picker">
+            <header className="wall__pickhead">
+              <span>Celda {focus + 1} · elegí cámara</span>
+              <button type="button" onClick={() => setPickerOpen(false)}><Icon name="x" size={16} /></button>
+            </header>
+            <div className="wall__picklist">
+              {grouped.map(([site, cams]) => (
+                <div key={site} className="wall__pickgrp">
+                  <p className="wall__picksite">{site}</p>
+                  {cams.map((c) => (
+                    <button key={c.id} type="button" className="wall__pickitem" onClick={() => assign(c.id)}>
+                      <Icon name="camera" size={13} /> {c.channel ? `#${c.channel} ` : ''}{c.name}
+                    </button>
+                  ))}
+                </div>
+              ))}
+              {cameras.length === 0 && <p className="help-block">No hay cámaras.</p>}
+            </div>
+          </aside>
+        )}
+      </div>
+
+      {Object.keys(presets).length > 0 && (
+        <div className="wall__presetbar">
+          {Object.keys(presets).map((name) => (
+            <span key={name} className="wall__presetchip">
+              <button type="button" onClick={() => loadPreset(name)}>{name}</button>
+              <button type="button" className="wall__presetx" onClick={() => delPreset(name)} title="Borrar"><Icon name="x" size={11} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

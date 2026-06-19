@@ -1,0 +1,213 @@
+/* EventOS — sistema de diseño (Apple / liquid glass) — CONTRACT-V2 §4
+   Tokens dark+light, superficies de vidrio, motion ultra-rápido. */
+
+/* ---------- Light (default) ---------- */
+:root {
+  color-scheme: light;
+
+  --bg:        #f4f5f7;
+  --bg-2:      #eceef1;
+  --bg-elev:   #ffffff;
+  --surface:   #ffffff;
+  --surface-2: #f1f3f6;
+  --accent-glow: 0 0 0 1px rgba(0,113,227,.25), 0 6px 18px rgba(0,113,227,.20);
+  --text:      #0a0c10;
+  --text-dim:  #5a6473;
+  --text-faint:#8b94a3;
+
+  --accent:      #0071e3;
+  --accent-2:    #339bff;
+  --accent-weak: rgba(0,113,227,.12);
+  --on-accent:   #ffffff;
+
+  --ok:   #1aa34a;
+  --warn: #c77700;
+  --crit: #e0352b;
+
+  --border:    rgba(10,12,16,.10);
+  --separator: rgba(10,12,16,.07);
+
+  /* prioridad (coherente con el póster Umbral Cinético) */
+  --p1:#ff453a; --p2:#ff9f0a; --p3:#e6b400; --p4:#15b8ad; --p5:#8e97a3;
+
+  /* glass */
+  --glass-bg:        rgba(255,255,255,.62);
+  --glass-bg-strong: rgba(255,255,255,.78);
+  --glass-border:    rgba(255,255,255,.7);
+  --glass-stroke:    rgba(10,12,16,.08);
+  --glass-blur:      saturate(180%) blur(20px);
+  --glass-shadow:    0 8px 30px rgba(10,12,16,.10), 0 1px 0 rgba(255,255,255,.6) inset;
+  --glass-highlight: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 42%);
+
+  --scrim: rgba(20,24,31,.28);
+
+  /* radios */
+  --r-sm:10px; --r:14px; --r-lg:20px; --r-xl:28px; --r-pill:999px;
+
+  /* motion (ultra-rápido) */
+  --dur-1:120ms; --dur-2:160ms; --dur-3:220ms;
+  --ease-spring:cubic-bezier(.22,1,.36,1);
+  --ease-out:cubic-bezier(.2,.8,.2,1);
+
+  --shadow-1: 0 1px 2px rgba(10,12,16,.06), 0 4px 16px rgba(10,12,16,.06);
+  --shadow-2: 0 12px 40px rgba(10,12,16,.16);
+
+  --font: "Inter Variable", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---------- Dark (identidad "command center" — UniFi Protect azul eléctrico) ---------- */
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* Negro azulado profundo, con superficies frías escalonadas. */
+  --bg:        #0a0e14;
+  --bg-2:      #0d131c;
+  --bg-elev:   #121a25;
+  --surface:   #111824;        /* tarjetas/paneles */
+  --surface-2: #16202d;        /* hover / elevación */
+  --text:      #e9eef5;
+  --text-dim:  #93a1b5;
+  --text-faint:#5a6675;
+
+  --accent:      #2e8bff;
+  --accent-2:    #5ba6ff;
+  --accent-weak: rgba(46,139,255,.15);
+  --accent-glow: 0 0 0 1px rgba(46,139,255,.35), 0 6px 20px rgba(46,139,255,.28);
+  --on-accent:   #ffffff;
+
+  --ok:   #2fd27a;
+  --warn: #ffb020;
+  --crit: #ff5663;
+
+  --border:    rgba(122,150,190,.16);
+  --separator: rgba(122,150,190,.10);
+
+  --p1:#ff5663; --p2:#ffb020; --p3:#3aa0ff; --p4:#2fd0c4; --p5:#7a8aa0;
+
+  --glass-bg:        rgba(17,24,36,.66);
+  --glass-bg-strong: rgba(17,24,36,.85);
+  --glass-border:    rgba(122,150,190,.16);
+  --glass-stroke:    rgba(255,255,255,.05);
+  --glass-blur:      saturate(150%) blur(20px);
+  --glass-shadow:    0 12px 44px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.05) inset;
+  --glass-highlight: linear-gradient(180deg, rgba(120,170,255,.08), rgba(255,255,255,0) 44%);
+
+  --scrim: rgba(4,8,14,.62);
+
+  --shadow-1: 0 1px 2px rgba(0,0,0,.5), 0 8px 26px rgba(0,0,0,.42);
+  --shadow-2: 0 20px 56px rgba(0,0,0,.6);
+}
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv05","ss01";
+  /* atmósfera: leves auroras de acento, fijas, baratas de pintar */
+  background-image:
+    radial-gradient(60vw 50vh at 12% -8%, var(--accent-weak), transparent 60%),
+    radial-gradient(50vw 40vh at 100% 110%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%);
+  background-attachment: fixed;
+  transition: background-color var(--dur-3) var(--ease-out), color var(--dur-2) var(--ease-out);
+}
+/* En dark, aura azul eléctrica sutil (profundidad de "command center"). */
+[data-theme="dark"] body {
+  background-image:
+    radial-gradient(70vw 55vh at 8% -10%, rgba(46,139,255,.10), transparent 58%),
+    radial-gradient(55vw 45vh at 102% 112%, rgba(46,139,255,.07), transparent 60%);
+}
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+::selection { background: var(--accent-weak); }
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* scrollbars discretos */
+* { scrollbar-width: thin; scrollbar-color: var(--text-faint) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-faint) 50%, transparent); border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+
+/* ---------- Glass ---------- */
+.glass {
+  position: relative;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--glass-shadow);
+  isolation: isolate;
+}
+.glass::before {              /* sheen especular (liquid glass) */
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: var(--glass-highlight);
+  opacity: .9; pointer-events: none; z-index: -1;
+}
+.glass--strong { background: var(--glass-bg-strong); }
+/* fallback si no hay backdrop-filter */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass { background: var(--bg-elev); }
+}
+
+/* ---------- Animaciones reutilizables (ultra-rápidas) ---------- */
+@keyframes pop-in    { from { opacity:0; transform: translateY(8px) scale(.97); } to { opacity:1; transform: none; } }
+@keyframes pop-out   { from { opacity:1; transform: none; } to { opacity:0; transform: translateY(6px) scale(.97); } }
+@keyframes scrim-in  { from { opacity:0; } to { opacity:1; } }
+@keyframes scrim-out { from { opacity:1; } to { opacity:0; } }
+@keyframes slide-in  { from { opacity:0; transform: translateX(10px); } to { opacity:1; transform: none; } }
+@keyframes rise-in   { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: none; } }
+@keyframes sheen     { from { transform: translateX(-120%);} to { transform: translateX(120%);} }
+@keyframes pulse-ring {
+  0%   { transform: scale(.6); opacity:.55; }
+  100% { transform: scale(2.4); opacity:0; }
+}
+.anim-pop  { animation: pop-in var(--dur-2) var(--ease-spring) both; }
+.anim-rise { animation: rise-in var(--dur-2) var(--ease-spring) both; }
+/* entradas escalonadas para listas/tablas */
+.stagger > * { animation: rise-in var(--dur-2) var(--ease-spring) both; }
+.stagger > *:nth-child(1){animation-delay:0ms}   .stagger > *:nth-child(2){animation-delay:24ms}
+.stagger > *:nth-child(3){animation-delay:48ms}   .stagger > *:nth-child(4){animation-delay:72ms}
+.stagger > *:nth-child(5){animation-delay:96ms}   .stagger > *:nth-child(6){animation-delay:120ms}
+.stagger > *:nth-child(7){animation-delay:144ms}  .stagger > *:nth-child(8){animation-delay:168ms}
+.stagger > *:nth-child(n+9){animation-delay:190ms}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+
+/* ===== EventOS Refresh 2026 (append) ===== */
+:root{
+  --ring: 0 0 0 3px var(--accent-weak);
+  --btn-grad: linear-gradient(180deg, var(--accent-2), var(--accent));
+  --lift: 0 6px 22px rgba(10,12,16,.12);
+  --hairline: inset 0 0 0 1px color-mix(in srgb, var(--text) 6%, transparent);
+}
+[data-theme="dark"]{
+  --lift: 0 12px 32px rgba(0,0,0,.50);
+  --hairline: inset 0 1px 0 rgba(255,255,255,.05);
+}
+/* foco un pelo más suave y consistente con el anillo de acento */
+:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; border-radius:8px; }
+
+
+
+/* ===== EventOS Refresh 2026 — esquinas cuadradas (append) ===== */
+/* Más cuadrado, con bordes ligeramente redondeados (token-driven → toda la app). */
+:root{
+  --r-sm:6px; --r:9px; --r-lg:13px; --r-xl:18px;
+  --r-pill:7px;   /* botones/segmented/chips/badges pasan de píldora a rect. redondeado */
+}
+:focus-visible{ border-radius:6px; }
+/* Elementos que SÍ deben seguir redondos (no dependen de --r-pill, pero por las dudas) */
+.prio-dot,.status-dot,.op-chip__av,.spinner{ border-radius:50%; }
+.switch__track{ border-radius:999px; } .switch__thumb{ border-radius:50%; }
+

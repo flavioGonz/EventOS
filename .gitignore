@@ -1,0 +1,25 @@
+# Dependencias y build
+node_modules/
+dist/
+
+# Entornos / secretos
+*.log
+.env
+server/.env
+web/.env
+.DS_Store
+
+# ===== Datos operativos y SECRETOS — NO versionar =====
+# (config con credenciales de NVR/tokens, eventos, evidencia, logs de operador)
+server/data/
+
+# Claves SSH de despliegue
+.git_deploy_key
+.git_deploy_key.pub
+
+# Backups y temporales (raíz del proyecto)
+/_*
+*.bak
+*.bak-*
+*.tgz
+web/src/.App.bak

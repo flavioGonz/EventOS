@@ -1,0 +1,19 @@
+{
+  "name": "eventos-server",
+  "version": "1.0.0",
+  "description": "EventOS — servidor de distribución de eventos para centro de monitoreo / ARC",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1",
+    "socket.io": "^4.7.5"
+  }
+}

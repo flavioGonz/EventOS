@@ -1,0 +1,23 @@
+[Unit]
+# EventOS API — unidad systemd endurecida (referencia).
+# install.sh genera esta misma unidad inline reescribiendo el path si
+# el directorio de instalación difiere de /opt/eventos.
+Description=EventOS API (Express + Socket.io)
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+WorkingDirectory=/opt/eventos/server
+EnvironmentFile=/etc/eventos/eventos.env
+ExecStart=/usr/bin/node src/index.js
+Restart=always
+RestartSec=3
+User=eventos
+Group=eventos
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
