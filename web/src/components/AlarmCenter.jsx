@@ -63,10 +63,12 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const [fwdFor, setFwdFor] = useState(null) // id del evento con menú de reenvío abierto
   const [openId, setOpenId] = useState(null)
   const [sites, setSites] = useState([])
+  const [groups, setGroups] = useState([])
   const fwdRef = useRef(null)
 
   useEffect(() => {
     fetch('/api/sites').then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && d.sites) setSites(d.sites) }).catch(() => {})
+    fetch('/api/groups').then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && Array.isArray(d.groups)) setGroups(d.groups) }).catch(() => {})
   }, [])
 
   // Cerrar menú de reenvío al click fuera.
@@ -97,10 +99,8 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const rows = tab === 'latest' ? latest : ignoredList
 
   const selected = selId ? events.find((e) => e.id === selId) || null : null
-  const onlineOps = (operators || []).filter((o) => o.online)
-
   const ack = () => { if (selId) actions?.ack?.(selId) }
-  const forward = (opId) => { if (selId) actions?.transfer?.(selId, opId); setFwdFor(null) }
+  const forward = (groupId) => { if (selId) actions?.transfer?.(selId, groupId); setFwdFor(null) }
   const openVideo = () => { if (selId) setOpenId(selId) }
 
   if (!operator) return <OperatorIdentity onConfirm={onConfirmIdentity} />
@@ -130,11 +130,11 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
             <button type="button" className="alarmc__act" disabled={!selId} onClick={() => setFwdFor(fwdFor ? null : selId)}><Icon name="route" size={15} /> Reenviar</button>
             {fwdFor && (
               <Glass strong className="alarmc__menu anim-pop" role="menu">
-                <p className="alarmc__menu-title">Reenviar a operario</p>
-                {onlineOps.length === 0 && <p className="alarmc__menu-empty">No hay operarios en línea</p>}
-                {onlineOps.map((o) => (
-                  <button key={o.operatorId || o.id} role="menuitem" className="alarmc__menu-item" onClick={() => forward(o.operatorId || o.id)}>
-                    <Icon name="user" size={14} /> {o.name || o.operatorId}
+                <p className="alarmc__menu-title">Reenviar a grupo</p>
+                {groups.length === 0 && <p className="alarmc__menu-empty">No hay grupos configurados</p>}
+                {groups.map((g) => (
+                  <button key={g.id} role="menuitem" className="alarmc__menu-item" onClick={() => forward(g.id)}>
+                    <Icon name="shieldcheck" size={14} /> {g.name}
                   </button>
                 ))}
               </Glass>
