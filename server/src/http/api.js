@@ -220,7 +220,10 @@ router.post("/live-direct", async (req, res) => {
   try {
     // El nombre incluye la CALIDAD → main y sub son streams separados (permite
     // alternar en vivo sin pisar uno con otro).
-    const name = await registerGo2rtc(`cam_${deviceId}_${quality}`, rtsp); // copy: SPS válido, sin re-encode
+    // Transcodificar (re-encode) en vez de copy: las cámaras H.264+/SmartCodec
+    // de cesimco emiten un SPS que el navegador rechaza por MSE ([VideoRTC] Video
+    // error). ffmpeg reescribe un SPS válido → vivo limpio. (copy fallaba en ellas.)
+    const name = await registerGo2rtc(`cam_${deviceId}_${quality}`, go2rtcTranscodeSrc(rtsp));
     res.json({ name });
   } catch (e) {
     res.status(502).json({ error: "go2rtc_failed", message: e.message });
