@@ -222,4 +222,106 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
             <button type="button" className="alarmc__addtab" title="Nueva pestaña por filtros" onClick={() => setNewTabOpen((v) => !v)}><Icon name="plus" size={15} /></button>
             {newTabOpen && <NewTabForm sites={sites} onSave={addTab} onClose={() => setNewTabOpen(false)} />}
           </div>
-       
+        </div>
+
+        <div className="alarmc__toolbar">
+          <button type="button" className="alarmc__act" disabled={!selId} onClick={ack}><Icon name="check" size={15} /> Acuse</button>
+          <div className="alarmc__fwd" ref={fwdRef}>
+            <button type="button" className="alarmc__act" disabled={!selId} onClick={() => setFwdOpen((v) => !v)}><Icon name="route" size={15} /> Reenviar</button>
+            {fwdOpen && (
+              <Glass strong className="alarmc__menu anim-pop" role="menu">
+                <p className="alarmc__menu-title">Reenviar a grupo</p>
+                {groups.length === 0 && <p className="alarmc__menu-empty">No hay grupos configurados</p>}
+                {groups.map((g) => (
+                  <button key={g.id} role="menuitem" className="alarmc__menu-item" onClick={() => forward(g.id)}>
+                    <Icon name="shieldcheck" size={14} /> {g.name}
+                  </button>
+                ))}
+              </Glass>
+            )}
+          </div>
+          <button type="button" className="alarmc__act" disabled={!selId} onClick={openVideo}><Icon name="play" size={15} /> Video de alarma</button>
+          <span className="alarmc__sp" />
+          <span className="alarmc__overview" title="Resumen de la cola">
+            <PriorityDot p={1} size={8} /> <strong className="tnum">{(summary && summary.critical) || 0}</strong> críticos ·
+            <strong className="tnum"> {(summary && summary.active) || 0}</strong> activos
+          </span>
+          <button type="button" className={`alarmc__toggle ${showHistory ? 'is-on' : ''}`} onClick={() => setShowHistory((v) => !v)} title="Incluir resueltas/escaladas">
+            <Icon name="clock" size={14} /> Historial
+          </button>
+          <a className="alarmc__toggle" href="/admin/devices" title="Armado / dispositivos"><Icon name="shield" size={14} /> Armado</a>
+          <a className="alarmc__toggle" href="/admin" title="Configuración"><Icon name="sliders" size={14} /> Config</a>
+        </div>
+
+        <div className="alarmc__tablewrap">
+          <table className="alarmc__table">
+            <thead>
+              <tr>
+                <th className="alarmc__th-sel" />
+                <th>Alarma</th><th>Prioridad</th><th>Hora</th><th>Veces</th>
+                <th>Origen</th><th>Área</th><th>Evento</th><th>Operación</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length === 0 && (
+                <tr className="alarmc__empty-row"><td colSpan={9}>
+                  <div className="alarmc__empty"><Icon name="bell" size={26} /><span>Sin alarmas en esta pestaña</span></div>
+                </td></tr>
+              )}
+              {rows.map((e) => {
+                const p = e.priority ?? 5
+                const k = `${(e.source && e.source.deviceId) || '?'}|${e.type}`
+                const times = timesByKey.get(k) || 1
+                const sel = e.id === selId
+                return (
+                  <tr key={e.id} className={`alarmc__row ${sel ? 'is-sel' : ''} ${priorityClass(p)} ${flash.has(e.id) ? 'is-new' : ''}`}
+                      onClick={() => setSelId(e.id)} onDoubleClick={() => setOpenId(e.id)}>
+                    <td className="alarmc__td-sel"><span className={`alarmc__radio ${sel ? 'is-on' : ''}`} /></td>
+                    <td className="alarmc__name"><Icon name={EVENT_TYPE_ICON[e.type] || 'bell'} size={14} /> {e.title || eventTypeLabel(e.type)}
+                      {e.target && e.target !== 'none' && <Icon name={TARGET_ICON[e.target] || 'dot'} size={12} className={`alarmc__target alarmc__target--${e.target}`} title={`Objetivo: ${targetLabel(e.target)}`} />}
+                    </td>
+                    <td><span className={`alarmc__prio ${priorityClass(p)}`}><PriorityDot p={p} size={8} /> {priorityLabel(p)}</span></td>
+                    <td className="tnum alarmc__dim">{formatTime(e.deviceTs || e.ts)}</td>
+                    <td className="tnum">{times > 1 ? <span className="alarmc__times">{times}</span> : <span className="alarmc__dim">1</span>}</td>
+                    <td className="alarmc__dim">{sourceLine(e)}</td>
+                    <td className="alarmc__dim">{e.zone || (e.source && e.source.site) || '—'}</td>
+                    <td>{eventTypeLabel(e.type)}</td>
+                    <td className="alarmc__ops" onClick={(ev) => ev.stopPropagation()}>
+                      {tab === 'ignored' ? (
+                        <button type="button" title="Restaurar" onClick={() => restore(e.id)}><Icon name="refresh" size={14} /> Restaurar</button>
+                      ) : (
+                        <>
+                          <button type="button" title="Acuse" onClick={() => actions?.ack?.(e.id)}><Icon name="check" size={14} /></button>
+                          <button type="button" title="Video" onClick={() => setOpenId(e.id)}><Icon name="play" size={14} /></button>
+                          <button type="button" title="Ignorar" onClick={() => ignore(e.id)}><Icon name="x" size={14} /></button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="alarmc__bottom">
+          <section className="alarmc__panel">
+            <header className="alarmc__panel-head"><Icon name="video" size={14} /> Video y foto relacionada</header>
+            <div className="alarmc__panel-body"><RelatedMedia event={selected} /></div>
+          </section>
+          <section className="alarmc__panel">
+            <header className="alarmc__panel-head">
+              <Icon name="map" size={14} /> Mapa
+              {selected && selected.source && selected.source.site && <span className="alarmc__panel-sub">· {selected.source.site}</span>}
+            </header>
+            <div className="alarmc__panel-body alarmc__map">
+              <OperativeMap sites={sites} events={rows} focus={focus} onOpenEvent={(e) => setOpenId(e.id)} />
+            </div>
+          </section>
+        </div>
+      </div>
+
+      {openEvent && <EventPopup event={openEvent} operator={operator} actions={actions} onClose={() => setOpenId(null)} />}
+    </div>
+  )
+}
