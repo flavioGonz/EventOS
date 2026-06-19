@@ -2067,3 +2067,7 @@
 .alarmc__td-sel input, .alarmc__th-sel input { width: 15px; height: 15px; cursor: pointer; accent-color: var(--accent); }
 .alarmc__livebody { background: #05070b; }
 .alarmc__livebody .go2view, .alarmc__livebody .go2view__video, .alarmc__livebody video, .alarmc__livebody video-stream { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+
+/* Foto del evento: llenar el bloque (sin desenfoque) */
+.acrel__img { object-fit: cover !important; }
+.acrel__bg { display: none !important; }

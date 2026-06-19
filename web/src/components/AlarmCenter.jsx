@@ -48,10 +48,7 @@ function RelatedMedia({ event }) {
   return (
     <div className="acrel">
       {img
-        ? <>
-            <div className="acrel__bg" style={{ backgroundImage: `url(${img})` }} />
-            <img className="acrel__img" src={img} alt="" />
-          </>
+        ? <img className="acrel__img" src={img} alt="" />
         : <div className="acrel__empty"><Icon name="camera" size={26} /><span>Sin imagen del momento</span></div>}
       <div className="acrel__cap">
         <Icon name={EVENT_TYPE_ICON[event.type] || 'camera'} size={13} />
