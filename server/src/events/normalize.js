@@ -119,7 +119,7 @@ function hikEventKey(s) {
 //   none  = la cámara clasifica pero sin objetivo relevante → probable falsa alarma.
 export function normalizeTarget(raw = {}) {
   const v = String(
-    pick(raw.targetType, raw.TargetType, raw.detectionTarget, raw.DetectionTarget,
+    pick(raw.detectionTarget, raw.DetectionTarget, raw.targetType, raw.TargetType,
          raw.objectType, raw.recognitionType, raw.humanType, raw.category, raw.target) || ""
   ).trim().toLowerCase();
   // Algunos eventos Hik vienen tipados (facedetection, ANPR, humanRecognition…).
@@ -129,7 +129,10 @@ export function normalizeTarget(raw = {}) {
   if (/(human|person|people|pedestrian|\bman\b|head|\bface\b|facedetection)/.test(hay)) return "human";
   if (/(vehicle|\bcar\b|truck|motor|bike|bicycle|cycle|\bvan\b|\bbus\b|plate|\banpr\b|\blpr\b|license)/.test(hay)) return "vehicle";
   if (v && /(none|other|unknown|false|background|no_?target)/.test(v)) return "none";
-  return v || null;
+  // `targetType` numérico (1=Face, 2=Vehicle, …) u otros valores no mapeables a
+  // persona/vehículo → NO clasificar (evita "objetivo" basura tipo "2"). El campo
+  // confiable de humano/vehículo es `detectionTarget`.
+  return null;
 }
 
 // ── Parser XML dependency-free ──────────────────────────────────────────────

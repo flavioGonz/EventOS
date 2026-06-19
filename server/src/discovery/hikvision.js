@@ -103,7 +103,7 @@ function parseVideoChannels(xml) {
   }));
 }
 
-function parseStreams(xml, { host, port }) {
+function parseStreams(xml, { host, rtspPort }) {
   return blocks(xml, "StreamingChannel").map((b) => {
     const id = tag(b, "id") || "";
     const codec = tag(b, "videoCodecType") || null;
@@ -113,7 +113,7 @@ function parseStreams(xml, { host, port }) {
       id,
       codec,
       resolution: w && h ? `${w}x${h}` : null,
-      rtsp: id ? `rtsp://${host}:554/Streaming/channels/${id}` : null,
+      rtsp: id ? `rtsp://${host}:${rtspPort || 554}/Streaming/channels/${id}` : null,
     };
   });
 }
@@ -137,8 +137,8 @@ function parseTriggers(xml) {
 }
 
 // ── API ──────────────────────────────────────────────────────────────────────
-export async function discover({ host, port, user, pass, https = false }) {
-  const opt = { host: String(host || "").trim(), port: Number(port) || (https ? 443 : 80), https: !!https, user, pass };
+export async function discover({ host, port, rtspPort, user, pass, https = false }) {
+  const opt = { host: String(host || "").trim(), port: Number(port) || (https ? 443 : 80), rtspPort: Number(rtspPort) || 554, https: !!https, user, pass };
   const out = { host: opt.host, port: opt.port, device: null, channels: [], streams: [], analytics: [], errors: [] };
   if (!opt.host || !user) { out.errors.push("Faltan host o credenciales."); return out; }
 

@@ -25,3 +25,4 @@ Gotchas reales verificados contra 2 NVR Hikvision DS-9632NI-I16 + ~57 cámaras.
   `/ISAPI/SecurityCP/control/outputs/<id>` (AX). EventOS `POST /api/device/:id/relay`.
 - **ffmpeg del server (5.1.x):** NO acepta `-stimeout` ni `-rw_timeout`. Para HLS,
   `-use_wallclock_as_timestamps 1` mantiene vivo el stream de estas cámaras.
+- **Objetivo IA (19-jun):** usar `detectionTarget` (human/vehicle/human_vehicle), NO `targetType` (numérico=tipo de escena). En el alertStream/normalize, priorizar detectionTarget e ignorar targetType numérico. Y `regionID` NO debe caer a un `<ID>` genérico del XML (captura el id equivocado).

@@ -58,8 +58,9 @@ export function classify(xml) {
   return {
     drop: false, k, channelID, eventState: eventState || "active",
     eventType, dateTime: xmlTag(xml, "dateTime"), ipAddress: xmlTag(xml, "ipAddress"),
-    targetType: xmlTag(xml, "targetType") || xmlTag(xml, "detectionTarget"),
-    regionID: xmlTag(xml, "RegionID") || xmlTag(xml, "regionID") || xmlTag(xml, "ID"),
+    detectionTarget: xmlTag(xml, "detectionTarget"),
+    targetType: xmlTag(xml, "targetType"),
+    regionID: xmlTag(xml, "RegionID") || xmlTag(xml, "regionID"),
   };
 }
 
@@ -105,7 +106,7 @@ function handleAlert(nvr, xml, image = null) {
   // Objeto enriquecido → normalizeHikvision lo mapea (source.deviceId/site/etc.).
   const enriched = {
     eventType: c.eventType, eventState: c.eventState, channelID: c.channelID,
-    dateTime: c.dateTime, ipAddress: c.ipAddress, targetType: c.targetType, regionID: c.regionID,
+    dateTime: c.dateTime, ipAddress: c.ipAddress, targetType: c.targetType, detectionTarget: c.detectionTarget, regionID: c.regionID,
     deviceID: (cam && cam.id) || null,                 // → source.deviceId (playback/analíticas)
     channelName: (cam && cam.name) || xmlTag(xml, "channelName") || null, // → source.deviceName
     site,                                              // → source.site
