@@ -2076,3 +2076,8 @@
 .acrel { display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .acrel__stage { position: relative; max-width: 100%; max-height: 100%; line-height: 0; }
 .acrel__imgc { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; }
+
+
+/* Fix: el menú de pausa quedaba recortado por el overflow de la barra de una fila */
+.opbar { overflow: visible !important; position: relative; z-index: 50; }
+.opself__menu { z-index: 90; }

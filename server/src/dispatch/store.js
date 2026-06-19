@@ -221,7 +221,9 @@ export function heartbeat(operatorId) {
   const op = operators.get(operatorId);
   if (op) {
     op.lastSeen = nowIso();
-    if (op.status === "offline") op.status = "available";
+    // Al resucitar de offline reiniciamos el marcador para no contar el tiempo
+    // offline como disponible.
+    if (op.status === "offline") { op.status = "available"; op.stateSince = Date.now(); }
     op.online = true;
   }
   return op;

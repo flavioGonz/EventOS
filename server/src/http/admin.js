@@ -327,29 +327,71 @@ router.get("/operators/stats", (req, res) => {
     return o;
   };
 
+  // Reconstrucción por LÍNEA DE TIEMPO (robusta a reinicios y sesiones sin
+  // logout): por operario, ordenar sus eventos y acumular la duración de cada
+  // tramo (disponible/pausa) recortada al rango [from,to]. Las sesiones abiertas
+  // se cuentan hasta "ahora" (o el fin del rango). Así el tiempo DISPONIBLE no
+  // depende de que haya un logout limpio.
+  const now = Date.now();
+  const clipLo = Number.isNaN(fromMs) ? -Infinity : fromMs;
+  const clipHi = Number.isNaN(toMs) ? now : Math.min(toMs, now);
+
+  const evByOp = new Map();
   for (const r of rows) {
-    if (!r || !r.operatorId) continue;
-    if (!inRange(r.ts)) continue;
-    const o = ensure(r.operatorId, r.name);
-    const ms = Number(r.ms) || 0;
-    switch (r.event) {
-      case "resume": // ms = duración de la pausa que terminó
-        o.msPaused += ms;
-        if (r.reason) o.pauseByReason[r.reason] = (o.pauseByReason[r.reason] || 0) + ms;
-        break;
-      case "logout": // ms = tiempo disponible acumulado de la sesión
-        o.msAvailable += ms;
-        break;
-      case "handled":
-        o.handled += 1;
-        if (ms > 0) {
-          o.handleMsTotal += ms;
-          o.handleMsCount += 1;
-        }
-        break;
-      default: // login / pause → marcadores, sin acumular tiempo aquí
-        break;
+    if (!r || !r.operatorId || !r.event) continue;
+    const t = Date.parse(r.ts);
+    if (Number.isNaN(t)) continue;
+    let arr = evByOp.get(r.operatorId);
+    if (!arr) { arr = []; evByOp.set(r.operatorId, arr); }
+    arr.push({ ...r, t });
+  }
+
+  for (const [id, evs] of evByOp) {
+    evs.sort((a, b) => a.t - b.t);
+    const o = ensure(id, evs[evs.length - 1].name);
+    let state = null; // "available" | "paused" | null (offline)
+    let since = 0;
+    let reason = null;
+    const addSpan = (st, from, to, rsn) => {
+      const a = Math.max(from, clipLo), b = Math.min(to, clipHi);
+      if (b <= a) return;
+      const d = b - a;
+      if (st === "available") o.msAvailable += d;
+      else if (st === "paused") {
+        o.msPaused += d;
+        if (rsn) o.pauseByReason[rsn] = (o.pauseByReason[rsn] || 0) + d;
+      }
+    };
+    for (const r of evs) {
+      switch (r.event) {
+        case "login":
+          if (state) addSpan(state, since, r.t, reason);
+          state = "available"; since = r.t; reason = null;
+          break;
+        case "pause":
+          if (state) addSpan(state, since, r.t, reason);
+          state = "paused"; since = r.t; reason = r.reason || null;
+          break;
+        case "resume":
+          if (state) addSpan(state, since, r.t, reason);
+          state = "available"; since = r.t; reason = null;
+          break;
+        case "logout":
+          if (state) addSpan(state, since, r.t, reason);
+          state = null; since = 0; reason = null;
+          break;
+        case "handled":
+          if (r.t >= clipLo && r.t <= clipHi) {
+            o.handled += 1;
+            const ms = Number(r.ms) || 0;
+            if (ms > 0) { o.handleMsTotal += ms; o.handleMsCount += 1; }
+          }
+          break;
+        default:
+          break;
+      }
     }
+    if (state) addSpan(state, since, clipHi, reason); // sesión aún abierta
   }
 
   let operators = [...byOp.values()].map((o) => ({
