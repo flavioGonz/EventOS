@@ -66,4 +66,8 @@ const GLYPHS = {
   building:   <><rect x="5" y="3" width="14" height="18" rx="1.5" /><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2" /></>,
   shieldcheck:<><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z" /><path d="M9 11.5l2 2 4-4" /></>,
   car:        <><path d="M3 13l2-5a2 2 0 0 1 1.9-1.3h10.2A2 2 0 0 1 19 8l2 5v5h-2.5M3 13v5h2.5M3 13h18" /><circle cx="7" cy="18" r="1.6" /><circle cx="17" cy="18" r="1.6" /></>,
+  face:       <><circle cx="12" cy="11" r="7.5" /><path d="M9.5 10.5h.01M14.5 10.5h.01M9.5 14c1.3 1.1 3.7 1.1 5 0" /></>,
+  linecross:  <><path d="M4 20L20 4" /><path d="M8.5 9.5L12 13l3.5-3.5" /></>,
+  zone:       <><path d="M4 9l8-5 8 5v6l-8 5-8-5z" /><circle cx="12" cy="12" r="2.2" /></>,
+  plate:      <><rect x="3" y="8" width="18" height="9" rx="1.6" /><path d="M6 11.5h2M10.5 11.5h3M6 14h7" /></>,
 }

@@ -15,6 +15,21 @@ const fmtClock = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', 
 const fmtHM = (ms) => new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 const fmtDate = (ms) => new Date(ms).toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short' })
 
+// Glifo por tipo de evento / objetivo IA → marca del timeline y filmstrip.
+const EV_GLYPH = {
+  human:           { icon: 'user',      label: 'Humano',     tone: 'hum' },
+  vehicle:         { icon: 'car',       label: 'Vehículo',   tone: 'veh' },
+  line_crossing:   { icon: 'linecross', label: 'Cruce',      tone: 'cross' },
+  intrusion:       { icon: 'zone',      label: 'Intrusión',  tone: 'zone' },
+  region_entrance: { icon: 'zone',      label: 'Entrada',    tone: 'zone' },
+  region_exit:     { icon: 'zone',      label: 'Salida',     tone: 'zone' },
+  face:            { icon: 'face',      label: 'Rostro',     tone: 'face' },
+  lpr:             { icon: 'plate',     label: 'LPR',        tone: 'lpr' },
+  motion:          { icon: 'bolt',      label: 'Movimiento', tone: 'mov' },
+}
+const evGlyph = (m) => (m.target === 'human' && EV_GLYPH.human) || (m.target === 'vehicle' && EV_GLYPH.vehicle) || EV_GLYPH[m.type] || { icon: 'bolt', label: m.type || 'Evento', tone: 'mov' }
+const evTip = (m) => { const ty = (EV_GLYPH[m.type] && EV_GLYPH[m.type].label) || m.type || 'evento'; const tg = m.target === 'human' ? ' · Humano' : m.target === 'vehicle' ? ' · Vehículo' : ''; return ty + tg + ' · ' + fmtClock(m.t) }
+
 export default function NvrPlayback({ event, onClose }) {
   const trackRef = useRef(null)
   const draggingRef = useRef(false)
@@ -23,6 +38,7 @@ export default function NvrPlayback({ event, onClose }) {
   const range = useRef({ start: eventT - 50 * MIN, end: eventT + 10 * MIN }).current
   const span = range.end - range.start
   const deviceId = (event && event.source && event.source.deviceId) || null
+  const synthetic = String((event && event.id) || '').startsWith('live_') // grabación abierta desde el Muro (sin alarma)
 
   const videoRef = useRef(null)
   const hlsRef = useRef(null)
@@ -48,12 +64,13 @@ export default function NvrPlayback({ event, onClose }) {
   useEffect(() => {
     if (!deviceId) return
     let alive = true
-    fetch('/api/events?limit=300').then((r) => (r.ok ? r.json() : null)).then((d) => {
+    fetch('/api/events?limit=1000').then((r) => (r.ok ? r.json() : null)).then((d) => {
       if (!alive || !d || !d.events) return
       const marks = d.events
         .filter((e) => e.source && e.source.deviceId === deviceId)
         .map((e) => ({
           id: e.id, t: new Date(e.deviceTs || e.ts).getTime(), priority: e.priority ?? 5, type: e.type,
+          target: e.target ?? null,
           img: (e.media && (e.media.evidenceUrl || e.media.snapshotUrl)) || null,
         }))
         .filter((m) => m.t >= range.start && m.t <= range.end)
@@ -66,6 +83,10 @@ export default function NvrPlayback({ event, onClose }) {
   // Pide al server una sesión HLS de grabación desde el instante t.
   const seek = useCallback((t) => {
     const clamped = Math.max(range.start, Math.min(range.end - 5000, t))
+    // Cierra la sesión ffmpeg anterior: evita acumular procesos y, sobre todo,
+    // que el desalojo por límite de sesiones mate vivos de operadores en curso.
+    const prev = sidRef.current
+    if (prev) { sidRef.current = null; fetch(`/api/playback/${prev}`, { method: 'DELETE' }).catch(() => {}) }
     setPlayFrom(clamped); setPlayhead(clamped); setError(false); setLoading(true)
     fetch('/api/playback-hls', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -137,8 +158,14 @@ export default function NvrPlayback({ event, onClose }) {
   // El playhead avanza ~tiempo real mientras reproduce.
   useEffect(() => {
     if (!hlsUrl) return
-    const t0 = Date.now(); const p0 = playFrom
-    const id = setInterval(() => { if (!draggingRef.current) setPlayhead(Math.min(range.end, p0 + (Date.now() - t0))) }, 500)
+    const p0 = playFrom; const t0 = Date.now()
+    const id = setInterval(() => {
+      if (draggingRef.current) return
+      const v = videoRef.current
+      // Sigue el tiempo REAL del video (currentTime); cae a reloj de pared si aún no arrancó.
+      const elapsed = v && v.currentTime > 0 ? v.currentTime * 1000 : (Date.now() - t0)
+      setPlayhead(Math.min(range.end, p0 + elapsed))
+    }, 400)
     return () => clearInterval(id)
   }, [hlsUrl, seekKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -185,15 +212,18 @@ export default function NvrPlayback({ event, onClose }) {
             {evMarks.map((m) => {
               const active = Math.abs((dragTime ?? playhead) - m.t) < 30000
               const p = m.priority <= 1 ? 1 : m.priority <= 2 ? 2 : 3
+              const g = evGlyph(m)
               return (
                 <button type="button" key={m.id} className={`nvrfilm__thumb p${p}${active ? ' is-active' : ''}`}
-                  onClick={() => seek(m.t)} title={`${m.type || 'evento'} · ${fmtClock(m.t)}`}>
+                  onClick={() => seek(m.t)} title={evTip(m)}>
                   <span className="nvrfilm__img">
-                    {m.img
-                      ? <img src={m.img} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />
-                      : <Icon name="bolt" size={16} />}
+                    {m.img && <img src={m.img} alt="" loading="lazy" onError={(e) => { e.currentTarget.style.display = 'none' }} />}
+                    <span className={`nvrfilm__badge tone-${g.tone}`}><Icon name={g.icon} size={13} /></span>
                   </span>
-                  <span className="nvrfilm__time tnum">{fmtClock(m.t)}</span>
+                  <span className="nvrfilm__meta">
+                    <span className={`nvrfilm__type tone-${g.tone}`}><Icon name={g.icon} size={11} /> {g.label}</span>
+                    <span className="nvrfilm__time tnum">{fmtClock(m.t)}</span>
+                  </span>
                 </button>
               )
             })}
@@ -208,12 +238,12 @@ export default function NvrPlayback({ event, onClose }) {
                 <i /><b className="tnum">{fmtHM(t)}</b>
               </span>
             ))}
-            {evMarks.map((m) => (
-              <button type="button" key={m.id} className={`nvrtl2__ev nvrtl2__ev--p${m.priority <= 1 ? 1 : m.priority <= 2 ? 2 : 3}`}
-                style={{ left: pct(m.t) }} title={`${m.type || 'evento'} · ${fmtClock(m.t)}`}
-                onClick={(e) => { e.stopPropagation(); seek(m.t) }} />
-            ))}
-            <span className="nvrtl2__event" style={{ left: pct(eventT) }} title="Evento actual" />
+            {evMarks.map((m) => { const g = evGlyph(m); return (
+              <button type="button" key={m.id} className={`nvrtl2__ev tone-${g.tone}`}
+                style={{ left: pct(m.t) }} title={evTip(m)}
+                onClick={(e) => { e.stopPropagation(); seek(m.t) }}><Icon name={g.icon} size={11} /></button>
+            ) })}
+            {!synthetic && <span className="nvrtl2__event" style={{ left: pct(eventT) }} title="Evento actual" />}
             <span className="nvrtl2__head" style={{ left: pct(playhead) }} />
             {dragTime != null && <span className="nvrtl2__bubble tnum" style={{ left: pct(dragTime) }}>{fmtClock(dragTime)}</span>}
           </div>
