@@ -110,6 +110,10 @@ export default function OperatorBar({ operator, onChangeOperator, viewToggle, st
 
   return (
     <Glass as="header" className={`opbar ${paused ? 'opbar--paused' : ''}`}>
+      <nav className="opbar__nav">
+        <a href="/" className={`opbar__navlink${(typeof window !== 'undefined' && window.location.pathname === '/') ? ' is-active' : ''}`}><Icon name="console" size={15} /><span>Consola</span></a>
+        <a href="/center" className={`opbar__navlink${(typeof window !== 'undefined' && window.location.pathname.startsWith('/center')) ? ' is-active' : ''}`}><Icon name="bell" size={15} /><span>Centro</span></a>
+      </nav>
       {viewToggle && <div className="opbar__view">{viewToggle}</div>}
       <div className="opbar__status">
         <span className="livestat" title={`Socket: ${socketLabel}`}>

@@ -7,6 +7,7 @@ import EventPopup from './components/EventPopup.jsx'
 import OperatorIdentity from './components/OperatorIdentity.jsx'
 import AdminApp from './admin/AdminApp.jsx'
 import Videowall from './components/Videowall.jsx'
+import AlarmCenter from './components/AlarmCenter.jsx'
 import SupervisorStandalone from './SupervisorStandalone.jsx'
 import { loadOperator, saveOperator, useConsole } from './lib/socket.js'
 import { Glass, Icon, Segmented, ThemeToggle } from './ui/primitives.jsx'
@@ -116,6 +117,10 @@ export default function App() {
           <Routes location={location}>
             <Route path="/" element={
               <ConsoleView operator={operator} onConfirmIdentity={confirmIdentity}
+                           onChangeOperator={changeOperator} console={console_} />
+            } />
+            <Route path="/center" element={
+              <AlarmCenter operator={operator} onConfirmIdentity={confirmIdentity}
                            onChangeOperator={changeOperator} console={console_} />
             } />
             <Route path="/admin/*" element={<AdminApp />} />
