@@ -108,6 +108,8 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const { status, redis, events, operators, summary, selfStats, actions } = c
   // Disposición de pestañas y vista activa POR USUARIO (se recuerda al loguearse).
   const uid = (operator && (operator.operatorId || operator.id)) || 'anon'
+  // Modo "tabla desacoplada": ventana limpia (solo tabs + tabla) para otro monitor.
+  const isTablePopout = (typeof window !== 'undefined') && new URLSearchParams(window.location.search).get('popout') === 'table'
   const tabsKey = `${LS_TABS}.${uid}`
   const activeKey = `eventos.alarms.active.${uid}`
   const [tab, setTab] = useState(() => loadLS(activeKey, 'latest'))
@@ -125,6 +127,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const fwdRef = useRef(null)
   const seenRef = useRef(null)
   const acRef = useRef(null)
+  const bcRef = useRef(null)
   const [sound, setSound] = useState(() => { try { return localStorage.getItem('eventos.alarms.sound') !== '0' } catch { return true } })
   const toggleSound = () => setSound((v) => { const n = !v; try { localStorage.setItem('eventos.alarms.sound', n ? '1' : '0') } catch { /* ignore */ } return n })
 
@@ -185,6 +188,14 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   useEffect(() => { setCustomTabs(loadLS(tabsKey, [])); setTab(loadLS(activeKey, 'latest')) }, [tabsKey, activeKey])
   // Recordar la pestaña activa por usuario.
   useEffect(() => { saveLS(activeKey, tab) }, [tab, activeKey])
+  // Sincronización entre ventanas/monitores: la tabla desacoplada (popout) pide
+  // abrir el popup en la ventana principal (el otro monitor).
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return
+    const bc = new BroadcastChannel('eventos-alarmcenter'); bcRef.current = bc
+    if (!isTablePopout) bc.onmessage = (ev) => { if (ev.data && ev.data.type === 'open' && ev.data.id) setOpenId(ev.data.id) }
+    return () => { try { bc.close() } catch { /* noop */ } bcRef.current = null }
+  }, [isTablePopout])
 
   const persistIgn = useCallback((next) => { setIgnored(next); saveLS(LS_IGNORED, [...next]) }, [])
   const ignore = useCallback((id) => { const n = new Set(ignored); n.add(id); persistIgn(n); if (selId === id) setSelId(null) }, [ignored, selId, persistIgn])
@@ -216,21 +227,37 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
     return st && Number.isFinite(st.lat) && Number.isFinite(st.lng) ? [st.lat, st.lng] : null
   }, [selected, sites])
 
+  // Abrir popup: en la tabla desacoplada lo pide a la ventana principal; si no, local.
+  const requestOpen = useCallback((id) => {
+    if (!id) return
+    if (isTablePopout) { try { bcRef.current && bcRef.current.postMessage({ type: 'open', id }) } catch { /* noop */ } setSelId(id) }
+    else setOpenId(id)
+  }, [isTablePopout])
+  const popoutTable = () => { try { window.open('/center?popout=table', 'eventos-center-table', 'width=1500,height=920,menubar=no,toolbar=no') } catch { /* noop */ } }
   const ack = () => { if (selId) actions?.ack?.(selId) }
   const forward = (groupId) => { if (selId) actions?.transfer?.(selId, groupId); setFwdOpen(false) }
-  const openVideo = () => { if (selId) setOpenId(selId) }
+  const openVideo = () => requestOpen(selId)
 
   if (!operator) return <OperatorIdentity onConfirm={onConfirmIdentity} />
   const openEvent = openId ? events.find((e) => e.id === openId) || null : null
 
   return (
-    <div className="console console--work console--center">
-      <OperatorBar operator={operator} onChangeOperator={onChangeOperator}
-                   status={status} redis={redis} operators={operators}
-                   summary={summary} selfStats={selfStats} actions={actions}
-                   autoPopup={autoPopup} onToggleAutoPopup={onToggleAutoPopup} />
+    <div className={`console console--work console--center${isTablePopout ? ' console--popout' : ''}`}>
+      {!isTablePopout && (
+        <OperatorBar operator={operator} onChangeOperator={onChangeOperator}
+                     status={status} redis={redis} operators={operators}
+                     summary={summary} selfStats={selfStats} actions={actions}
+                     autoPopup={autoPopup} onToggleAutoPopup={onToggleAutoPopup} />
+      )}
 
       <div className="alarmc">
+        {isTablePopout && (
+          <div className="alarmc__pophead">
+            <Icon name="bell" size={15} /> <b>Centro de alarmas</b> · Tabla
+            <span className="alarmc__sp" />
+            <span className="alarmc__overview"><PriorityDot p={1} size={8} /> <strong className="tnum">{(summary && summary.critical) || 0}</strong> críticos · <strong className="tnum">{(summary && summary.active) || 0}</strong> activos</span>
+          </div>
+        )}
         <div className="alarmc__tabs">
           <button type="button" className={`alarmc__tab ${tab === 'latest' ? 'is-active' : ''}`} onClick={() => setTab('latest')}>
             Recientes <span className="alarmc__count">{latest.length}</span>
@@ -281,8 +308,11 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
           <button type="button" className={`alarmc__toggle ${showHistory ? 'is-on' : ''}`} onClick={() => setShowHistory((v) => !v)} title="Incluir resueltas/escaladas">
             <Icon name="clock" size={14} /> Historial
           </button>
-          <a className="alarmc__toggle" href="/admin/devices" title="Armado / dispositivos"><Icon name="shield" size={14} /> Armado</a>
-          <a className="alarmc__toggle" href="/admin" title="Configuración"><Icon name="sliders" size={14} /> Config</a>
+          {!isTablePopout && <>
+            <button type="button" className="alarmc__toggle" onClick={popoutTable} title="Abrir la tabla limpia en otra ventana/monitor"><Icon name="expand" size={14} /> Desacoplar tabla</button>
+            <a className="alarmc__toggle" href="/admin/devices" title="Armado / dispositivos"><Icon name="shield" size={14} /> Armado</a>
+            <a className="alarmc__toggle" href="/admin" title="Configuración"><Icon name="sliders" size={14} /> Config</a>
+          </>}
         </div>
 
         <div className="alarmc__tablewrap">
@@ -310,7 +340,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
                 const origin = [src.deviceName || src.deviceId, (src.channel != null && src.channel !== '') ? `canal ${src.channel}` : null].filter(Boolean).join(' · ') || '—'
                 return (
                   <tr key={e.id} className={`alarmc__row ${sel ? 'is-sel' : ''} ${priorityClass(p)} ${flash.has(e.id) ? 'is-new' : ''}`}
-                      onClick={() => setSelId(e.id)} onDoubleClick={() => setOpenId(e.id)}>
+                      onClick={() => setSelId(e.id)} onDoubleClick={() => requestOpen(e.id)}>
                     <td className="alarmc__td-sel"><span className={`alarmc__radio ${sel ? 'is-on' : ''}`} /></td>
                     <td className="alarmc__name"><Icon name={EVENT_TYPE_ICON[e.type] || 'bell'} size={14} /> {e.title || eventTypeLabel(e.type)}
                       {e.target && e.target !== 'none' && <Icon name={TARGET_ICON[e.target] || 'dot'} size={12} className={`alarmc__target alarmc__target--${e.target}`} title={`Objetivo: ${targetLabel(e.target)}`} />}
@@ -329,7 +359,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
                       ) : (
                         <>
                           <button type="button" title="Acuse" onClick={() => actions?.ack?.(e.id)}><Icon name="check" size={14} /></button>
-                          <button type="button" title="Video" onClick={() => setOpenId(e.id)}><Icon name="play" size={14} /></button>
+                          <button type="button" title="Video" onClick={() => requestOpen(e.id)}><Icon name="play" size={14} /></button>
                           <button type="button" title="Ignorar" onClick={() => ignore(e.id)}><Icon name="x" size={14} /></button>
                         </>
                       )}
@@ -341,7 +371,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
           </table>
         </div>
 
-        <div className="alarmc__bottom">
+        {!isTablePopout && (<div className="alarmc__bottom">
           <section className="alarmc__panel">
             <header className="alarmc__panel-head"><Icon name="camera" size={14} /> Foto del evento
               {selected && <span className="alarmc__panel-sub">· {selected.title || eventTypeLabel(selected.type)}</span>}
@@ -354,13 +384,13 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
               {selected && selected.source && selected.source.site && <span className="alarmc__panel-sub">· {selected.source.site}</span>}
             </header>
             <div className="alarmc__panel-body alarmc__map">
-              <OperativeMap sites={sites} events={rows} focus={focus} onOpenEvent={(e) => setOpenId(e.id)} />
+              <OperativeMap sites={sites} events={rows} focus={focus} onOpenEvent={(e) => requestOpen(e.id)} />
             </div>
           </section>
-        </div>
+        </div>)}
       </div>
 
-      {openEvent && <EventPopup event={openEvent} operator={operator} actions={actions} onClose={() => setOpenId(null)} />}
+      {!isTablePopout && openEvent && <EventPopup event={openEvent} operator={operator} actions={actions} onClose={() => setOpenId(null)} />}
     </div>
   )
 }

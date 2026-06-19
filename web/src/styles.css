@@ -2050,3 +2050,8 @@
 .acrel__cap { position:absolute; left:0; right:0; bottom:0; display:flex; align-items:center; gap:7px; padding:9px 12px; background:linear-gradient(transparent, rgba(0,0,0,.72)); color:#fff; font-size:12px; }
 .acrel__cap-title { font-weight:700; }
 .acrel__cap-sub { color:rgba(255,255,255,.78); margin-left:auto; font-variant-numeric:tabular-nums; }
+
+/* Tabla desacoplada (pop-out a otro monitor) */
+.alarmc__pophead { display: flex; align-items: center; gap: 8px; padding: 11px 16px; font-size: 14px; border-bottom: 1px solid var(--hairline); }
+.alarmc__pophead b { font-weight: 700; }
+.console--popout .alarmc { padding-top: 4px; }
