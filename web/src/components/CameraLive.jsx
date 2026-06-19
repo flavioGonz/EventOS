@@ -150,12 +150,13 @@ function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAsp
     setState('connecting')
     let v = null
     const onMeta = () => { if (onAspect && v && v.videoWidth && v.videoHeight) onAspect(`${v.videoWidth} / ${v.videoHeight}`) }
-    const onPlay = () => { setState('playing'); onMeta() } // el aspecto REAL es el del video, no el del póster
+    const onPlay = () => { setState('playing'); if (v) { try { v.controls = false } catch { /* noop */ } } onMeta() } // vivo: sin barra de progreso nativa; el aspecto REAL es el del video
     const onErr = () => setState((s) => (s === 'playing' ? s : 'error'))
     let tries = 0
     const t = setInterval(() => {
       if (el.video) {
         v = el.video
+        try { v.controls = false } catch { /* noop */ } // vivo: quitar barra de progreso nativa
         v.addEventListener('playing', onPlay); v.addEventListener('loadeddata', onPlay)
         v.addEventListener('loadedmetadata', onMeta); v.addEventListener('error', onErr)
         if (v.videoWidth) onMeta()
