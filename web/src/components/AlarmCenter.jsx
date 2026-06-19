@@ -5,14 +5,25 @@
 // seleccionada + Mapa centrado en el cliente del evento. Reusa socket + acciones.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Glass, Icon, PriorityDot } from '../ui/primitives.jsx'
+import { Go2RtcView } from './CameraLive.jsx'
 import OperativeMap from './OperativeMap.jsx'
 import OperatorBar from './OperatorBar.jsx'
 import EventPopup from './EventPopup.jsx'
 import OperatorIdentity from './OperatorIdentity.jsx'
 import { eventTypeLabel, EVENT_TYPE_ICON, EVENT_TYPE_LABELS, priorityLabel, targetLabel, TARGET_ICON } from '../lib/labels.js'
-import { formatTime, priorityClass, slaInfo } from '../lib/format.js'
+import { formatTime, timeAgo, priorityClass, slaInfo } from '../lib/format.js'
 
 const LS_IGNORED = 'eventos.alarms.ignored'
+// SLA por defecto (segundos) según prioridad cuando el evento no trae slaDeadline.
+const SLA_DEFAULT = { 1: 120, 2: 300, 3: 600, 4: 0, 5: 0 }
+function slaForEvent(e) {
+  const info = slaInfo(e)
+  if (info) return info
+  const secs = SLA_DEFAULT[e.priority ?? 5]
+  if (!secs) return null
+  const base = new Date(e.deviceTs || e.ts).getTime() + secs * 1000
+  return slaInfo({ slaDeadline: new Date(base).toISOString(), slaSeconds: secs })
+}
 const LS_TABS = 'eventos.alarms.tabs'
 const loadLS = (k, fb) => { try { const r = localStorage.getItem(k); return r ? JSON.parse(r) : fb } catch { return fb } }
 const saveLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* ignore */ } }
@@ -127,6 +138,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const [newTabOpen, setNewTabOpen] = useState(false)
   const [flash, setFlash] = useState(() => new Set()) // ids recién llegados (animación)
   const [, setTick] = useState(0) // re-render 1s para el contador de SLA
+  const [checked, setChecked] = useState(() => new Set()) // selección múltiple
   const fwdRef = useRef(null)
   const seenRef = useRef(null)
   const acRef = useRef(null)
@@ -237,9 +249,38 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
     else setOpenId(id)
   }, [isTablePopout])
   const popoutTable = () => { try { window.open('/center?popout=table', 'eventos-center-table', 'width=1500,height=920,menubar=no,toolbar=no') } catch { /* noop */ } }
-  const ack = () => { if (selId) actions?.ack?.(selId) }
-  const forward = (groupId) => { if (selId) actions?.transfer?.(selId, groupId); setFwdOpen(false) }
+  // Acciones: operan sobre las marcadas (selección múltiple) o, si no hay, la fila activa.
+  const targetIds = () => (checked.size ? [...checked] : (selId ? [selId] : []))
+  const ack = () => { targetIds().forEach((id) => actions?.ack?.(id)); setChecked(new Set()) }
+  const forward = (groupId) => { targetIds().forEach((id) => actions?.transfer?.(id, groupId)); setChecked(new Set()); setFwdOpen(false) }
+  const bulkIgnore = () => { const ids = targetIds(); if (!ids.length) return; const n = new Set(ignored); ids.forEach((id) => n.add(id)); persistIgn(n); setChecked(new Set()); setSelId(null) }
   const openVideo = () => requestOpen(selId)
+  const toggleCheck = (id) => setChecked((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const allChecked = rows.length > 0 && rows.every((r) => checked.has(r.id))
+  const toggleAll = () => setChecked((prev) => (rows.every((r) => prev.has(r.id)) ? new Set() : new Set(rows.map((r) => r.id))))
+  const hasTargets = !!selId || checked.size > 0
+
+  // Navegación por teclado: ↑/↓ mover · Enter abrir · Espacio marcar.
+  useEffect(() => {
+    const onKey = (e) => {
+      if (openId || newTabOpen) return
+      if (/INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return
+      if (!rows.length) return
+      const idx = rows.findIndex((r) => r.id === selId)
+      if (e.key === 'ArrowDown') { e.preventDefault(); setSelId(rows[Math.min(rows.length - 1, idx < 0 ? 0 : idx + 1)].id) }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); setSelId(rows[Math.max(0, idx < 0 ? 0 : idx - 1)].id) }
+      else if (e.key === 'Enter') { if (selId) requestOpen(selId) }
+      else if (e.key === ' ') { if (selId) { e.preventDefault(); toggleCheck(selId) } }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [rows, selId, openId, newTabOpen, requestOpen])
+  // Auto-scroll de la fila activa al navegar con teclado.
+  useEffect(() => {
+    if (!selId) return
+    const el = document.querySelector('.alarmc__row.is-sel')
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' })
+  }, [selId])
 
   if (!operator) return <OperatorIdentity onConfirm={onConfirmIdentity} />
   const openEvent = openId ? events.find((e) => e.id === openId) || null : null
@@ -284,9 +325,9 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
         </div>
 
         <div className="alarmc__toolbar">
-          <button type="button" className="alarmc__act" disabled={!selId} onClick={ack}><Icon name="check" size={15} /> Acuse</button>
+          <button type="button" className="alarmc__act" disabled={!hasTargets} onClick={ack}><Icon name="check" size={15} /> Acuse{checked.size > 1 ? ` (${checked.size})` : ''}</button>
           <div className="alarmc__fwd" ref={fwdRef}>
-            <button type="button" className="alarmc__act" disabled={!selId} onClick={() => setFwdOpen((v) => !v)}><Icon name="route" size={15} /> Reenviar</button>
+            <button type="button" className="alarmc__act" disabled={!hasTargets} onClick={() => setFwdOpen((v) => !v)}><Icon name="route" size={15} /> Reenviar</button>
             {fwdOpen && (
               <Glass strong className="alarmc__menu anim-pop" role="menu">
                 <p className="alarmc__menu-title">Reenviar a grupo</p>
@@ -300,11 +341,8 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
             )}
           </div>
           <button type="button" className="alarmc__act" disabled={!selId} onClick={openVideo}><Icon name="play" size={15} /> Video de alarma</button>
+          <button type="button" className="alarmc__act" disabled={!hasTargets} onClick={bulkIgnore}><Icon name="x" size={15} /> Ignorar{checked.size > 1 ? ` (${checked.size})` : ''}</button>
           <span className="alarmc__sp" />
-          <span className="alarmc__overview" title="Resumen de la cola">
-            <PriorityDot p={1} size={8} /> <strong className="tnum">{(summary && summary.critical) || 0}</strong> críticos ·
-            <strong className="tnum"> {(summary && summary.active) || 0}</strong> activos
-          </span>
           <button type="button" className={`alarmc__toggle ${sound ? 'is-on' : ''}`} onClick={toggleSound} title={sound ? 'Sonido de alarma activado' : 'Sonido silenciado'}>
             <Icon name="speaker" size={14} /> {sound ? 'Sonido' : 'Silencio'}
           </button>
@@ -322,7 +360,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
           <table className="alarmc__table">
             <thead>
               <tr>
-                <th className="alarmc__th-sel" />
+                <th className="alarmc__th-sel"><input type="checkbox" checked={allChecked} onChange={toggleAll} aria-label="Seleccionar todo" /></th>
                 <th>Alarma</th><th>Prioridad</th><th>SLA</th><th>Hora</th><th>Veces</th>
                 <th>Origen</th><th>Cliente</th><th>Área</th><th>Evento</th><th>Operación</th>
               </tr>
@@ -338,19 +376,19 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
                 const k = `${(e.source && e.source.deviceId) || '?'}|${e.type}`
                 const times = timesByKey.get(k) || 1
                 const sel = e.id === selId
-                const sla = slaInfo(e)
+                const sla = slaForEvent(e)
                 const src = e.source || {}
                 const origin = [src.deviceName || src.deviceId, (src.channel != null && src.channel !== '') ? `canal ${src.channel}` : null].filter(Boolean).join(' · ') || '—'
                 return (
                   <tr key={e.id} className={`alarmc__row ${sel ? 'is-sel' : ''} ${priorityClass(p)} ${flash.has(e.id) ? 'is-new' : ''}`}
                       onClick={() => setSelId(e.id)} onDoubleClick={() => requestOpen(e.id)}>
-                    <td className="alarmc__td-sel"><span className={`alarmc__radio ${sel ? 'is-on' : ''}`} /></td>
+                    <td className="alarmc__td-sel" onClick={(ev) => ev.stopPropagation()}><input type="checkbox" checked={checked.has(e.id)} onChange={() => toggleCheck(e.id)} aria-label="Seleccionar alarma" /></td>
                     <td className="alarmc__name"><Icon name={EVENT_TYPE_ICON[e.type] || 'bell'} size={14} /> {e.title || eventTypeLabel(e.type)}
                       {e.target && e.target !== 'none' && <Icon name={TARGET_ICON[e.target] || 'dot'} size={12} className={`alarmc__target alarmc__target--${e.target}`} title={`Objetivo: ${targetLabel(e.target)}`} />}
                     </td>
                     <td><span className={`alarmc__prio ${priorityClass(p)}`}><PriorityDot p={p} size={8} /> {priorityLabel(p)}</span></td>
                     <td>{sla ? <span className={`alarmc__sla alarmc__sla--${sla.tone}`}>{sla.label}</span> : <span className="alarmc__dim">—</span>}</td>
-                    <td className="tnum alarmc__dim">{formatTime(e.deviceTs || e.ts)}</td>
+                    <td className="alarmc__dim" title={formatTime(e.deviceTs || e.ts)}>{timeAgo(e.deviceTs || e.ts)}</td>
                     <td className="tnum">{times > 1 ? <span className="alarmc__times">{times}</span> : <span className="alarmc__dim">1</span>}</td>
                     <td className="alarmc__dim">{origin}</td>
                     <td className="alarmc__cli">{src.site || '—'}</td>
@@ -374,16 +412,25 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
           </table>
         </div>
 
-        {!isTablePopout && (<div className="alarmc__bottom">
+        {!isTablePopout && <p className="alarmc__hint">Clic: seleccionar · Doble clic o «Video de alarma»: abrir verificación · ↑↓ navegar · Enter abrir · Espacio marcar · marcá varias para acuse/ignorar en lote</p>}
+
+        {!isTablePopout && (<div className="alarmc__bottom alarmc__bottom--3">
           <section className="alarmc__panel">
-            <header className="alarmc__panel-head"><Icon name="camera" size={14} /> Foto del evento
-              {selected && <span className="alarmc__panel-sub">· {selected.title || eventTypeLabel(selected.type)}</span>}
-            </header>
+            <header className="alarmc__panel-head"><Icon name="camera" size={14} /> Foto del evento</header>
             <div className="alarmc__panel-body"><RelatedMedia event={selected} /></div>
           </section>
           <section className="alarmc__panel">
-            <header className="alarmc__panel-head">
-              <Icon name="map" size={14} /> Mapa
+            <header className="alarmc__panel-head"><Icon name="video" size={14} /> Video en vivo
+              {selected && selected.source && (selected.source.deviceName || selected.source.deviceId) && <span className="alarmc__panel-sub">· {selected.source.deviceName || `canal ${selected.source.channel || ''}`}</span>}
+            </header>
+            <div className="alarmc__panel-body alarmc__livebody">
+              {selected && selected.source && selected.source.deviceId
+                ? <Go2RtcView key={selected.source.deviceId} deviceId={selected.source.deviceId} />
+                : <div className="acrel__empty"><Icon name="video" size={26} /><span>Seleccioná una alarma para ver el vivo del canal</span></div>}
+            </div>
+          </section>
+          <section className="alarmc__panel">
+            <header className="alarmc__panel-head"><Icon name="map" size={14} /> Mapa
               {selected && selected.source && selected.source.site && <span className="alarmc__panel-sub">· {selected.source.site}</span>}
             </header>
             <div className="alarmc__panel-body alarmc__map">
