@@ -29,3 +29,13 @@ Geometría y reglas por canal en `/ISAPI/Smart/<Tipo>/<ch>`:
   vehículo, y normalmente una imagen del vehículo + recorte de la patente.
 - Mapeo: ANPR/LPR → objetivo `vehicle` en EventOS.
 - Detalle completo de campos en el PDF *ISAPI Vehicle Access Control — ANPR*.
+
+## Enums reales (del Field Dictionary oficial)
+- **`detectionTarget`** (clasificación IA): `human` · `vehicle` · `human_vehicle`. **Este es el campo para filtrar persona/vehículo** (no el `targetType` numérico, que es tipo de escena/analítica).
+- **ANPR / vehículo:**
+  - `vehicleType`: SUVMPV, bus, largeBus, mediumBus, lightTruck, mediumHeavyTruck, containerTruck, concreteMixer, crane, coupe, hatchback…
+  - `vehicleColor`: black, blue, brown, cyan, deepBlue, deepGray, gray, green, orange, pink, purple, red…
+  - `plateType`: civil, police (arm), embassy, consulate, coach, emergency, civilAviation, farmVehicle…
+  - `directionIndex`: forward, back, eastWest, westEast, northSouth, southNorth (+ diagonales)…
+  - `vehicleEntryExitingStatus`: `vehicleEnter` · `vehicleExit`.
+> Diccionario COMPLETO (1955 entradas): `isapi/.../Field Dictionary.xlsx`.

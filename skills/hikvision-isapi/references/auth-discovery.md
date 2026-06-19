@@ -30,3 +30,12 @@
 - `GET /ISAPI/Streaming/channels` → canales y perfiles de stream.
 - EventOS implementa esto en `server/src/discovery/hikvision.js` (y ONVIF en
   `discovery/onvif.js`). Reusalo.
+
+## Familias de equipos documentadas (mismo framework ISAPI, distintas capabilities)
+- **Cámaras DeepinView** — deep learning (rostro, humano/vehículo, FDLib, AIOpenPlatform).
+- **Cámaras Value Series** — gama de entrada.
+- **DVR Pro con AcuSense** — DVR con clasificación humano/vehículo.
+- **DVR Value Series** — DVR de entrada.
+- **NVR** (DS-9632NI-I16 en EventOS), **cámaras ANPR/ITC**, **paneles AX** (SecurityCP).
+Regla: el framework (digest, capabilities, alertStream) es común; cambia QUÉ
+soporta cada familia -> consultá siempre `*/capabilities`. Docs por familia en `isapi/`.

@@ -20,10 +20,13 @@ Es la vía local, sin nube, para hablar con cámaras, NVR, DeepinView, ANPR y
 paneles AX. Esta skill destila los docs oficiales + lo aprendido integrando
 EventOS contra equipos reales.
 
-> Fuente oficial (en el repo del proyecto, `isapi/`): *ISAPI Network Cameras —
-> DeepinView Series* (892 págs) y *ISAPI Vehicle Access Control — ANPR Cameras*
-> (448 págs). Esta skill es el **resumen accionable**; el detalle de cada
-> endpoint/XML está en esos PDF.
+> Fuentes oficiales (en el repo, `isapi/`): guías ISAPI por familia —
+> *Network Cameras DeepinView* (892 págs), *Network Cameras Value Series*,
+> *DVR Pro con AcuSense*, *DVR Value Series*, *Vehicle Access Control / ANPR*
+> (448 págs) — más referencias transversales: **ErrorCode.xlsx** (2270 códigos),
+> **Field Dictionary.xlsx** (1955 campos/enums), *Access Control Event Types and
+> Event Linkage Types*, *Country/Region Code*, *Log*. Esta skill es el **resumen
+> accionable**; el detalle está en esos documentos.
 
 ## Reglas de oro (leé esto siempre)
 
@@ -54,6 +57,8 @@ EventOS contra equipos reales.
 | Analíticas (línea/zona) y su geometría | `references/analytics.md` |
 | Clasificación humano/vehículo, rostro (DeepinView), ANPR/tráfico | `references/analytics.md` |
 | Relés / abrir puertas / paneles AX / EHome-ISUP | `references/io-access.md` |
+| Eventos de control de acceso / puertas / zonas (AX) y linkage | `references/access-control.md` |
+| Códigos de error / por qué falla una respuesta ISAPI | `references/error-codes.md` |
 | Gotchas reales del despliegue (video corrupto, puertos, etc.) | `references/eventos-lessons.md` |
 
 ## Núcleo práctico (inline)
