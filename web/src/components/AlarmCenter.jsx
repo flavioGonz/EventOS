@@ -5,7 +5,7 @@
 // seleccionada + Mapa centrado en el cliente del evento. Reusa socket + acciones.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Glass, Icon, PriorityDot } from '../ui/primitives.jsx'
-import { Go2RtcView } from './CameraLive.jsx'
+import { Go2RtcView, useCameraAnalytics, AnalyticsOverlay } from './CameraLive.jsx'
 import OperativeMap from './OperativeMap.jsx'
 import OperatorBar from './OperatorBar.jsx'
 import EventPopup from './EventPopup.jsx'
@@ -40,15 +40,24 @@ function matchFilters(e, f) {
 }
 
 function RelatedMedia({ event }) {
+  const devId = event && event.source && event.source.deviceId
+  const ana = useCameraAnalytics(devId, !!devId)
   if (!event) {
     return <div className="acrel__empty"><Icon name="camera" size={30} /><span>Seleccioná una alarma para ver su foto</span></div>
   }
   const m = event.media || {}
   const img = m.evidenceUrl || m.snapshotUrl
+  const rules = (ana && ana.rules) || []
+  const showAna = rules.length > 0
   return (
-    <div className="acrel">
+    <div className={`acrel${showAna ? ' acrel--ana' : ''}`}>
       {img
-        ? <img className="acrel__img" src={img} alt="" />
+        ? (showAna
+          ? <div className="acrel__stage">
+              <img className="acrel__imgc" src={img} alt="" />
+              <AnalyticsOverlay rules={rules} space={(ana && ana.space) || 1000} />
+            </div>
+          : <img className="acrel__img" src={img} alt="" />)
         : <div className="acrel__empty"><Icon name="camera" size={26} /><span>Sin imagen del momento</span></div>}
       <div className="acrel__cap">
         <Icon name={EVENT_TYPE_ICON[event.type] || 'camera'} size={13} />

@@ -2071,3 +2071,8 @@
 /* Foto del evento: llenar el bloque (sin desenfoque) */
 .acrel__img { object-fit: cover !important; }
 .acrel__bg { display: none !important; }
+
+/* Foto del evento con analíticas dibujadas: frame completo + overlay alineado */
+.acrel { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.acrel__stage { position: relative; max-width: 100%; max-height: 100%; line-height: 0; }
+.acrel__imgc { display: block; max-width: 100%; max-height: 100%; width: auto; height: auto; }
