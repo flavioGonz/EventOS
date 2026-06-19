@@ -205,7 +205,11 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   useEffect(() => {
     if (typeof BroadcastChannel === 'undefined') return
     const bc = new BroadcastChannel('eventos-alarmcenter'); bcRef.current = bc
-    if (!isTablePopout) bc.onmessage = (ev) => { if (ev.data && ev.data.type === 'open' && ev.data.id) setOpenId(ev.data.id) }
+    if (!isTablePopout) bc.onmessage = (ev) => {
+      const d = ev.data || {}
+      if (d.type === 'open' && d.id) setOpenId(d.id)
+      else if (d.type === 'select' && d.id) setSelId(d.id)
+    }
     return () => { try { bc.close() } catch { /* noop */ } bcRef.current = null }
   }, [isTablePopout])
 
@@ -245,6 +249,12 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
     if (isTablePopout) { try { bcRef.current && bcRef.current.postMessage({ type: 'open', id }) } catch { /* noop */ } setSelId(id) }
     else setOpenId(id)
   }, [isTablePopout])
+  // Seleccionar fila: en la tabla desacoplada difunde la selección a la ventana
+  // principal para que sus bloques (foto / vivo / mapa) cambien con cada clic.
+  const requestSelect = useCallback((id) => {
+    setSelId(id)
+    if (isTablePopout) { try { bcRef.current && bcRef.current.postMessage({ type: 'select', id }) } catch { /* noop */ } }
+  }, [isTablePopout])
   const popoutTable = () => { try { window.open('/center?popout=table', 'eventos-center-table', 'width=1500,height=920,menubar=no,toolbar=no') } catch { /* noop */ } }
   // Acciones: operan sobre las marcadas (selección múltiple) o, si no hay, la fila activa.
   const targetIds = () => (checked.size ? [...checked] : (selId ? [selId] : []))
@@ -264,14 +274,14 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
       if (/INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) return
       if (!rows.length) return
       const idx = rows.findIndex((r) => r.id === selId)
-      if (e.key === 'ArrowDown') { e.preventDefault(); setSelId(rows[Math.min(rows.length - 1, idx < 0 ? 0 : idx + 1)].id) }
-      else if (e.key === 'ArrowUp') { e.preventDefault(); setSelId(rows[Math.max(0, idx < 0 ? 0 : idx - 1)].id) }
+      if (e.key === 'ArrowDown') { e.preventDefault(); requestSelect(rows[Math.min(rows.length - 1, idx < 0 ? 0 : idx + 1)].id) }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); requestSelect(rows[Math.max(0, idx < 0 ? 0 : idx - 1)].id) }
       else if (e.key === 'Enter') { if (selId) requestOpen(selId) }
       else if (e.key === ' ') { if (selId) { e.preventDefault(); toggleCheck(selId) } }
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
-  }, [rows, selId, openId, newTabOpen, requestOpen])
+  }, [rows, selId, openId, newTabOpen, requestOpen, requestSelect])
   // Auto-scroll de la fila activa al navegar con teclado.
   useEffect(() => {
     if (!selId) return
@@ -378,7 +388,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
                 const origin = [src.deviceName || src.deviceId, (src.channel != null && src.channel !== '') ? `canal ${src.channel}` : null].filter(Boolean).join(' · ') || '—'
                 return (
                   <tr key={e.id} className={`alarmc__row ${sel ? 'is-sel' : ''} ${priorityClass(p)} ${flash.has(e.id) ? 'is-new' : ''}`}
-                      onClick={() => setSelId(e.id)} onDoubleClick={() => requestOpen(e.id)}>
+                      onClick={() => requestSelect(e.id)} onDoubleClick={() => requestOpen(e.id)}>
                     <td className="alarmc__td-sel" onClick={(ev) => ev.stopPropagation()}><input type="checkbox" checked={checked.has(e.id)} onChange={() => toggleCheck(e.id)} aria-label="Seleccionar alarma" /></td>
                     <td className="alarmc__name"><Icon name={EVENT_TYPE_ICON[e.type] || 'bell'} size={14} /> {e.title || eventTypeLabel(e.type)}
                       {e.target && e.target !== 'none' && <Icon name={TARGET_ICON[e.target] || 'dot'} size={12} className={`alarmc__target alarmc__target--${e.target}`} title={`Objetivo: ${targetLabel(e.target)}`} />}
