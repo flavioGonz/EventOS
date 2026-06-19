@@ -34,7 +34,7 @@ const PAUSE_ICON = {
   descanso: 'coffee', almuerzo: 'coffee', capacitacion: 'users', bano: 'clock', otro: 'pause',
 }
 
-export default function OperatorBar({ operator, onChangeOperator, viewToggle, status, redis, operators, summary, selfStats, actions }) {
+export default function OperatorBar({ operator, onChangeOperator, viewToggle, status, redis, operators, summary, selfStats, actions, autoPopup, onToggleAutoPopup }) {
   const [running, setRunning] = useState(false)
   const [busy, setBusy] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -115,20 +115,6 @@ export default function OperatorBar({ operator, onChangeOperator, viewToggle, st
         <a href="/center" className={`opbar__navlink${(typeof window !== 'undefined' && window.location.pathname.startsWith('/center')) ? ' is-active' : ''}`}><Icon name="bell" size={15} /><span>Centro</span></a>
       </nav>
       {viewToggle && <div className="opbar__view">{viewToggle}</div>}
-      <div className="opbar__status">
-        <span className="livestat" title={`Socket: ${socketLabel}`}>
-          <StatusDot tone={socketTone} label={`Socket: ${socketLabel}`} />
-          <span className="livestat__label">Socket</span>
-          <span className="livestat__detail">{socketLabel}</span>
-        </span>
-        <span className="opbar__div" aria-hidden="true" />
-        <span className="livestat" title={`Bus: ${redisLabel}`}>
-          <StatusDot tone={redisTone} label={`Bus: ${redisLabel}`} />
-          <span className="livestat__label">Bus</span>
-          <span className="livestat__detail">{redisLabel}</span>
-        </span>
-      </div>
-
       <div className="opbar__chips">
         <span className={`qchip ${critical > 0 ? 'qchip--crit' : ''}`} title="Eventos críticos activos">
           {critical > 0 && <PriorityDot p={1} size={8} />}
@@ -146,6 +132,12 @@ export default function OperatorBar({ operator, onChangeOperator, viewToggle, st
         </span>
       </div>
 
+      {onToggleAutoPopup && (
+        <button type="button" className={`opbar__popup ${autoPopup ? 'is-on' : ''}`} onClick={onToggleAutoPopup}
+          title={autoPopup ? 'Pop-up automático de alarmas: activado' : 'Pop-up automático de alarmas: desactivado'} aria-pressed={!!autoPopup}>
+          <Icon name="bell" size={14} /> Pop-up <b>{autoPopup ? 'ON' : 'OFF'}</b>
+        </button>
+      )}
       <div className="opbar__spacer" />
 
       {/* --- Presencia / pausa / tiempo del operario (CONTRACT-V3 §1) --- */}
@@ -254,17 +246,17 @@ export default function OperatorBar({ operator, onChangeOperator, viewToggle, st
           return <>
             {canSup && (
               <a className="op-wall" href="/supervisor" title="Panel de supervisor">
-                <Icon name="gauge" size={15} /><span>Supervisor</span>
+                <Icon name="gauge" size={16} />
               </a>
             )}
             {canSup && (
               <a className="op-wall" href="/wall" title="Abrir Videowall multipantalla">
-                <Icon name="grid" size={15} /><span>Videowall</span>
+                <Icon name="grid" size={16} />
               </a>
             )}
             {isAdmin && (
               <a className="op-wall" href="/admin" title="Administración">
-                <Icon name="shield" size={15} /><span>Admin</span>
+                <Icon name="shield" size={16} />
               </a>
             )}
           </>

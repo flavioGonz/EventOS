@@ -8,7 +8,7 @@ import { priorityClass } from '../lib/format.js'
 // ese sitio y PARPADEA si hay un crítico sin asignar; muestra el nº de eventos
 // activos. Clic en un sitio con evento → abre el popup del evento.
 
-export default function OperativeMap({ sites, events, onOpenEvent }) {
+export default function OperativeMap({ sites, events, onOpenEvent, focus }) {
   const elRef = useRef(null)
   const mapRef = useRef(null)
   const markersRef = useRef(new Map()) // siteId → L.marker
@@ -91,6 +91,13 @@ export default function OperativeMap({ sites, events, onOpenEvent }) {
       map._opmapFitted = true
     }
   }, [sites, events])
+
+  // Centrar en el cliente del evento seleccionado.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !focus || !Number.isFinite(focus[0]) || !Number.isFinite(focus[1])) return
+    map.setView(focus, Math.max(map.getZoom() || 12, 14), { animate: true })
+  }, [focus && focus[0], focus && focus[1]])
 
   return <div ref={elRef} className="opmap" aria-label="Mapa operativo" />
 }

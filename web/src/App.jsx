@@ -52,13 +52,13 @@ const VIEW_OPTS = [
   { value: 'board', label: 'Tablero' },
 ]
 
-function ConsoleView({ operator, onConfirmIdentity, onChangeOperator, console: c }) {
+function ConsoleView({ operator, onConfirmIdentity, onChangeOperator, console: c, autoPopup, onToggleAutoPopup }) {
   const { status, redis, events, operators, summary, selfStats, alertEvent, clearAlert, notice, clearNotice, actions } = c
   const [openId, setOpenId] = useState(null)
 
   useEffect(() => {
-    if (alertEvent && !openId) setOpenId(alertEvent.id)
-  }, [alertEvent, openId])
+    if (autoPopup && alertEvent && !openId) setOpenId(alertEvent.id)
+  }, [alertEvent, openId, autoPopup])
 
   const openEvent = openId ? events.find((e) => e.id === openId) || null : null
   const handleOpen = useCallback((event) => setOpenId(event.id), [])
@@ -72,7 +72,8 @@ function ConsoleView({ operator, onConfirmIdentity, onChangeOperator, console: c
       <OperatorBar operator={operator} onChangeOperator={onChangeOperator}
                    status={status} redis={redis}
                    operators={operators} summary={summary}
-                   selfStats={selfStats} actions={actions} />
+                   selfStats={selfStats} actions={actions}
+                   autoPopup={autoPopup} onToggleAutoPopup={onToggleAutoPopup} />
       {notice && (
         <div className={`console-notice console-notice--${notice.tone || 'warn'}`} role="status" onClick={clearNotice}>
           <Icon name="alert" size={16} />
@@ -93,6 +94,8 @@ function ConsoleView({ operator, onConfirmIdentity, onChangeOperator, console: c
 export default function App() {
   const [operator, setOperator] = useState(() => loadOperator())
   const console_ = useConsole(operator)   // socket vive a nivel app (persiste entre pestañas)
+  const [autoPopup, setAutoPopup] = useState(() => { try { return localStorage.getItem('eventos.autopopup') !== '0' } catch { return true } })
+  const toggleAutoPopup = useCallback(() => setAutoPopup((v) => { const n = !v; try { localStorage.setItem('eventos.autopopup', n ? '1' : '0') } catch { /* ignore */ } return n }), [])
   const location = useLocation()
 
   const confirmIdentity = useCallback((op) => { saveOperator(op); setOperator(op) }, [])
@@ -117,11 +120,13 @@ export default function App() {
           <Routes location={location}>
             <Route path="/" element={
               <ConsoleView operator={operator} onConfirmIdentity={confirmIdentity}
-                           onChangeOperator={changeOperator} console={console_} />
+                           onChangeOperator={changeOperator} console={console_}
+                           autoPopup={autoPopup} onToggleAutoPopup={toggleAutoPopup} />
             } />
             <Route path="/center" element={
               <AlarmCenter operator={operator} onConfirmIdentity={confirmIdentity}
-                           onChangeOperator={changeOperator} console={console_} />
+                           onChangeOperator={changeOperator} console={console_}
+                           autoPopup={autoPopup} onToggleAutoPopup={toggleAutoPopup} />
             } />
             <Route path="/admin/*" element={<AdminApp />} />
             <Route path="/wall" element={canSupervise ? <Videowall /> : <Navigate to="/" replace />} />

@@ -1993,3 +1993,42 @@
 .acrel__stage { flex: 1; min-height: 0; background: #05070b; display: grid; place-items: center; overflow: hidden; }
 .acrel__img { width: 100%; height: 100%; object-fit: contain; }
 .acrel__empty { display: grid; place-items: center; gap: 8px; color: var(--text-dim); font-size: 12px; text-align: center; padding: 16px; }
+
+/* ── Alarm Center v2: topbar 1 fila, pop-up toggle, tabs por filtro, animación ── */
+.opbar { flex-wrap: nowrap !important; overflow-x: auto; }
+.opbar::-webkit-scrollbar { height: 0; }
+.opbar__popup { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: var(--r); border: 1px solid var(--hairline); background: var(--surface-1); color: var(--text-dim); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.opbar__popup.is-on { background: var(--accent); color: #fff; border-color: transparent; }
+.opbar__popup b { font-weight: 800; font-size: 10.5px; letter-spacing: .04em; opacity: .85; }
+.op-wall { padding: 6px 9px; }
+
+.console.console--center { height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.alarmc__bottom { height: clamp(240px, 36vh, 380px) !important; }
+.alarmc__panel-sub { color: var(--text-dim); font-weight: 500; margin-left: 4px; }
+
+.alarmc__tab--custom { display: inline-flex; align-items: center; }
+.alarmc__tab--custom > button:first-child { background: none; border: 0; cursor: pointer; color: inherit; font: inherit; padding: 8px 2px 8px 14px; display: inline-flex; align-items: center; gap: 7px; }
+.alarmc__tab--custom.is-active { color: var(--text); border-bottom: 2px solid var(--accent); }
+.alarmc__tabx { background: none; border: 0; cursor: pointer; color: var(--text-dim); padding: 0 8px 0 3px; display: inline-flex; align-items: center; }
+.alarmc__tabx:hover { color: #ef4444; }
+.alarmc__newtab { position: relative; display: inline-flex; align-items: center; }
+.alarmc__addtab { background: none; border: 1px dashed var(--hairline); border-radius: 8px; cursor: pointer; color: var(--text-dim); padding: 5px 9px; margin-left: 4px; display: inline-flex; }
+.alarmc__addtab:hover { color: var(--text); border-color: var(--accent); }
+
+@keyframes ac-new { 0% { background: color-mix(in srgb, var(--accent) 38%, transparent); } 100% { background: transparent; } }
+.alarmc__row.is-new { animation: ac-new 2.2s ease-out; }
+.alarmc__row.is-new td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
+.acnewtab { position: absolute; top: calc(100% + 6px); left: 0; z-index: 40; width: 350px; padding: 13px; border-radius: var(--r-lg); display: flex; flex-direction: column; gap: 6px; }
+.acnewtab__head { display: flex; align-items: center; justify-content: space-between; }
+.acnewtab__head button { background: none; border: 0; cursor: pointer; color: var(--text-dim); }
+.acnewtab__lbl { font-size: 11px; color: var(--text-dim); font-weight: 600; margin-top: 5px; }
+.acnewtab__in { width: 100%; padding: 7px 9px; border-radius: var(--r); border: 1px solid var(--hairline); background: var(--surface-1); color: var(--text); font-size: 12.5px; }
+.acnewtab__chips { display: flex; gap: 5px; flex-wrap: wrap; }
+.acnewtab__chips--wrap { max-height: 96px; overflow: auto; }
+.acnewtab__chip { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; border: 1px solid var(--hairline); background: var(--surface-1); color: var(--text-dim); font-size: 11.5px; cursor: pointer; }
+.acnewtab__chip.is-on { background: var(--accent); color: #fff; border-color: transparent; }
+.acnewtab__row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.acnewtab__foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 9px; }
+.acnewtab__cancel { background: none; border: 1px solid var(--hairline); border-radius: var(--r); padding: 6px 12px; cursor: pointer; color: var(--text-dim); font-size: 12.5px; }
+.acnewtab__save { display: inline-flex; align-items: center; gap: 6px; background: var(--accent); color: #fff; border: 0; border-radius: var(--r); padding: 6px 13px; cursor: pointer; font-size: 12.5px; font-weight: 600; }
