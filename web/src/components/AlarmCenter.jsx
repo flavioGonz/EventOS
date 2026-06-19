@@ -129,6 +129,32 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const [flash, setFlash] = useState(() => new Set()) // ids recién llegados (animación)
   const fwdRef = useRef(null)
   const seenRef = useRef(null)
+  const acRef = useRef(null)
+  const [sound, setSound] = useState(() => { try { return localStorage.getItem('eventos.alarms.sound') !== '0' } catch { return true } })
+  const toggleSound = () => setSound((v) => { const n = !v; try { localStorage.setItem('eventos.alarms.sound', n ? '1' : '0') } catch { /* ignore */ } return n })
+
+  // Beep de alerta (WebAudio) al llegar eventos nuevos. Se activa tras la primera
+  // interacción del operario (política de autoplay del navegador).
+  const beep = useCallback(() => {
+    if (!sound) return
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext
+      if (!AC) return
+      let ctx = acRef.current
+      if (!ctx) { ctx = new AC(); acRef.current = ctx }
+      if (ctx.state === 'suspended') ctx.resume().catch(() => {})
+      const t0 = ctx.currentTime
+      const o = ctx.createOscillator(); const g = ctx.createGain()
+      o.type = 'sine'
+      o.frequency.setValueAtTime(880, t0)
+      o.frequency.setValueAtTime(1175, t0 + 0.12)
+      g.gain.setValueAtTime(0.0001, t0)
+      g.gain.exponentialRampToValueAtTime(0.3, t0 + 0.02)
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.3)
+      o.connect(g); g.connect(ctx.destination)
+      o.start(t0); o.stop(t0 + 0.32)
+    } catch { /* noop */ }
+  }, [sound])
 
   useEffect(() => {
     fetch('/api/sites').then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && d.sites) setSites(d.sites) }).catch(() => {})
@@ -143,12 +169,13 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
     seenRef.current = ids
     if (fresh.length) {
       setFlash((prev) => { const n = new Set(prev); fresh.forEach((id) => n.add(id)); return n })
+      beep()
       const t = setTimeout(() => {
         setFlash((prev) => { const n = new Set(prev); fresh.forEach((id) => n.delete(id)); return n })
       }, 2200)
       return () => clearTimeout(t)
     }
-  }, [events])
+  }, [events, beep])
 
   useEffect(() => {
     if (!fwdOpen) return
@@ -246,6 +273,9 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
             <PriorityDot p={1} size={8} /> <strong className="tnum">{(summary && summary.critical) || 0}</strong> críticos ·
             <strong className="tnum"> {(summary && summary.active) || 0}</strong> activos
           </span>
+          <button type="button" className={`alarmc__toggle ${sound ? 'is-on' : ''}`} onClick={toggleSound} title={sound ? 'Sonido de alarma activado' : 'Sonido silenciado'}>
+            <Icon name="speaker" size={14} /> {sound ? 'Sonido' : 'Silencio'}
+          </button>
           <button type="button" className={`alarmc__toggle ${showHistory ? 'is-on' : ''}`} onClick={() => setShowHistory((v) => !v)} title="Incluir resueltas/escaladas">
             <Icon name="clock" size={14} /> Historial
           </button>
