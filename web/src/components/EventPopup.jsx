@@ -232,6 +232,7 @@ export default function EventPopup({ event, operator, actions, onClose }) {
         <div className="evpopup__body">
           {/* IZQUIERDA — Muro de video (o playback del NVR) */}
           <div className="evpopup__wall">
+            <div className="evpopup__wallsrc" title={sourceLine(event)}><Icon name="camera" size={13} /> {sourceLine(event)}</div>
             <div className="evpopup__walltabs" role="tablist">
               <button type="button" className={mode === 'evidence' ? 'is-on' : ''} onClick={() => setMode('evidence')}>Evidencia</button>
               {hasCamera && <button type="button" className={mode === 'live' ? 'is-on' : ''} onClick={() => setMode('live')}>En vivo</button>}
@@ -266,16 +267,6 @@ export default function EventPopup({ event, operator, actions, onClose }) {
             </div>
 
             <h2 className="evpopup__title">{event.title || event.type}</h2>
-            <div className="evpopup__subrow">
-              <span className="evpopup__cat">
-                {CATEGORY_LABEL[event.category] || event.category}
-              </span>
-              <span className="evpopup__dotsep" aria-hidden="true">·</span>
-              <span className="evpopup__src">{sourceLine(event)}</span>
-            </div>
-            {event.message ? (
-              <p className="evpopup__message">{event.message}</p>
-            ) : null}
 
             {/* CLIENTE · RESPUESTA arriba: lo PRIMERO que el operador necesita
                 (a quién llamar, protocolo, dirección) en un evento. */}
