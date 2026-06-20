@@ -271,7 +271,7 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
             <ClientPanel event={event} actions={actions} critical={p <= 2} />
 
             {supervise && (
-              <div className="evpopup__superbanner"><Icon name="gauge" size={14} /> Vista de supervisión · solo lectura</div>
+              <div className="evpopup__superbanner"><Icon name="gauge" size={14} /> Vista de supervisión · solo lectura, podés reasignar</div>
             )}
 
             {!supervise && (<>
@@ -324,32 +324,34 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
                 Nota
               </Button>
             </div>
+            </>)}
 
             {groups.length > 0 && (
               <div className="evpopup__transfer">
-                <span className="evpopup__sec-lbl"><Icon name="shieldcheck" size={13} /> Transferir a grupo</span>
+                <span className="evpopup__sec-lbl"><Icon name="shieldcheck" size={13} /> {supervise ? 'Reasignar a grupo' : 'Transferir a grupo'}</span>
                 <div className="evpopup__transfer-row">
                   <Select value={groupSel} onChange={(e) => setGroupSel(e.target.value)} disabled={closed}>
                     <option value="">— Elegir grupo —</option>
                     {groups.map((g) => <option key={g.id} value={g.id}>{g.name} · {g.memberCount} op.</option>)}
                   </Select>
-                  <Button variant="secondary" icon="route" data-tip="Transferís el evento al grupo de operarios elegido" disabled={closed || !groupSel}
+                  <Button variant="secondary" icon="route" data-tip={supervise ? 'Reasignás el evento al grupo de operarios elegido' : 'Transferís el evento al grupo de operarios elegido'} disabled={closed || !groupSel}
                     onClick={() => { actions.transfer(event.id, groupSel); setGroupSel(''); onClose() }}>
-                    Transferir
+                    {supervise ? 'Reasignar' : 'Transferir'}
                   </Button>
                 </div>
               </div>
             )}
 
-            <Procedures
-              procedure={procedure}
-              eventId={event.id}
-              onStepNote={(text) => actions.note(event.id, text)}
-              onResolve={(disposition, closeNote) =>
-                actions.resolve(event.id, disposition, closeNote || undefined)
-              }
-            />
-            </>)}
+            {!supervise && (
+              <Procedures
+                procedure={procedure}
+                eventId={event.id}
+                onStepNote={(text) => actions.note(event.id, text)}
+                onResolve={(disposition, closeNote) =>
+                  actions.resolve(event.id, disposition, closeNote || undefined)
+                }
+              />
+            )}
 
             <details className="evpopup__tech">
               <summary className="evpopup__tech-sum">
