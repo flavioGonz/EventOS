@@ -2099,3 +2099,25 @@
 .alarmc__tab--esc svg { color: #ef4444; }
 .alarmc__tab--esc.is-active { border-bottom-color: #ef4444; }
 .alarmc__count--esc { background: #ef4444; color: #fff; }
+
+
+/* Pagina de instalacion PWA (/instalar) */
+.pwainstall { max-width: 860px; margin: 0 auto; padding: 48px 20px; color: var(--text); }
+.pwainstall__head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.pwainstall__logo { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 12px; background: linear-gradient(135deg,#5b9cff,#a882ff); color: #fff; flex: 0 0 auto; }
+.pwainstall__head h1 { margin: 0; font-size: 22px; }
+.pwainstall__head p { margin: 4px 0 0; color: var(--text-dim); font-size: 13.5px; }
+.pwainstall__ok { display: inline-flex; align-items: center; gap: 7px; background: rgba(22,163,74,.14); color: #16a34a; border: 1px solid rgba(22,163,74,.35); border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 16px; }
+.pwainstall__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.pwacard { border: 1px solid var(--hairline); border-radius: var(--r-lg); padding: 20px; background: var(--surface-1); display: flex; flex-direction: column; gap: 8px; }
+.pwacard.is-current { border-color: var(--acc); box-shadow: 0 0 0 2px color-mix(in srgb, var(--acc) 25%, transparent); }
+.pwacard__icon { display: grid; place-items: center; width: 50px; height: 50px; border-radius: 13px; background: var(--acc); color: #fff; margin-bottom: 4px; }
+.pwacard h2 { margin: 0; font-size: 16px; }
+.pwacard p { margin: 0; color: var(--text-dim); font-size: 13px; min-height: 38px; }
+.pwacard__actions { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.pwacard__btn { display: inline-flex; align-items: center; gap: 7px; padding: 9px 16px; border-radius: var(--r); border: 0; background: var(--acc); color: #fff; font-size: 13.5px; font-weight: 600; cursor: pointer; text-decoration: none; text-transform: capitalize; }
+.pwacard__btn--ghost { background: transparent; border: 1px solid var(--acc); color: var(--acc); }
+.pwacard__open { font-size: 12px; color: var(--text-dim); text-decoration: none; }
+.pwacard__open:hover { color: var(--text); }
+.pwainstall__ios, .pwainstall__hint { color: var(--text-dim); font-size: 12.5px; margin-top: 18px; line-height: 1.5; }
+@media (max-width: 640px) { .pwainstall__grid { grid-template-columns: 1fr; } }

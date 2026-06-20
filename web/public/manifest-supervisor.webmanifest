@@ -1,0 +1,23 @@
+{
+  "id": "eventos-supervisor",
+  "name": "EventOS \u00b7 Supervisor",
+  "short_name": "Supervisor",
+  "description": "Panel de supervisi\u00f3n y videowall \u2014 EventOS ARC",
+  "start_url": "/supervisor?app=supervisor",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0a0e1a",
+  "theme_color": "#16121f",
+  "lang": "es",
+  "categories": ["business", "security"],
+  "icons": [
+    {"src": "/icons/supervisor-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/supervisor-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/supervisor-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Supervisor", "url": "/supervisor?app=supervisor"},
+    {"name": "Videowall", "url": "/wall?app=supervisor"}
+  ]
+}

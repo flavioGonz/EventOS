@@ -8,6 +8,7 @@ import OperatorIdentity from './components/OperatorIdentity.jsx'
 import AdminApp from './admin/AdminApp.jsx'
 import Videowall from './components/Videowall.jsx'
 import AlarmCenter from './components/AlarmCenter.jsx'
+import Install from './Install.jsx'
 import SupervisorStandalone from './SupervisorStandalone.jsx'
 import { loadOperator, saveOperator, useConsole } from './lib/socket.js'
 import { Glass, Icon, Segmented, ThemeToggle } from './ui/primitives.jsx'
@@ -118,6 +119,7 @@ export default function App() {
       <div className="route">
         <div className="route__page anim-rise" key={routeKey}>
           <Routes location={location}>
+            <Route path="/instalar" element={<Install />} />
             <Route path="/" element={
               <ConsoleView operator={operator} onConfirmIdentity={confirmIdentity}
                            onChangeOperator={changeOperator} console={console_}

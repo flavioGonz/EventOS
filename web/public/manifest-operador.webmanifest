@@ -1,0 +1,23 @@
+{
+  "id": "eventos-operador",
+  "name": "EventOS \u00b7 Operador",
+  "short_name": "Operador",
+  "description": "Consola de operador \u2014 Centro de alarmas EventOS ARC",
+  "start_url": "/center?app=operador",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0d1117",
+  "lang": "es",
+  "categories": ["business", "security"],
+  "icons": [
+    {"src": "/icons/operador-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/operador-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
+    {"src": "/icons/operador-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Centro de alarmas", "url": "/center?app=operador"},
+    {"name": "Consola", "url": "/?app=operador"}
+  ]
+}

@@ -2,12 +2,32 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0a0e1a" />
-    <title>EventOS — Consola de Operación</title>
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="EventOS" />
+    <link rel="apple-touch-icon" href="/icons/operador-192.png" />
+    <title>EventOS \u2014 Consola de Operaci\u00f3n</title>
+    <script>
+      (function () {
+        var p = location.pathname, q = location.search;
+        var sup = p.indexOf("/supervisor") === 0 || /[?&]app=supervisor(&|$)/.test(q);
+        var l = document.createElement("link"); l.rel = "manifest";
+        l.href = sup ? "/manifest-supervisor.webmanifest" : "/manifest-operador.webmanifest";
+        document.head.appendChild(l);
+        if (sup) { var ti = document.querySelector("link[rel=apple-touch-icon]"); if (ti) ti.href = "/icons/supervisor-192.png"; }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () { navigator.serviceWorker.register("/sw.js").catch(function () {}); });
+      }
+    </script>
   </body>
 </html>
