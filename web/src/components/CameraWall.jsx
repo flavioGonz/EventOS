@@ -133,14 +133,10 @@ export default function CameraWall({ event }) {
   return (
     <div className="camwall">
       <div className="camwall__bar">
-        <span className="camwall__title">
-          <Icon name="video" size={16} />
-          Muro de video
-          <span className="camwall__count tnum">
-            {ordered.length} {ordered.length === 1 ? 'cámara' : 'cámaras'}
-          </span>
+        <span className="camwall__count tnum">
+          <Icon name="video" size={13} />
+          {ordered.length}
         </span>
-        <span className="camwall__bar-spacer" />
         <Segmented value={view} onChange={setView} options={viewOptions} />
         <IconButton
           icon="refresh"
