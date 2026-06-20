@@ -88,7 +88,7 @@ function EvidenceView({ event, url }) {
     )
   }
   return (
-    <div className="evidence" ref={stageRef}>
+    <div className={`evidence${rules ? ' evidence--ana' : ''}`} ref={stageRef}>
       <img ref={imgRef} className="evidence__img" src={main} alt="Foto de evidencia del evento" onLoad={recompute} />
       {rules && box && (
         <div className="evidence__anabox" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
@@ -106,11 +106,8 @@ function EvidenceView({ event, url }) {
       )}
       <div className="evidence__cap">
         <span className="evidence__tag"><Icon name="camera" size={13} /> Fotos del caso ({gallery.length})</span>
-        {target && target !== 'none' && (
-          <span className="evidence__target"><Icon name={TARGET_ICON[target] || 'tag'} size={13} /> {targetLabel(target)}</span>
-        )}
         {rules && <span className="evidence__anatag"><Icon name="filter" size={12} /> {rules.length} analítica{rules.length === 1 ? '' : 's'}</span>}
-        {event && event.ts && <span className="evidence__time tnum">{formatTime(event.ts)}</span>}
+        {event && event.ts && <span className="evidence__time"><Icon name="clock" size={12} /> <span className="tnum">{formatTime(event.ts)}</span></span>}
         <span className="evidence__cap-spacer" />
         {deviceId && <button type="button" className="evidence__act evidence__act--cap" onClick={capture} disabled={busy}><Icon name="camera" size={13} /> {busy ? 'Capturando…' : 'Capturar'}</button>}
         <a className="evidence__act" href={main} download={`evidencia-${event.id}.jpg`}><Icon name="expand" size={13} /> Descargar</a>
