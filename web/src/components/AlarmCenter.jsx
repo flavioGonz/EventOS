@@ -171,6 +171,7 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const seenRef = useRef(null)
   const acRef = useRef(null)
   const bcRef = useRef(null)
+  const escSeenRef = useRef(null)
   const [sound, setSound] = useState(() => { try { return localStorage.getItem('eventos.alarms.sound') !== '0' } catch { return true } })
   const toggleSound = () => setSound((v) => { const n = !v; try { localStorage.setItem('eventos.alarms.sound', n ? '1' : '0') } catch { /* ignore */ } return n })
 
@@ -216,6 +217,18 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
       }, 2200)
       return () => clearTimeout(t)
     }
+  }, [events, beep])
+
+  // Sonido al ESCALAR (SLA vencido): detecta transiciones a 'escalated'.
+  useEffect(() => {
+    const map = new Map(events.map((e) => [e.id, e.status]))
+    if (escSeenRef.current == null) { escSeenRef.current = map; return }
+    let escalated = false
+    for (const [id, st] of map) {
+      if (st === 'escalated' && escSeenRef.current.get(id) !== 'escalated') escalated = true
+    }
+    escSeenRef.current = map
+    if (escalated) beep()
   }, [events, beep])
 
   useEffect(() => {
@@ -264,12 +277,14 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
 
   const latest = useMemo(() => events.filter((e) => (showHistory ? true : isActive(e)) && !ignored.has(e.id)), [events, ignored, showHistory])
   const ignoredList = useMemo(() => events.filter((e) => ignored.has(e.id)), [events, ignored])
+  const escalatedList = useMemo(() => events.filter((e) => e.status === 'escalated'), [events])
   const activeTab = customTabs.find((t) => t.id === tab)
   const rows = useMemo(() => {
     if (tab === 'ignored') return ignoredList
+    if (tab === 'escalated') return escalatedList
     if (activeTab) return events.filter((e) => isActive(e) && !ignored.has(e.id) && matchFilters(e, activeTab.filters))
     return latest
-  }, [tab, activeTab, events, ignored, latest, ignoredList])
+  }, [tab, activeTab, events, ignored, latest, ignoredList, escalatedList])
 
   const selected = selId ? events.find((e) => e.id === selId) || null : null
   // Mapa centrado en el CLIENTE del evento seleccionado.
@@ -352,6 +367,9 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
           </button>
           <button type="button" className={`alarmc__tab ${tab === 'ignored' ? 'is-active' : ''}`} onClick={() => setTab('ignored')}>
             Ignoradas <span className="alarmc__count">{ignoredList.length}</span>
+          </button>
+          <button type="button" className={`alarmc__tab alarmc__tab--esc ${tab === 'escalated' ? 'is-active' : ''}`} onClick={() => setTab('escalated')} title="Eventos escalados / SLA vencido">
+            <Icon name="alert" size={13} /> Escaladas <span className={`alarmc__count ${escalatedList.length > 0 ? 'alarmc__count--esc' : ''}`}>{escalatedList.length}</span>
           </button>
           {customTabs.map((t) => {
             const n = events.filter((e) => isActive(e) && !ignored.has(e.id) && matchFilters(e, t.filters)).length

@@ -2093,3 +2093,9 @@
 .aclive { position: relative; width: 100%; height: 100%; background: #05070b; }
 .aclive__skel { position: absolute; inset: 0; display: grid; place-items: center; z-index: 2; }
 .aclive__skel-txt { position: absolute; display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: rgba(255,255,255,.85); text-shadow: 0 1px 2px rgba(0,0,0,.6); }
+
+/* Pestaña Escaladas (SLA vencido) */
+.alarmc__tab--esc { display: inline-flex; align-items: center; gap: 6px; }
+.alarmc__tab--esc svg { color: #ef4444; }
+.alarmc__tab--esc.is-active { border-bottom-color: #ef4444; }
+.alarmc__count--esc { background: #ef4444; color: #fff; }

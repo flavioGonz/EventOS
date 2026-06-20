@@ -193,7 +193,7 @@ export default function EventPopup({ event, operator, actions, onClose }) {
   const p = event.priority ?? 5
   const mine = event.assignedTo && operator && event.assignedTo === operator.operatorId
   const assignedToOther = !!event.assignedTo && !mine
-  const closed = event.status === 'resolved' || event.status === 'escalated'
+  const closed = event.status === 'resolved' // los escalados SÍ se pueden atender/resolver
   kbd.current = { actions, id: event.id, mine, assignedToOther, closed, getNote: () => note }
 
   function sendNote() {
