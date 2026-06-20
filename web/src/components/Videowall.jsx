@@ -221,10 +221,21 @@ export default function Videowall() {
   }, [focus])
   const clearCell = (i) => setCells((c) => { const next = c.slice(); next[i] = null; return next })
   const toggleLive = (i) => setLive((l) => { const next = l.slice(); next[i] = !next[i]; return next })
-  // Reemplaza la cámara de una celda (al hacer clic en un hotspot de seguimiento).
-  const followInCell = useCallback((i, targetId) => {
+  // Seguimiento: al hacer clic en un hotspot, la cámara destino salta al SPOTLIGHT
+  // (celda principal, en vivo) y la anterior baja a la primera satélite — así se
+  // mantiene el contexto y se encadena el seguimiento de cámara en cámara.
+  const followTo = useCallback((targetId) => {
     if (!targetId) return
-    setCells((c) => { const next = c.slice(); next[i] = targetId; return next }); setFocus(i)
+    setLayout((lay) => (lay === 'spot' ? lay : 'spot'))
+    setCells((c) => {
+      const next = c.slice()
+      const prev = next[0]
+      next[0] = targetId
+      if (prev && prev !== targetId) next[1] = prev // breadcrumb: la anterior queda a mano
+      return next
+    })
+    setLive((l) => { const nx = l.slice(); nx[0] = true; return nx })
+    setFocus(0)
   }, [])
   // Guarda los hotspots de una cámara: optimista en memoria + persistencia admin.
   const saveLinks = useCallback(async (camId, links) => {
@@ -341,7 +352,7 @@ export default function Videowall() {
               onClear={() => clearCell(i)} onToggleLive={() => toggleLive(i)} onMoveCell={moveCell}
               onPlayback={() => setPbCam(camById[cells[i]] || null)}
               editTrack={editTrack} cameras={cameras}
-              onFollow={(tid) => followInCell(i, tid)} onSaveLinks={saveLinks} />
+              onFollow={(tid) => followTo(tid)} onSaveLinks={saveLinks} />
           ))}
         </div>
 
