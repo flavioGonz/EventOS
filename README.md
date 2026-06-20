@@ -9,6 +9,8 @@
 
 `Node.js` · `Express` · `Socket.io` · `Redis` · `React` · `Vite` · `Leaflet` · `go2rtc` · `Hikvision ISAPI`
 
+**Versión 1.1.0**
+
 </div>
 
 ---
@@ -52,7 +54,7 @@ Pantalla completa con **mapa operativo (GIS)** y **board tipo kanban por critici
 
 ### 🔎 Centro de Verificación en Vivo (popup)
 El corazón de la operación. Al abrir un evento, el operador ve:
-- **Video** del evento: foto del momento (evidencia), **vivo** y **grabación**.
+- **Video** del evento en una **superficie tipo reproductor** (edge-to-edge, controles flotantes): foto del momento (evidencia), **muro de cámaras en vivo** y **grabación** con línea de tiempo y eventos marcados con iconos.
 - **Galería de fotos del caso** + captura on-demand + descarga.
 - **Analíticas dibujadas sobre la imagen** (línea de cruce / zona de intrusión).
 - **Panel de respuesta**: protocolo de actuación, lista de llamada priorizada, parlantes SIP y escalación a emergencias.
@@ -76,6 +78,8 @@ Alta **por fabricante** (Hikvision, Dahua, Akuvox, parlante/intercom SIP, ONVIF)
 ### 🎥 Video en vivo
 Pipeline robusto: **RTSP directo a cada cámara** (vía VPN) servido por **go2rtc** (WebRTC/MSE), con caída elegante a **MJPEG** (snapshots ISAPI) cuando el stream del NVR llega corrupto. Snapshots near-live en las rejillas y vivo real al abrir una cámara.
 
+**Grabación / playback:** las cámaras graban en **H.264+**, cuyo RTSP de reproducción es indecodificable para reproductores estándar. EventOS recupera el playback bajando el segmento por **ISAPI ContentMgmt** (MPEG-PS limpio) y sirviéndolo como HLS; con archivos de grabación cortos en el NVR el **seek** cae al instante pedido, con corrección automática de la **zona horaria** del equipo.
+
 ### 🧠 Filtrado de IA (AcuSense / DeepinView)
 Clasificación **humano / vehículo** del objetivo para descartar falsas alarmas, con filtro por objetivo en reglas y por dispositivo. Dimensión **"Objetivo (IA)"** en la analítica para ver cobertura de clasificación.
 
@@ -90,6 +94,9 @@ Analítica de volumen de eventos en el tiempo, por prioridad, tipo, sitio, cáma
 
 ### 🔌 Alarmas y control de accesos
 Integración de **paneles de alarma Hikvision AX** y **control de relés** para **abrir puertas** (relé IP), con confirmación del operador. Recepción de eventos por **webhook HTTP** o **alertStream ISAPI**.
+
+### 📲 PWA instalable por rol
+Dos apps instalables desde un mismo código: **EventOS · Operador** (abre al Centro de alarmas) y **EventOS · Supervisor** (panel de supervisión + videowall). Ventana propia, sonido de alarma, *offline-shell* y **auto-update** desde el servidor (service worker). Página `/instalar` para instalar con un clic según el rol.
 
 ---
 
@@ -237,6 +244,9 @@ systemctl restart eventos-api
 - [x] Mapa operativo GIS · Despacho/balanceo · Grupos
 - [x] Control de relé / apertura de puertas (Hikvision IO / AX)
 - [x] Alta de dispositivo por fabricante
+- [x] **Centro de alarmas** (vista única tipo HikCentral) con beep y cola de escaladas
+- [x] **Playback H.264+ recuperado** vía ISAPI ContentMgmt (download → HLS) + seek por packing corto y zona horaria
+- [x] **PWA instalable por rol** (operador / supervisor) con service worker y auto-update
 - [ ] Recepción de eventos de paneles **AX** (webhook / alertStream ISAPI)
 - [ ] Tipo de dispositivo **parlante SIP** dedicado
 - [ ] Más fabricantes (Dahua, etc.)

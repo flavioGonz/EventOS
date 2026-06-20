@@ -1,6 +1,6 @@
 {
   "name": "eventos-server",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "EventOS — servidor de distribución de eventos para centro de monitoreo / ARC",
   "type": "module",
   "engines": {
