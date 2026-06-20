@@ -2268,3 +2268,28 @@
 .wallhot__pick > button { display:grid; place-items:center; width:26px; height:26px; border:0; border-radius:7px;
   background:rgba(255,255,255,.1); color:#fff; cursor:pointer; }
 .wallhot__pick > button:hover { background:rgba(255,255,255,.2); }
+
+/* ── Wall: paleta oscura forzada (superficie 24/7) en tema claro y oscuro ───── */
+.wall, .wallpb {
+  --surface:    #111824;
+  --surface-2:  #16202d;
+  --bg-elev:    #121a25;
+  --text:       #e9eef5;
+  --text-dim:   #93a1b5;
+  --text-faint: #5a6675;
+  --border:     rgba(122,150,190,.16);
+  --separator:  rgba(122,150,190,.10);
+  color: var(--text);
+}
+/* Toolbar: contraste consistente de los controles del wall sobre fondo oscuro. */
+.wall__toolbar .segmented { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.12); }
+.wall__toolbar .segmented__opt { color: rgba(255,255,255,.72); }
+.wall__toolbar .segmented__opt:hover { color: #fff; }
+.wall__toolbar .segmented__opt.is-active { background: rgba(255,255,255,.92); color: #0c0f16; }
+.wall__toolbar .btn--ghost { color: rgba(255,255,255,.82); }
+.wall__toolbar .btn--ghost:hover { background: rgba(255,255,255,.12); color: #fff; }
+.wall__toolbar .btn--primary { color: #fff; }
+.wall__livecount { color: rgba(255,255,255,.9); background: rgba(255,255,255,.08); }
+.wall__livecount.is-max { color: #ffd27a; background: rgba(255,176,32,.16); }
+.wall__picksearch input { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); color: #fff; }
+.wall__picksearch input::placeholder { color: rgba(255,255,255,.45); }
