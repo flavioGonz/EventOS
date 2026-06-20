@@ -2165,3 +2165,10 @@
 
 /* Tabs del popup: mismo estilo que Hero/2x2/3x3 (componente Segmented), solo posicionado */
 .evpopup__tabs { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 8; }
+
+
+/* Canales en vivo (Hero): tira lateral con scroll VERTICAL en vez de horizontal */
+.camwall__hero-wrap { flex-direction: row; align-items: stretch; min-height: 0; }
+.camwall__hero { flex: 1 1 auto; min-width: 0; aspect-ratio: auto; max-height: none; height: auto; }
+.camwall__strip { flex: 0 0 172px; flex-direction: column; overflow-y: auto; overflow-x: hidden; min-height: 0; padding: 0 4px 0 0; scroll-snap-type: y proximity; }
+.camwall__thumb { flex: 0 0 auto; width: 100%; aspect-ratio: 16 / 9; }
