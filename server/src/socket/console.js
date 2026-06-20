@@ -252,7 +252,7 @@ export function attachConsole(io) {
       const ev = mutate(eventId, {
         status: "new",
         assignedTo: null,
-        logEntry: { ...a, action: "transfer", note: `→ grupo ${group.name}` },
+        logEntry: { ...a, operatorName: a.operatorName || "Supervision", action: "transfer", note: `→ grupo ${group.name}` },
       });
       if (!ev) return;
       for (const id of new Set(group.operatorIds || [])) {

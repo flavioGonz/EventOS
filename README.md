@@ -9,7 +9,7 @@
 
 `Node.js` · `Express` · `Socket.io` · `Redis` · `React` · `Vite` · `Leaflet` · `go2rtc` · `Hikvision ISAPI`
 
-**Versión 1.1.0**
+**Versión 1.2.0**
 
 </div>
 
@@ -247,6 +247,8 @@ systemctl restart eventos-api
 - [x] **Centro de alarmas** (vista única tipo HikCentral) con beep y cola de escaladas
 - [x] **Playback H.264+ recuperado** vía ISAPI ContentMgmt (download → HLS) + seek por packing corto y zona horaria
 - [x] **PWA instalable por rol** (operador / supervisor) con service worker y auto-update
+- [x] **Videowall** pro: acciones por canal, doble-clic a pantalla completa, **visual tracking** (iconos de camaras vecinas sobre el video) y **descarga de clips MP4**
+- [x] **Panel de supervisor** con visibilidad completa: eventos clicables (popup solo-lectura con video/evidencia/bitacora), bitacora por operario, feed de actividad y reasignacion a grupo
 - [ ] Recepción de eventos de paneles **AX** (webhook / alertStream ISAPI)
 - [ ] Tipo de dispositivo **parlante SIP** dedicado
 - [ ] Más fabricantes (Dahua, etc.)
