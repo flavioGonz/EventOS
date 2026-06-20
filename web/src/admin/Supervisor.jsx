@@ -1,10 +1,14 @@
-// Panel de Supervisor — vista de mando en tiempo real del centro de monitoreo.
-// KPIs en vivo, tablero de operadores (carga/estado/atendidos), cola priorizada
-// con edad y cuenta regresiva de SLA, y monitor de SLA en riesgo/vencido.
+// Panel de Supervisor — mando en tiempo real del centro de monitoreo.
+// Visibilidad COMPLETA: KPIs en vivo, tablero de operadores (clic → bitácora del
+// operario), cola priorizada con SLA (clic → popup de supervisión solo-lectura),
+// y feed de actividad reciente de todo el turno. Sin token de admin: todo se
+// deriva de los eventos en vivo (cada evento trae su `log`/bitácora).
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useConsole } from '../lib/socket.js'
 import { Icon, PriorityDot, StatusDot } from '../ui/primitives.jsx'
 import { PageHead, SectionHelp } from './_shared.jsx'
+import EventPopup from '../components/EventPopup.jsx'
 
 const fmtAge = (ms) => {
   const s = Math.max(0, Math.floor(ms / 1000))
@@ -13,8 +17,18 @@ const fmtAge = (ms) => {
   if (m < 60) return `${m}m ${s % 60}s`
   return `${Math.floor(m / 60)}h ${m % 60}m`
 }
-const PRIO_LBL = { 1: 'Crítico', 2: 'Alto', 3: 'Medio', 4: 'Bajo', 5: 'Info' }
+const fmtClock = (ts) => { try { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) } catch { return '—' } }
 const isActive = (e) => e.status !== 'resolved' && e.status !== 'escalated' && e.status !== 'discarded'
+
+// Etiqueta + tono por acción de bitácora.
+const ACT = {
+  receive: { lbl: 'Recibido', tone: 'sys' }, claim: { lbl: 'Tomado', tone: 'ok' },
+  ack: { lbl: 'Acuse', tone: 'info' }, progress: { lbl: 'En curso', tone: 'info' },
+  escalate: { lbl: 'Escalado', tone: 'crit' }, resolve: { lbl: 'Resuelto', tone: 'ok' },
+  note: { lbl: 'Nota', tone: 'sys' }, transfer: { lbl: 'Transferido', tone: 'warn' },
+  call: { lbl: 'Llamada', tone: 'info' }, assign: { lbl: 'Asignado', tone: 'info' },
+}
+const actMeta = (a) => ACT[a] || { lbl: a || 'evento', tone: 'sys' }
 
 function Kpi({ icon, label, value, tone, sub }) {
   return (
@@ -30,8 +44,10 @@ function Kpi({ icon, label, value, tone, sub }) {
 }
 
 export default function Supervisor() {
-  const { events, operators, summary, status } = useConsole(null)
+  const { events, operators, summary, status, actions } = useConsole(null)
   const [now, setNow] = useState(Date.now())
+  const [openId, setOpenId] = useState(null)       // evento abierto en el popup
+  const [drawerOp, setDrawerOp] = useState(null)   // operario abierto en el drawer
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
 
   const opName = useMemo(() => Object.fromEntries((operators || []).map((o) => [o.id, o.name])), [operators])
@@ -46,18 +62,25 @@ export default function Supervisor() {
   const online = (operators || []).filter((o) => o.online)
   const avail = online.filter((o) => o.status !== 'paused')
   const paused = online.filter((o) => o.status === 'paused')
-
-  // Tablero de operadores: ordenado por carga (más cargado primero).
   const opRows = useMemo(() => [...online].sort((a, b) => (b.load || 0) - (a.load || 0)), [online])
-
-  // Cola priorizada (ya viene ordenada por prioridad+recencia desde el hook).
   const queue = active
 
-  const slaCountdown = (e) => {
-    if (!e.slaDeadline) return null
-    const d = Date.parse(e.slaDeadline) - now
-    return d
-  }
+  // Feed de actividad: aplana las bitácoras de todos los eventos (recientes primero).
+  const activity = useMemo(() => {
+    const rows = []
+    for (const e of (events || [])) for (const l of (e.log || [])) rows.push({ ...l, ev: e })
+    rows.sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts))
+    return rows
+  }, [events])
+
+  const byId = useMemo(() => Object.fromEntries((events || []).map((e) => [e.id, e])), [events])
+  const openEvent = openId ? byId[openId] || null : null
+
+  const slaCountdown = (e) => (e.slaDeadline ? Date.parse(e.slaDeadline) - now : null)
+
+  // Datos del drawer del operario seleccionado.
+  const opActivity = drawerOp ? activity.filter((r) => r.operatorId === drawerOp.id).slice(0, 80) : []
+  const opEvents = drawerOp ? active.filter((e) => e.assignedTo === drawerOp.id) : []
 
   return (
     <div className="anim-rise sup">
@@ -65,7 +88,7 @@ export default function Supervisor() {
         subtitle={`Mando en tiempo real del centro de monitoreo · ${status === 'connected' ? 'en vivo' : 'reconectando…'}`} />
 
       <SectionHelp id="supervisor" icon="gauge" title="Panel de mando del turno">
-        Vista en tiempo real para el supervisor: eventos críticos y activos, eventos sin atender y su antigüedad, SLA en riesgo o vencido, y la carga de cada operario conectado. Usalo para vigilar el pulso del centro y detectar cuellos de botella antes de que se conviertan en un SLA vencido.
+        Vista en tiempo real con visibilidad completa: eventos críticos y activos, sin atender y su antigüedad, SLA en riesgo/vencido y la carga de cada operario. Hacé clic en un evento para abrir su verificación (video, evidencia, grabación y bitácora) en modo solo-lectura, o en un operario para ver su bitácora de actividad.
       </SectionHelp>
 
       <div className="sup-kpis">
@@ -79,51 +102,132 @@ export default function Supervisor() {
           sub={paused.length > 0 ? `${paused.length} en pausa` : 'sin pausas'} />
       </div>
 
-      <div className="sup-grid">
-        {/* Tablero de operadores */}
+      <div className="sup-grid sup-grid--3">
+        {/* Tablero de operadores (clic → bitácora del operario) */}
         <section className="sup-card">
           <header className="sup-card__head"><Icon name="users" size={16} /> Operadores ({online.length})</header>
           <div className="sup-ops">
-            <div className="sup-ops__head"><span>Operador</span><span>Estado</span><span>Carga</span><span>Atendidos</span></div>
+            <div className="sup-ops__head"><span>Operador</span><span>Estado</span><span>Carga</span><span>At.</span></div>
             {opRows.length === 0 && <p className="help-block">Ningún operador conectado.</p>}
             {opRows.map((o) => (
-              <div className="sup-ops__row" key={o.id}>
+              <button type="button" className="sup-ops__row sup-ops__row--btn" key={o.id} onClick={() => setDrawerOp(o)} title="Ver bitácora del operario">
                 <span className="sup-ops__name"><span className="sup-ops__av">{(o.name || '·').slice(0, 2).toUpperCase()}</span>{o.name}</span>
                 <span className={`sup-badge sup-badge--${o.status === 'paused' ? 'warn' : 'ok'}`}>
                   <StatusDot tone={o.status === 'paused' ? 'warn' : 'ok'} />{o.status === 'paused' ? 'En pausa' : 'Disponible'}
                 </span>
                 <span className={`sup-load${(o.load || 0) >= 3 ? ' is-high' : ''}`}>{o.load || 0}</span>
                 <span className="tnum">{o.handled || 0}</span>
-              </div>
+              </button>
             ))}
           </div>
         </section>
 
-        {/* Cola en vivo priorizada con SLA */}
+        {/* Cola en vivo priorizada con SLA (clic → popup supervisión) */}
         <section className="sup-card">
           <header className="sup-card__head"><Icon name="reception" size={16} /> Cola en vivo ({queue.length})</header>
           <div className="sup-queue">
             {queue.length === 0 && <p className="help-block">Sin eventos activos.</p>}
-            {queue.slice(0, 40).map((e) => {
+            {queue.slice(0, 60).map((e) => {
               const d = slaCountdown(e)
               const breach = d != null && d < 0
               const risk = d != null && d >= 0 && d < 120000
               return (
-                <div className={`sup-q${breach ? ' is-breach' : risk ? ' is-risk' : ''}`} key={e.id}>
+                <button type="button" className={`sup-q sup-q--btn${breach ? ' is-breach' : risk ? ' is-risk' : ''}`} key={e.id} onClick={() => setOpenId(e.id)} title="Abrir verificación (solo lectura)">
                   <span className="sup-q__prio"><PriorityDot p={e.priority ?? 5} size={9} /> P{e.priority ?? 5}</span>
-                  <span className="sup-q__type">{e.type || 'evento'}</span>
+                  <span className="sup-q__type">{e.title || e.type || 'evento'}</span>
                   <span className="sup-q__site">{(e.source && e.source.site) || '—'}</span>
                   <span className="sup-q__age tnum">{fmtAge(now - Date.parse(e.ts))}</span>
                   <span className="sup-q__who">{e.assignedTo ? (opName[e.assignedTo] || 'asignado') : <em>sin asignar</em>}</span>
                   <span className={`sup-q__sla tnum${breach ? ' is-breach' : risk ? ' is-risk' : ''}`}>
                     {d == null ? '—' : breach ? `vencido ${fmtAge(-d)}` : fmtAge(d)}
                   </span>
-                </div>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+
+        {/* Actividad reciente del turno (bitácora agregada) */}
+        <section className="sup-card">
+          <header className="sup-card__head"><Icon name="rules" size={16} /> Actividad reciente</header>
+          <div className="sup-feed">
+            {activity.length === 0 && <p className="help-block">Sin actividad aún.</p>}
+            {activity.slice(0, 60).map((r, i) => {
+              const m = actMeta(r.action)
+              return (
+                <button type="button" className="sup-act" key={i} onClick={() => r.ev && setOpenId(r.ev.id)} title="Abrir evento">
+                  <span className="sup-act__time tnum">{fmtClock(r.ts)}</span>
+                  <span className={`sup-act__tag sup-act__tag--${m.tone}`}>{m.lbl}</span>
+                  <span className="sup-act__who">{r.operatorName || r.operatorId || 'sistema'}</span>
+                  <span className="sup-act__ev">{(r.ev && (r.ev.title || r.ev.type)) || '—'}</span>
+                  {r.note ? <span className="sup-act__note">{r.note}</span> : null}
+                </button>
               )
             })}
           </div>
         </section>
       </div>
+
+      {/* Drawer de bitácora del operario */}
+      {drawerOp && createPortal(
+        <div className="modal-scrim" onClick={() => setDrawerOp(null)}>
+          <aside className="sup-drawer" onClick={(e) => e.stopPropagation()}>
+            <header className="sup-drawer__head">
+              <span className="sup-drawer__id">
+                <span className="sup-ops__av sup-ops__av--lg">{(drawerOp.name || '·').slice(0, 2).toUpperCase()}</span>
+                <span>
+                  <b>{drawerOp.name}</b>
+                  <span className={`sup-badge sup-badge--${drawerOp.status === 'paused' ? 'warn' : 'ok'}`}>
+                    <StatusDot tone={drawerOp.status === 'paused' ? 'warn' : 'ok'} />{drawerOp.status === 'paused' ? 'En pausa' : 'Disponible'}
+                  </span>
+                </span>
+              </span>
+              <button type="button" className="sup-drawer__x" onClick={() => setDrawerOp(null)} aria-label="Cerrar"><Icon name="x" size={18} /></button>
+            </header>
+            <div className="sup-drawer__stats">
+              <div><strong className="tnum">{drawerOp.load || 0}</strong><span>en curso</span></div>
+              <div><strong className="tnum">{drawerOp.handled || 0}</strong><span>atendidos</span></div>
+              <div><strong className="tnum">{opActivity.length}</strong><span>acciones</span></div>
+            </div>
+
+            {opEvents.length > 0 && (
+              <div className="sup-drawer__sec">
+                <p className="sup-drawer__lbl"><Icon name="reception" size={13} /> Eventos asignados</p>
+                {opEvents.map((e) => (
+                  <button type="button" className="sup-drawer__ev" key={e.id} onClick={() => { setOpenId(e.id) }}>
+                    <PriorityDot p={e.priority ?? 5} size={9} /><span>{e.title || e.type}</span>
+                    <span className="sup-drawer__evsite">{(e.source && e.source.site) || ''}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="sup-drawer__sec">
+              <p className="sup-drawer__lbl"><Icon name="rules" size={13} /> Bitácora de actividad</p>
+              <ul className="sup-drawer__log">
+                {opActivity.length === 0 && <li className="help-block">Sin actividad registrada en los eventos en memoria.</li>}
+                {opActivity.map((r, i) => {
+                  const m = actMeta(r.action)
+                  return (
+                    <li key={i} className="sup-drawer__logitem" onClick={() => r.ev && setOpenId(r.ev.id)}>
+                      <span className="sup-act__time tnum">{fmtClock(r.ts)}</span>
+                      <span className={`sup-act__tag sup-act__tag--${m.tone}`}>{m.lbl}</span>
+                      <span className="sup-act__ev">{(r.ev && (r.ev.title || r.ev.type)) || '—'}</span>
+                      {r.note ? <span className="sup-act__note">{r.note}</span> : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          </aside>
+        </div>,
+        document.body
+      )}
+
+      {/* Popup de verificación en modo SUPERVISIÓN (solo lectura) */}
+      {openEvent && (
+        <EventPopup event={openEvent} operator={null} actions={actions} supervise onClose={() => setOpenId(null)} />
+      )}
     </div>
   )
 }

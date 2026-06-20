@@ -116,7 +116,7 @@ function EvidenceView({ event, url }) {
   )
 }
 
-export default function EventPopup({ event, operator, actions, onClose }) {
+export default function EventPopup({ event, operator, actions, onClose, supervise = false }) {
   const [procedure, setProcedure] = useState(() =>
     getProcedureFallback(event && event.procedureId)
   )
@@ -168,6 +168,7 @@ export default function EventPopup({ event, operator, actions, onClose }) {
   useEffect(() => {
     function onKey(e) {
       if (e.key === 'Escape') { onClose(); return }
+      if (supervise) return // supervisión = solo lectura, sin atajos de acción
       if (e.metaKey || e.ctrlKey || e.altKey) return
       const el = document.activeElement
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
@@ -269,6 +270,11 @@ export default function EventPopup({ event, operator, actions, onClose }) {
                 (a quién llamar, protocolo, dirección) en un evento. */}
             <ClientPanel event={event} actions={actions} critical={p <= 2} />
 
+            {supervise && (
+              <div className="evpopup__superbanner"><Icon name="gauge" size={14} /> Vista de supervisión · solo lectura</div>
+            )}
+
+            {!supervise && (<>
             <p className="evpopup__sec-lbl"><Icon name="bolt" size={13} /> Gestión del evento
               <span className="evpopup__kbdhint" title="Atajos: T Tomar · A Acuse · P En curso · E Escalar · Esc Cerrar"><b>T</b><b>A</b><b>P</b><b>E</b></span>
             </p>
@@ -343,6 +349,7 @@ export default function EventPopup({ event, operator, actions, onClose }) {
                 actions.resolve(event.id, disposition, closeNote || undefined)
               }
             />
+            </>)}
 
             <details className="evpopup__tech">
               <summary className="evpopup__tech-sum">
