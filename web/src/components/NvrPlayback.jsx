@@ -204,6 +204,15 @@ export default function NvrPlayback({ event, onClose }) {
           </span>
           <span className="nvrpb__sp" />
           {evMarks.length > 0 && <span className="nvrpb__evcount"><Icon name="bolt" size={12} /> {evMarks.length} evento{evMarks.length === 1 ? '' : 's'} en esta hora</span>}
+          {deviceId && (
+            <button type="button" className="nvrpb__back" title="Descargar un clip MP4 de 1 min desde este instante"
+              onClick={() => {
+                const a = document.createElement('a')
+                a.href = `/api/playback-clip?deviceId=${encodeURIComponent(deviceId)}&start=${hikTime(dragTime ?? playhead)}&dur=60`
+                a.download = ''
+                document.body.appendChild(a); a.click(); a.remove()
+              }}><Icon name="download" size={13} /> Descargar clip</button>
+          )}
           <button type="button" className="nvrpb__back" onClick={onClose}><Icon name="video" size={13} /> Volver al vivo</button>
         </div>
 

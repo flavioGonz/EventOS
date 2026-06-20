@@ -1,6 +1,7 @@
 // api.js — /api/health, /api/events, /api/events/:id, /api/operators (CONTRACT §3)
 import fs from "node:fs";
 import path from "node:path";
+import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import { bus } from "../bus/redisBus.js";
@@ -346,6 +347,57 @@ router.post("/playback-hls", async (req, res) => {
     res.json({ id: s.id, url: s.url });
   } catch (e) {
     res.status(502).json({ error: "pb_failed", message: e.message });
+  }
+});
+
+
+// ── Descarga de CLIP de grabación (MP4) ──────────────────────────────────────
+// Baja el segmento que cubre el instante (ContentMgmt MPEG-PS), recorta `dur`
+// segundos desde el instante pedido (con corrección de zona horaria del NVR) y
+// lo entrega como MP4 fragmentado descargable. Transcode a H.264 baseline →
+// arranque limpio y reproducible en cualquier reproductor.
+router.get("/playback-clip", async (req, res) => {
+  const deviceId = String(req.query.deviceId || "");
+  const start = String(req.query.start || "");
+  const dur = Math.min(300, Math.max(5, Number(req.query.dur) || 60));
+  if (!HIK_TIME.test(start)) return res.status(400).json({ error: "bad_time" });
+  let devices = [];
+  try { devices = listConfig("devices"); } catch { /* store */ }
+  const dev = devices.find((d) => d.id === deviceId);
+  if (!dev) return res.status(404).json({ error: "no_device" });
+  if (!dev.ip || !dev.isapiPort || !dev.username) return res.status(400).json({ error: "sin_isapi" });
+  const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
+  const startMs = compactToMs(start);
+  if (!Number.isFinite(startMs)) return res.status(400).json({ error: "bad_time" });
+  try {
+    const off = await deviceTimeOffsetMs(dev);
+    const sMs = startMs + off;
+    const seg = await searchSegment(dev, ch * 100 + 1, sMs - 60000, sMs + dur * 1000);
+    if (!seg) return res.status(404).json({ error: "no_recording", message: "No hay grabación en ese instante." });
+    const ss = Math.max(0, (sMs - seg.segStartMs) / 1000);
+    const dl = await openDownload(dev, seg.uri);
+    const fname = `${(dev.name || "camara").replace(/[^\w.-]+/g, "_")}-${start}.mp4`;
+    res.setHeader("Content-Type", "video/mp4");
+    res.setHeader("Content-Disposition", `attachment; filename="${fname}"`);
+    const args = [
+      "-nostdin", "-fflags", "+genpts", "-i", "pipe:0",
+      "-ss", ss.toFixed(2), "-t", String(dur), "-an",
+      "-c:v", "libx264", "-preset", "veryfast", "-profile:v", "baseline", "-pix_fmt", "yuv420p",
+      "-movflags", "frag_keyframe+empty_moov+default_base_moof", "-f", "mp4", "pipe:1",
+    ];
+    const proc = spawn("ffmpeg", args, { stdio: ["pipe", "pipe", "pipe"] });
+    let errTail = "";
+    proc.stderr.on("data", (d) => { errTail = (errTail + d.toString()).slice(-600); });
+    proc.stdin.on("error", () => { /* EPIPE */ });
+    dl.stream.on("error", () => { try { proc.stdin.end(); } catch { /* noop */ } });
+    dl.stream.on("end", () => { try { proc.stdin.end(); } catch { /* noop */ } });
+    dl.stream.pipe(proc.stdin);
+    proc.stdout.pipe(res);
+    const cleanup = () => { try { dl.abort && dl.abort(); } catch { /* noop */ } try { proc.kill("SIGKILL"); } catch { /* noop */ } };
+    res.on("close", cleanup);
+    proc.on("exit", (code) => { if (code && code !== 255 && code !== 0) console.warn(`[clip] ffmpeg ${code}: ${errTail.slice(-200)}`); });
+  } catch (e) {
+    if (!res.headersSent) res.status(502).json({ error: "clip_failed", message: e.message });
   }
 });
 
