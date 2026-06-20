@@ -10,6 +10,7 @@ import { createPortal } from 'react-dom'
 import { Icon, Segmented, Button } from '../ui/primitives.jsx'
 import { Go2RtcView } from './CameraLive.jsx'
 import NvrPlayback from './NvrPlayback.jsx'
+import { api, getAdminToken } from '../lib/adminApi.js'
 import { useConsole } from '../lib/socket.js'
 
 const LAYOUTS = [
@@ -29,11 +30,14 @@ function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val))
 
 // Celda: snapshot near-live, o vivo go2rtc si `live`. Si el snapshot falla
 // (cámara sin señal) muestra un estado claro en vez de imagen rota.
-function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, onMoveCell, onPlayback }) {
+function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, onMoveCell, onPlayback, editTrack, cameras, onFollow, onSaveLinks }) {
   const [t, setT] = useState(0)
   const [over, setOver] = useState(false)
   const [failed, setFailed] = useState(false)
+  const [pending, setPending] = useState(null) // {x,y} normalizado para nuevo hotspot
   const cellRef = useRef(null)
+  const links = (cam && Array.isArray(cam.wallLinks)) ? cam.wallLinks : []
+  useEffect(() => { setPending(null) }, [cam, editTrack])
   useEffect(() => {
     if (!cam || live) return
     setT(Date.now())
@@ -63,11 +67,28 @@ function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, o
     document.body.appendChild(a); a.click(); a.remove()
   }, [cam])
 
+  // Visual tracking: en modo edición, clic sobre el video deja un punto donde
+  // colocar un hotspot; se elige la cámara destino y se guarda en el servidor.
+  const onSurfaceClick = (e) => {
+    if (!editTrack || !cam) return
+    const rect = cellRef.current.getBoundingClientRect()
+    const x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    const y = Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height))
+    setPending({ x, y })
+  }
+  const addLink = (targetId) => {
+    if (!targetId || !pending || !cam) return setPending(null)
+    const tgt = cameras.find((cc) => cc.id === targetId)
+    const link = { id: `lk_${Math.random().toString(36).slice(2, 8)}`, x: pending.x, y: pending.y, target: targetId, label: (tgt && tgt.name) || '' }
+    onSaveLinks(cam.id, [...links, link]); setPending(null)
+  }
+  const removeLink = (lid) => onSaveLinks(cam.id, links.filter((l) => l.id !== lid))
+
   return (
     <div ref={cellRef} className={`wallcell${focused ? ' is-focus' : ''}${cam ? '' : ' is-empty'}${over ? ' is-dragover' : ''}`}
       onClick={onClick}
       onDoubleClick={(e) => { if (cam) { e.preventDefault(); toggleFs() } }}
-      draggable={!!cam}
+      draggable={!!cam && !editTrack}
       onDragStart={(e) => { e.dataTransfer.setData('text/cell', String(index)); e.dataTransfer.effectAllowed = 'move' }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!over) setOver(true) }}
       onDragLeave={() => setOver(false)}
@@ -98,6 +119,34 @@ function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, o
               onClick={(e) => { e.stopPropagation(); onClear() }}><Icon name="x" size={13} /></button>
           </div>
           {live && <span className="wallcell__live">● EN VIVO</span>}
+
+          {(links.length > 0 || editTrack) && (
+            <div className={`wallcell__hot${editTrack ? ' is-edit' : ''}`} onClick={onSurfaceClick}>
+              {editTrack && <span className="wallcell__hothint"><Icon name="route" size={12} /> Clic para añadir cámara vecina</span>}
+              {links.map((l) => {
+                const tgt = cameras.find((cc) => cc.id === l.target)
+                return (
+                  <button key={l.id} type="button" className="wallhot" style={{ left: `${l.x * 100}%`, top: `${l.y * 100}%` }}
+                    title={editTrack ? 'Quitar' : `Ir a ${(tgt && tgt.name) || l.label || 'cámara'}`}
+                    onClick={(e) => { e.stopPropagation(); if (editTrack) removeLink(l.id); else onFollow(l.target) }}>
+                    <Icon name="camera" size={13} />
+                    <span className="wallhot__lbl">{l.label || (tgt && tgt.name) || '—'}</span>
+                  </button>
+                )
+              })}
+              {pending && (
+                <div className="wallhot__pick" style={{ left: `${pending.x * 100}%`, top: `${pending.y * 100}%` }} onClick={(e) => e.stopPropagation()}>
+                  <select autoFocus defaultValue="" onChange={(e) => addLink(e.target.value)}>
+                    <option value="" disabled>Cámara destino…</option>
+                    {cameras.filter((cc) => cc.id !== cam.id).map((cc) => (
+                      <option key={cc.id} value={cc.id}>{cc.channel ? `#${cc.channel} ` : ''}{cc.name}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => setPending(null)} aria-label="Cancelar"><Icon name="x" size={12} /></button>
+                </div>
+              )}
+            </div>
+          )}
         </>
       ) : (
         <div className="wallcell__empty"><Icon name="camera" size={22} /><span>Asignar cámara</span></div>
@@ -126,6 +175,7 @@ export default function Videowall() {
   const [carouselSec, setCarouselSec] = useState(initial.carouselSec || 10)
   const [presets, setPresets] = useState(() => loadLS(LS_PRESETS, {}))
   const [pbCam, setPbCam] = useState(null) // cámara con el modal de grabación abierto
+  const [editTrack, setEditTrack] = useState(false) // modo edición de hotspots de seguimiento
 
   const n = layoutCells(layout)
   const { events } = useConsole(null) // solo para escuchar alarmas (sin identidad)
@@ -171,6 +221,20 @@ export default function Videowall() {
   }, [focus])
   const clearCell = (i) => setCells((c) => { const next = c.slice(); next[i] = null; return next })
   const toggleLive = (i) => setLive((l) => { const next = l.slice(); next[i] = !next[i]; return next })
+  // Reemplaza la cámara de una celda (al hacer clic en un hotspot de seguimiento).
+  const followInCell = useCallback((i, targetId) => {
+    if (!targetId) return
+    setCells((c) => { const next = c.slice(); next[i] = targetId; return next }); setFocus(i)
+  }, [])
+  // Guarda los hotspots de una cámara: optimista en memoria + persistencia admin.
+  const saveLinks = useCallback(async (camId, links) => {
+    setCameras((cs) => cs.map((c) => (c.id === camId ? { ...c, wallLinks: links } : c)))
+    try { await api.put(`/devices/${camId}`, { wallLinks: links }) }
+    catch (e) {
+      const msg = e && e.status === 401 ? 'Necesitás iniciar sesión de supervisor para guardar el seguimiento.' : 'No se pudo guardar el seguimiento.'
+      window.alert(msg)
+    }
+  }, [])
   // Drag & drop: arrastrar una celda sobre otra las INTERCAMBIA (cámara + estado vivo).
   const moveCell = useCallback((from, to) => {
     setCells((c) => { const n = c.slice();[n[from], n[to]] = [n[to], n[from]]; return n })
@@ -255,6 +319,9 @@ export default function Videowall() {
             onChange={(e) => setCarouselSec(Number(e.target.value) || 10)} title="Segundos por rotación" />
         )}
         <Button variant="ghost" size="sm" icon="camera" onClick={() => setPickerOpen((v) => !v)}>Cámaras</Button>
+        <Button variant={editTrack ? 'primary' : 'ghost'} size="sm" icon="route"
+          onClick={() => setEditTrack((v) => { const nv = !v; if (nv && !getAdminToken()) window.alert('Para editar el seguimiento iniciá sesión de supervisor (panel de administración) en este navegador; sin eso no se podrá guardar.'); return nv })}
+          title="Colocar iconos de cámaras vecinas sobre el video (seguimiento). Se guarda en el servidor.">Seguimiento</Button>
         <Button variant="ghost" size="sm" icon="check" onClick={savePreset}>Guardar</Button>
         {Object.keys(presets).length > 0 && (
           <select className="wall__presets" value="" onChange={(e) => { if (e.target.value) loadPreset(e.target.value) }}>
@@ -272,7 +339,9 @@ export default function Videowall() {
             <WallCell key={i} index={i} cam={camById[cells[i]] || null} live={!!live[i]} focused={focus === i}
               onClick={() => { setFocus(i); if (!cells[i]) setPickerOpen(true) }}
               onClear={() => clearCell(i)} onToggleLive={() => toggleLive(i)} onMoveCell={moveCell}
-              onPlayback={() => setPbCam(camById[cells[i]] || null)} />
+              onPlayback={() => setPbCam(camById[cells[i]] || null)}
+              editTrack={editTrack} cameras={cameras}
+              onFollow={(tid) => followInCell(i, tid)} onSaveLinks={saveLinks} />
           ))}
         </div>
 

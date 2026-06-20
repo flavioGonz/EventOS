@@ -599,6 +599,7 @@ router.get("/cameras", (req, res) => {
       site: siteName(d.siteId),
       streamUrl: d.streamUrl || null, // HLS/WebRTC/MJPEG (gateway) — opcional
       snapshotUrl: d.snapshotUrl || null, // imagen fija refrescable — opcional
+      wallLinks: Array.isArray(d.wallLinks) ? d.wallLinks : [], // hotspots de seguimiento (visual tracking)
     }))
     .filter(
       (d) =>

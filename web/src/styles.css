@@ -2239,3 +2239,32 @@
 .wallpb__x:hover { background:color-mix(in srgb, var(--text) 10%, transparent); color:var(--text); }
 .wallpb__body { flex:1 1 auto; min-height:0; display:flex; padding:14px; height:min(72vh,700px); }
 .wallpb__body > * { flex:1; min-height:0; }
+
+/* ── Wall F2: visual tracking (hotspots de seguimiento) ────────────────────── */
+.wallcell__bar { z-index:6; }
+.wallcell__live { z-index:6; }
+.wallcell__hot { position:absolute; inset:0; z-index:5; pointer-events:none; }
+.wallcell__hot.is-edit { pointer-events:auto; cursor:crosshair; }
+.wallcell__hothint { position:absolute; top:8px; left:50%; transform:translateX(-50%); pointer-events:none;
+  display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px;
+  background:rgba(10,14,26,.7); color:#fff; font-size:11px; font-weight:600; white-space:nowrap; }
+.wallhot { position:absolute; transform:translate(-50%,-50%); pointer-events:auto;
+  display:inline-flex; align-items:center; gap:5px; padding:4px 9px 4px 7px; border:1px solid rgba(255,255,255,.35);
+  border-radius:999px; background:rgba(10,14,26,.62); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
+  color:#fff; font-size:11px; font-weight:650; cursor:pointer; white-space:nowrap; box-shadow:0 2px 10px rgba(0,0,0,.45);
+  transition:transform .12s, background .12s, border-color .12s; }
+.wallhot:hover { transform:translate(-50%,-50%) scale(1.08); background:var(--accent); border-color:var(--accent); }
+.wallhot svg { color:var(--accent); flex:0 0 auto; }
+.wallhot:hover svg { color:#fff; }
+.wallhot__lbl { max-width:130px; overflow:hidden; text-overflow:ellipsis; }
+.wallcell__hot.is-edit .wallhot { border-color:rgba(255,120,120,.6); }
+.wallcell__hot.is-edit .wallhot:hover { background:var(--crit); border-color:var(--crit); }
+.wallcell__hot.is-edit .wallhot:hover svg { color:#fff; }
+.wallhot__pick { position:absolute; transform:translate(-50%,-50%); pointer-events:auto; z-index:7;
+  display:inline-flex; align-items:center; gap:4px; padding:4px; border-radius:10px;
+  background:#12151c; border:1px solid rgba(255,255,255,.18); box-shadow:0 10px 30px rgba(0,0,0,.5); }
+.wallhot__pick select { background:#1b2230; color:#fff; border:1px solid rgba(255,255,255,.18); border-radius:7px;
+  padding:5px 8px; font-size:12px; max-width:200px; }
+.wallhot__pick > button { display:grid; place-items:center; width:26px; height:26px; border:0; border-radius:7px;
+  background:rgba(255,255,255,.1); color:#fff; cursor:pointer; }
+.wallhot__pick > button:hover { background:rgba(255,255,255,.2); }
