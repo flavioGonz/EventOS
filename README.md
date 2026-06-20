@@ -3,12 +3,12 @@
 # ⚡ EventOS · ARC
 
 ### Central Receptora de Alarmas (ARC) y Centro de Verificación en Vivo
+<img width="1920" height="944" alt="image" src="https://github.com/user-attachments/assets/5378e6de-4828-4a5f-bd71-91715714ed81" />
 
 *Recibí, verificá y despachá eventos de seguridad en tiempo real — cámaras, NVR, analíticas de IA, alarmas y control de accesos — desde una sola consola.*
 
 <!-- 📸 BANNER / HERO — Captura amplia de la consola del operador (mapa + board). Guardar en: docs/img/hero.png -->
 ![EventOS — Consola de operación]
-<img width="1920" height="944" alt="image" src="https://github.com/user-attachments/assets/5378e6de-4828-4a5f-bd71-91715714ed81" />
 
 
 `Node.js` · `Express` · `Socket.io` · `Redis` · `React` · `Vite` · `Leaflet` · `go2rtc` · `Hikvision ISAPI`
