@@ -2144,3 +2144,12 @@
   transition: background .12s, color .12s; }
 .evpopup__walltabs button:hover { color: #fff; }
 .evpopup__walltabs button.is-on { background: rgba(255,255,255,.18); color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+
+
+/* Popup acciones: sin bloque blanco detras + botones secondary en gris (no blanco) */
+.evpopup__op .evpopup__actions { background: transparent; box-shadow: none; }
+.evpopup__actions .btn--secondary, .evpopup__noterow .btn--secondary {
+  background: var(--surface-2); border-color: var(--border); border-radius: var(--r);
+  -webkit-backdrop-filter: none; backdrop-filter: none; }
+.evpopup__actions .btn--secondary:hover, .evpopup__noterow .btn--secondary:hover {
+  background: color-mix(in srgb, var(--surface-2) 86%, var(--text)); }
