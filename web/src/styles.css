@@ -577,7 +577,7 @@
   flex: 1;
 }
 /* Controles del muro como OVERLAY flotante sobre el video (lenguaje de reproductor,
-   coherente con Evidencia/Grabación): nada de banda clara encima del video. */
+   coherente con Evidencia/Grabacion): nada de banda clara encima del video. */
 .camwall__bar {
   position: absolute;
   top: 12px;
@@ -603,7 +603,6 @@
   letter-spacing: 0;
 }
 .camwall__count svg { color: var(--accent); }
-/* IconButton refresh legible sobre el video */
 .camwall__bar .icon-btn {
   color: rgba(255,255,255,.9);
   background: rgba(10,14,26,.55);
@@ -2213,4 +2212,8 @@
 .evpopup__wall { padding: 0; }
 .evidence { border-radius: 0; }
 .evidence__img { width: 100%; height: 100%; object-fit: cover; max-width: none; max-height: none; }
-.evidence--ana .evidence__img { width: auto; height: auto; max-width: 
+.evidence--ana .evidence__img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; }
+.evpopup__wall::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 66px; z-index: 6; pointer-events: none;
+  background: linear-gradient(rgba(0,0,0,.5), transparent); }
+.evidence__cap { background: linear-gradient(transparent, rgba(0,0,0,.82)); padding: 26px 16px 13px; }
+.evidence__time { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; color: rgba(255,255,255,.85); }
