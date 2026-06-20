@@ -232,6 +232,12 @@ export default function EventPopup({ event, operator, actions, onClose }) {
         <div className="evpopup__body">
           {/* IZQUIERDA — Muro de video (o playback del NVR) */}
           <div className="evpopup__wall">
+            <div className="evpopup__walltabs">
+              <Segmented value={mode} onChange={setMode} options={[
+                { value: 'evidence', label: 'Evidencia' },
+                ...(hasCamera ? [{ value: 'live', label: 'En vivo' }, { value: 'rec', label: 'Grabación' }] : []),
+              ]} />
+            </div>
             {mode === 'rec'
               ? <NvrPlayback event={event} onClose={() => setMode('live')} />
               : mode === 'evidence'
@@ -275,13 +281,6 @@ export default function EventPopup({ event, operator, actions, onClose }) {
             {/* CLIENTE · RESPUESTA arriba: lo PRIMERO que el operador necesita
                 (a quién llamar, protocolo, dirección) en un evento. */}
             <ClientPanel event={event} actions={actions} critical={p <= 2} />
-
-            <div className="evpopup__videobtns">
-              <Segmented value={mode} onChange={setMode} options={[
-                { value: 'evidence', label: 'Evidencia' },
-                ...(hasCamera ? [{ value: 'live', label: 'En vivo' }, { value: 'rec', label: 'Grabación' }] : []),
-              ]} />
-            </div>
 
             <p className="evpopup__sec-lbl"><Icon name="bolt" size={13} /> Gestión del evento
               <span className="evpopup__kbdhint" title="Atajos: T Tomar · A Acuse · P En curso · E Escalar · Esc Cerrar"><b>T</b><b>A</b><b>P</b><b>E</b></span>
