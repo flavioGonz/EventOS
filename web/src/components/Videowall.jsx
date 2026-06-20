@@ -6,8 +6,10 @@
 // la cámara, transcodificado → SPS válido). Tope de vivos concurrentes para no
 // exceder el límite de RTSP del NVR ni saturar la CPU del transcode.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon, Segmented, Button } from '../ui/primitives.jsx'
 import { Go2RtcView } from './CameraLive.jsx'
+import NvrPlayback from './NvrPlayback.jsx'
 import { useConsole } from '../lib/socket.js'
 
 const LAYOUTS = [
@@ -27,10 +29,11 @@ function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val))
 
 // Celda: snapshot near-live, o vivo go2rtc si `live`. Si el snapshot falla
 // (cámara sin señal) muestra un estado claro en vez de imagen rota.
-function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, onMoveCell }) {
+function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, onMoveCell, onPlayback }) {
   const [t, setT] = useState(0)
   const [over, setOver] = useState(false)
   const [failed, setFailed] = useState(false)
+  const cellRef = useRef(null)
   useEffect(() => {
     if (!cam || live) return
     setT(Date.now())
@@ -39,9 +42,31 @@ function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, o
   }, [cam, live])
   useEffect(() => { setFailed(false) }, [cam, live])
 
+  // Pantalla completa real (Fullscreen API) sobre la celda. Doble-clic la activa
+  // / desactiva; también hay botón en la barra. La celda llena el monitor.
+  const toggleFs = useCallback(() => {
+    const el = cellRef.current
+    if (!el) return
+    if (document.fullscreenElement === el) { document.exitFullscreen?.() }
+    else if (document.fullscreenElement) { document.exitFullscreen?.().then(() => el.requestFullscreen?.()) }
+    else { el.requestFullscreen?.() }
+  }, [])
+
+  // Descargar el snapshot actual de la cámara como JPG.
+  const downloadSnap = useCallback((e) => {
+    e.stopPropagation()
+    if (!cam) return
+    const a = document.createElement('a')
+    a.href = `/api/camera/${cam.id}/snapshot?t=${Date.now()}`
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    a.download = `${(cam.name || 'camara').replace(/\s+/g, '_')}-${stamp}.jpg`
+    document.body.appendChild(a); a.click(); a.remove()
+  }, [cam])
+
   return (
-    <div className={`wallcell${focused ? ' is-focus' : ''}${cam ? '' : ' is-empty'}${over ? ' is-dragover' : ''}`}
+    <div ref={cellRef} className={`wallcell${focused ? ' is-focus' : ''}${cam ? '' : ' is-empty'}${over ? ' is-dragover' : ''}`}
       onClick={onClick}
+      onDoubleClick={(e) => { if (cam) { e.preventDefault(); toggleFs() } }}
       draggable={!!cam}
       onDragStart={(e) => { e.dataTransfer.setData('text/cell', String(index)); e.dataTransfer.effectAllowed = 'move' }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!over) setOver(true) }}
@@ -63,6 +88,12 @@ function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, o
             <span className="wallcell__sp" />
             <button type="button" className={`wallcell__btn${live ? ' is-on' : ''}`} title="En vivo"
               onClick={(e) => { e.stopPropagation(); onToggleLive() }}><Icon name="bolt" size={13} /></button>
+            <button type="button" className="wallcell__btn" title="Grabación / eventos"
+              onClick={(e) => { e.stopPropagation(); onPlayback() }}><Icon name="clock" size={13} /></button>
+            <button type="button" className="wallcell__btn" title="Descargar foto"
+              onClick={downloadSnap}><Icon name="download" size={13} /></button>
+            <button type="button" className="wallcell__btn" title="Pantalla completa (doble-clic)"
+              onClick={(e) => { e.stopPropagation(); toggleFs() }}><Icon name="expand" size={13} /></button>
             <button type="button" className="wallcell__btn" title="Quitar"
               onClick={(e) => { e.stopPropagation(); onClear() }}><Icon name="x" size={13} /></button>
           </div>
@@ -94,6 +125,7 @@ export default function Videowall() {
   const [carousel, setCarousel] = useState(false)
   const [carouselSec, setCarouselSec] = useState(initial.carouselSec || 10)
   const [presets, setPresets] = useState(() => loadLS(LS_PRESETS, {}))
+  const [pbCam, setPbCam] = useState(null) // cámara con el modal de grabación abierto
 
   const n = layoutCells(layout)
   const { events } = useConsole(null) // solo para escuchar alarmas (sin identidad)
@@ -239,7 +271,8 @@ export default function Videowall() {
           {Array.from({ length: n }, (_, i) => (
             <WallCell key={i} index={i} cam={camById[cells[i]] || null} live={!!live[i]} focused={focus === i}
               onClick={() => { setFocus(i); if (!cells[i]) setPickerOpen(true) }}
-              onClear={() => clearCell(i)} onToggleLive={() => toggleLive(i)} onMoveCell={moveCell} />
+              onClear={() => clearCell(i)} onToggleLive={() => toggleLive(i)} onMoveCell={moveCell}
+              onPlayback={() => setPbCam(camById[cells[i]] || null)} />
           ))}
         </div>
 
@@ -281,6 +314,23 @@ export default function Videowall() {
             </span>
           ))}
         </div>
+      )}
+
+      {pbCam && createPortal(
+        <div className="modal-scrim" onClick={() => setPbCam(null)}>
+          <div className="wallpb" onClick={(e) => e.stopPropagation()}>
+            <header className="wallpb__head">
+              <span className="wallpb__title"><Icon name="clock" size={16} /> Grabación · {pbCam.channel ? `#${pbCam.channel} ` : ''}{pbCam.name}</span>
+              <button type="button" className="wallpb__x" onClick={() => setPbCam(null)} aria-label="Cerrar"><Icon name="x" size={18} /></button>
+            </header>
+            <div className="wallpb__body">
+              <NvrPlayback
+                event={{ id: `live_${pbCam.id}`, ts: Date.now(), source: { deviceId: pbCam.id } }}
+                onClose={() => setPbCam(null)} />
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   )

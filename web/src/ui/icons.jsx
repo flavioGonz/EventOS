@@ -56,6 +56,7 @@ const GLYPHS = {
   video:      <><rect x="3" y="6" width="13" height="12" rx="2" /><path d="M16 10l5-3v10l-5-3z" /></>,
   refresh:    <><path d="M20 11a8 8 0 0 0-14-4M4 5v3h3" /><path d="M4 13a8 8 0 0 0 14 4M20 19v-3h-3" /></>,
   expand:     <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
+  download:   <><path d="M12 3v12M8 11l4 4 4-4" /><path d="M5 21h14" /></>,
   grid:       <><rect x="3" y="3" width="8" height="8" rx="1.5" /><rect x="13" y="3" width="8" height="8" rx="1.5" /><rect x="3" y="13" width="8" height="8" rx="1.5" /><rect x="13" y="13" width="8" height="8" rx="1.5" /></>,
   phone:      <path d="M6.5 3h3l1.5 4-2 1.5a12 12 0 0 0 5 5L15.5 11l4 1.5v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4.5 5.2 2 2 0 0 1 6.5 3z" />,
   user:       <><circle cx="12" cy="8" r="3.5" /><path d="M5 20a7 7 0 0 1 14 0" /></>,
