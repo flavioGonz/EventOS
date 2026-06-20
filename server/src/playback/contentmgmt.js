@@ -79,6 +79,23 @@ export function compactToMs(c) {
 }
 const toISO = (ms) => new Date(ms).toISOString().replace(/\.\d+Z$/, "Z");
 
+// Offset (ms) entre UTC y la hora LOCAL del NVR. Las grabaciones Hik se etiquetan
+// en hora local (con `Z` engañoso); para buscar/descargar hay que enviar el
+// reloj LOCAL, no UTC. localMs = utcMs + offset. Cacheado por equipo.
+const tzCache = new Map();
+export async function deviceTimeOffsetMs(dev) {
+  const key = `${dev.ip}:${dev.isapiPort}`;
+  if (tzCache.has(key)) return tzCache.get(key);
+  let off = 0;
+  try {
+    const r = await authedText(dev, "GET", "/ISAPI/System/time");
+    const m = /<localTime>[^<]*?([+-])(\d{2}):(\d{2})<\/localTime>/.exec(r.text || "");
+    if (m) { const sign = m[1] === "-" ? -1 : 1; off = sign * (Number(m[2]) * 60 + Number(m[3])) * 60000; }
+  } catch { /* fallback: UTC */ }
+  tzCache.set(key, off);
+  return off;
+}
+
 // Busca el segmento grabado que cubre `startMs` para el track. null si no hay.
 export async function searchSegment(dev, trackId, startMs, endMs) {
   const sx =

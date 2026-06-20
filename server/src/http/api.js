@@ -7,7 +7,7 @@ import { bus } from "../bus/redisBus.js";
 import { listEvents, getEvent, listOperators, queueState } from "../dispatch/store.js";
 import { getDispatch, list as listConfig, getProcedure, getVideo } from "../config/store.js";
 import { startHls, startHlsFromStream, sessionFile, stopHls, keepAlive } from "../playback/hls.js";
-import { searchSegment, openDownload, compactToMs } from "../playback/contentmgmt.js";
+import { searchSegment, openDownload, compactToMs, deviceTimeOffsetMs } from "../playback/contentmgmt.js";
 import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
 import { verifyPin } from "../auth/pin.js";
 import { config } from "../config.js";
@@ -330,14 +330,18 @@ router.post("/playback-hls", async (req, res) => {
     // Grabación H.264+: el restream RTSP del NVR es indecodificable, pero el DOWNLOAD
     // de ContentMgmt entrega MPEG-PS limpio. El NVR graba el MAIN → track ch*100+1.
     // Buscamos el segmento que cubre el instante, lo bajamos y hacemos input-seek (ss).
-    const seg = await searchSegment(dev, ch * 100 + 1, startMs - 60000, endMs);
+    // ZONA HORARIA: el NVR etiqueta grabaciones en hora LOCAL (no UTC). Convertimos
+    // el instante UTC pedido al reloj local del equipo antes de buscar/acotar.
+    const off = await deviceTimeOffsetMs(dev);
+    const sMs = startMs + off, eMs = endMs + off;
+    const seg = await searchSegment(dev, ch * 100 + 1, sMs - 60000, eMs);
     if (!seg) return res.status(404).json({ error: "no_recording", message: "No hay grabación en ese instante." });
     // El download arranca SIEMPRE al inicio del archivo del segmento (el NVR ignora
     // Range y no recorta por tiempo). El input-seek de ffmpeg no funciona sobre un
     // pipe → reproducimos como VOD desde el inicio del archivo y el reproductor
     // hace seek dentro de lo producido. Acotamos cuánto producir (hasta el fin de
     // la ventana pedida, máx 20 min) para no copiar archivos de ~80 min enteros.
-    const dur = Math.min(1200, Math.max(60, (endMs - seg.segStartMs) / 1000));
+    const dur = Math.min(1200, Math.max(60, (eMs - seg.segStartMs) / 1000));
     const s = await startHlsFromStream({ key: `pb:${deviceId}:${start}`, vod: true, dur, open: () => openDownload(dev, seg.uri) });
     res.json({ id: s.id, url: s.url });
   } catch (e) {
