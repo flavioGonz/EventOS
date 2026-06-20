@@ -7,10 +7,6 @@
 
 *Recibí, verificá y despachá eventos de seguridad en tiempo real — cámaras, NVR, analíticas de IA, alarmas y control de accesos — desde una sola consola.*
 
-<!-- 📸 BANNER / HERO — Captura amplia de la consola del operador (mapa + board). Guardar en: docs/img/hero.png -->
-![EventOS — Consola de operación]
-
-
 `Node.js` · `Express` · `Socket.io` · `Redis` · `React` · `Vite` · `Leaflet` · `go2rtc` · `Hikvision ISAPI`
 
 </div>
