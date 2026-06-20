@@ -233,10 +233,11 @@ export default function EventPopup({ event, operator, actions, onClose }) {
           {/* IZQUIERDA — Muro de video (o playback del NVR) */}
           <div className="evpopup__wall">
             <div className="evpopup__wallsrc" title={sourceLine(event)}><Icon name="camera" size={13} /> {sourceLine(event)}</div>
-            <div className="evpopup__walltabs" role="tablist">
-              <button type="button" className={mode === 'evidence' ? 'is-on' : ''} onClick={() => setMode('evidence')}>Evidencia</button>
-              {hasCamera && <button type="button" className={mode === 'live' ? 'is-on' : ''} onClick={() => setMode('live')}>En vivo</button>}
-              {hasCamera && <button type="button" className={mode === 'rec' ? 'is-on' : ''} onClick={() => setMode('rec')}>Grabación</button>}
+            <div className="evpopup__tabs">
+              <Segmented value={mode} onChange={setMode} options={[
+                { value: 'evidence', label: 'Evidencia' },
+                ...(hasCamera ? [{ value: 'live', label: 'En vivo' }, { value: 'rec', label: 'Grabación' }] : []),
+              ]} />
             </div>
             {mode === 'rec'
               ? <NvrPlayback event={event} onClose={() => setMode('live')} />

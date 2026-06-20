@@ -2161,3 +2161,7 @@
   -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px); border: 1px solid rgba(255,255,255,.13);
   color: rgba(255,255,255,.92); font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .evpopup__wallsrc svg { color: var(--accent); flex: 0 0 auto; }
+
+
+/* Tabs del popup: mismo estilo que Hero/2x2/3x3 (componente Segmented), solo posicionado */
+.evpopup__tabs { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 8; }
