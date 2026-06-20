@@ -232,7 +232,6 @@ export default function EventPopup({ event, operator, actions, onClose }) {
         <div className="evpopup__body">
           {/* IZQUIERDA — Muro de video (o playback del NVR) */}
           <div className="evpopup__wall">
-            <div className="evpopup__wallsrc" title={sourceLine(event)}><Icon name="camera" size={13} /> {sourceLine(event)}</div>
             <div className="evpopup__tabs">
               <Segmented value={mode} onChange={setMode} options={[
                 { value: 'evidence', label: 'Evidencia' },
@@ -281,16 +280,18 @@ export default function EventPopup({ event, operator, actions, onClose }) {
                 variant="primary"
                 icon="check"
                 className="evpopup__take"
+                data-tip="Te asignás el evento y empezás a gestionarlo · atajo T"
                 disabled={closed || mine || assignedToOther}
                 onClick={() => actions.claim(event.id)}
               >
                 {mine ? 'Tomado' : assignedToOther ? 'Tomado por otro' : 'Tomar'}
               </Button>
-              <Button variant="secondary" disabled={closed} onClick={() => actions.ack(event.id)}>
+              <Button variant="secondary" data-tip="Acuse de recibo: confirmás que viste la alarma, sin resolverla · atajo A" disabled={closed} onClick={() => actions.ack(event.id)}>
                 Acuse
               </Button>
               <Button
                 variant="secondary"
+                data-tip="Marcás que estás trabajando el evento (en curso) · atajo P"
                 disabled={closed}
                 onClick={() => actions.progress(event.id, note.trim() || undefined)}
               >
@@ -299,6 +300,7 @@ export default function EventPopup({ event, operator, actions, onClose }) {
               <Button
                 variant="danger"
                 icon="alert"
+                data-tip="Derivás el evento a supervisión / lo escalás · atajo E"
                 disabled={closed}
                 onClick={() => actions.escalate(event.id, note.trim() || undefined)}
               >
@@ -315,7 +317,7 @@ export default function EventPopup({ event, operator, actions, onClose }) {
                 onKeyDown={(e) => e.key === 'Enter' && sendNote()}
                 disabled={closed}
               />
-              <Button variant="secondary" onClick={sendNote} disabled={closed || !note.trim()}>
+              <Button variant="secondary" data-tip="Agregás una nota a la bitácora del evento" onClick={sendNote} disabled={closed || !note.trim()}>
                 Nota
               </Button>
             </div>
@@ -328,7 +330,7 @@ export default function EventPopup({ event, operator, actions, onClose }) {
                     <option value="">— Elegir grupo —</option>
                     {groups.map((g) => <option key={g.id} value={g.id}>{g.name} · {g.memberCount} op.</option>)}
                   </Select>
-                  <Button variant="secondary" icon="route" disabled={closed || !groupSel}
+                  <Button variant="secondary" icon="route" data-tip="Transferís el evento al grupo de operarios elegido" disabled={closed || !groupSel}
                     onClick={() => { actions.transfer(event.id, groupSel); setGroupSel(''); onClose() }}>
                     Transferir
                   </Button>
