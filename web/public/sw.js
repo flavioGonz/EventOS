@@ -22,7 +22,8 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;     // CDN/tiles: dejar pasar
-  if (bypass(url.pathname)) return;                     // datos en vivo: nunca cachear
+  if (bypass(url.pathname)) return;                     // datos/video en vivo: nunca interceptar
+
   if (req.mode === 'navigate') {                        // navegaciones: red, fallback al shell
     e.respondWith((async () => {
       try { return await fetch(req); }
@@ -33,14 +34,19 @@ self.addEventListener('fetch', (e) => {
   if (url.pathname.startsWith('/assets/')) {            // bundle hasheado: cache-first
     e.respondWith((async () => {
       const hit = await caches.match(req); if (hit) return hit;
-      const net = await fetch(req); const c = await caches.open(ASSETS); c.put(req, net.clone()); return net;
+      try { const net = await fetch(req); const c = await caches.open(ASSETS); c.put(req, net.clone()); return net; }
+      catch (_) { return Response.error(); }
     })());
     return;
   }
-  e.respondWith((async () => {                          // resto: stale-while-revalidate
+  e.respondWith((async () => {                          // resto: stale-while-revalidate (SIEMPRE devuelve Response)
     const c = await caches.open(ASSETS);
     const hit = await c.match(req);
-    const p = fetch(req).then((net) => { c.put(req, net.clone()); return net; }).catch(() => hit);
-    return hit || p;
+    if (hit) {
+      fetch(req).then((net) => c.put(req, net.clone())).catch(() => {});
+      return hit;
+    }
+    try { const net = await fetch(req); c.put(req, net.clone()); return net; }
+    catch (_) { return (await caches.match('/offline.html')) || Response.error(); }
   })());
 });
