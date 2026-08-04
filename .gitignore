@@ -1,4 +1,4 @@
-# Dependencias y build
+﻿# Dependencias y build
 node_modules/
 dist/
 
@@ -9,7 +9,7 @@ server/.env
 web/.env
 .DS_Store
 
-# ===== Datos operativos y SECRETOS — NO versionar =====
+# ===== Datos operativos y SECRETOS â€” NO versionar =====
 # (config con credenciales de NVR/tokens, eventos, evidencia, logs de operador)
 server/data/
 
@@ -17,9 +17,13 @@ server/data/
 .git_deploy_key
 .git_deploy_key.pub
 
-# Backups y temporales (raíz del proyecto)
+# Backups y temporales (raÃ­z del proyecto)
 /_*
 *.bak
 *.bak-*
 *.tgz
 web/src/.App.bak
+
+isapi/reports/
+isapi/openapi/catalog.sqlite
+

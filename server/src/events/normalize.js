@@ -4,6 +4,7 @@
 
 import { randomUUID } from "node:crypto";
 import { catalogEntry } from "./catalog.js";
+import { resolvePoint } from "./points.js";
 
 const newId = () => "evt_" + randomUUID();
 const nowIso = () => new Date().toISOString();
@@ -34,7 +35,11 @@ function buildEvent({ sourceType, vendor, raw, type, source, fields = {} }) {
   const title = pick(fields.title, entry.title);
 
   const ch = source.channel;
-  const zone = pick(fields.zone, source.deviceName, source.site);
+  // Punto (zona/línea/puerta) que disparó: cada adaptador de marca deja
+  // `pointKind` + `pointId` canónicos y acá se traduce a nombre humano una sola
+  // vez. Si no se puede resolver queda null y se cae al comportamiento anterior.
+  const point = resolvePoint(source.deviceId, fields.pointKind, fields.pointId);
+  const zone = pick(point && point.name, fields.zone, source.deviceName, source.site);
   // El `title` ya es una frase completa con su género/verbo ("Intrusión detectada",
   // "Puerta forzada", "Llamada de portero"…), así que NO le añadimos "detectado":
   // construimos "<title> en <ubicación> (canal N)", correcto para todos los tipos.
@@ -71,6 +76,11 @@ function buildEvent({ sourceType, vendor, raw, type, source, fields = {} }) {
       clipUrl: pick(fields.clipUrl, raw?.clipUrl) || null,
     },
     zone: zone || null,
+    // Punto resuelto: kind canónico, id del fabricante, nombre y geometría.
+    // El popup lo usa para pintar EXACTAMENTE lo que disparó.
+    point: point
+      ? { kind: point.kind, id: point.id, name: point.name, geometry: point.geometry || null }
+      : null,
     procedureId: null, // lo asigna el motor de reglas
     status: "new",
     assignedTo: null,
@@ -109,6 +119,15 @@ const HIK_EVENT_MAP = {
 };
 
 // Normaliza un eventType Hik a su clave de mapa: minúsculas, trim, sin guiones/_/espacios.
+// eventType Hikvision → kind canónico de punto (ver events/points.js).
+const HIK_POINT_KIND = {
+  linedetection: "line",
+  fielddetection: "region",
+  regionentrance: "entrance",
+  regionexiting: "exiting",
+  regionexit: "exiting",
+};
+
 function hikEventKey(s) {
   return String(s || "").trim().toLowerCase().replace(/[\s_\-]/g, "");
 }
@@ -122,16 +141,16 @@ export function normalizeTarget(raw = {}) {
     pick(raw.detectionTarget, raw.DetectionTarget, raw.targetType, raw.TargetType,
          raw.objectType, raw.recognitionType, raw.humanType, raw.category, raw.target) || ""
   ).trim().toLowerCase();
-  // Algunos eventos Hik vienen tipados (facedetection, ANPR, humanRecognition…).
+  // Algunos eventos Hik vienen tipados (facedetection, ANPR, humanRecognition...).
   const et = String(raw.eventType || "").trim().toLowerCase();
   const hay = v || et;
   if (!hay) return null;
   if (/(human|person|people|pedestrian|\bman\b|head|\bface\b|facedetection)/.test(hay)) return "human";
   if (/(vehicle|\bcar\b|truck|motor|bike|bicycle|cycle|\bvan\b|\bbus\b|plate|\banpr\b|\blpr\b|license)/.test(hay)) return "vehicle";
   if (v && /(none|other|unknown|false|background|no_?target)/.test(v)) return "none";
-  // `targetType` numérico (1=Face, 2=Vehicle, …) u otros valores no mapeables a
-  // persona/vehículo → NO clasificar (evita "objetivo" basura tipo "2"). El campo
-  // confiable de humano/vehículo es `detectionTarget`.
+  // `targetType` numerico (1=Face, 2=Vehicle, ...) u otros valores no mapeables a
+  // persona/vehiculo -> NO clasificar (evita "objetivo" basura tipo "2"). El campo
+  // confiable de humano/vehiculo es `detectionTarget`.
   return null;
 }
 
@@ -186,7 +205,10 @@ function parseHikXml(xml) {
     xmlTag(xml, "regionName") ||
     xmlTag(xml, "RegionName") ||
     xmlTag(xml, "ID"); // dentro de DetectionRegionList/RegionList
+  // Estricto: solo lo que identifica de verdad la regla dibujada (ver alertStream).
+  const regionStrict = xmlTag(xml, "RegionID") || xmlTag(xml, "regionID");
   return {
+    regionIdStrict: regionStrict,
     eventType: xmlTag(xml, "eventType"),
     eventState: xmlTag(xml, "eventState"),
     eventDescription: xmlTag(xml, "eventDescription"),
@@ -197,6 +219,10 @@ function parseHikXml(xml) {
     deviceID: xmlTag(xml, "deviceID"),
     macAddress: xmlTag(xml, "macAddress"),
     targetType: xmlTag(xml, "targetType"),
+    // Campo confiable de humano/vehiculo en AcuSense/DeepinView. Faltaba en
+    // el parser del XML crudo (webhook directo), asi que un targetType
+    // numerico ("2") dejaba el evento sin objetivo.
+    detectionTarget: xmlTag(xml, "detectionTarget"),
     regionID: region,
     licensePlate: xmlTag(xml, "licensePlate") || xmlTag(xml, "plateNumber"),
   };
@@ -271,6 +297,12 @@ export function normalizeHikvision(input = {}) {
   // Objetivo clasificado por la cámara (filtrado de falsas alarmas, nivel 1).
   const target = normalizeTarget(raw);
 
+  // Punto canónico: el eventType dice el kind, el regionID/ID dice cuál.
+  const pointKind = HIK_POINT_KIND[key] || null;
+  // Solo el id ESTRICTO resuelve el nombre del punto. Si no vino, resolvePoint()
+  // cae a la regla unica del dispositivo (y si hay varias, no nombra nada).
+  const pointId = pick(raw.regionIdStrict, raw.RegionIdStrict);
+
   return buildEvent({
     sourceType: "hikvision",
     vendor: "Hikvision",
@@ -283,6 +315,8 @@ export function normalizeHikvision(input = {}) {
       priority,
       message,
       target,
+      pointKind,
+      pointId,
       deviceTs: toIso(raw.dateTime),
     },
   });
@@ -356,6 +390,9 @@ export function normalizeAlarm(raw = {}) {
   };
 
   const zone = pick(raw.zoneName, raw.zone != null ? `Zona ${raw.zone}` : undefined);
+  // La zona del panel es un punto canónico: si está en el registro, gana su nombre.
+  const pointKind = raw.zone != null ? "zone" : null;
+  const pointId = pick(raw.zone, raw.partition);
 
   return buildEvent({
     sourceType: "alarm",
@@ -363,7 +400,7 @@ export function normalizeAlarm(raw = {}) {
     raw,
     type,
     source,
-    fields: { ...raw, zone },
+    fields: { ...raw, zone, pointKind, pointId },
   });
 }
 

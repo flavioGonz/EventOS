@@ -1,0 +1,8160 @@
+{
+"vehicleEntryExitingStatus": [
+{
+"v": "vehicleEnter",
+"d": "Vehicle entering"
+},
+{
+"v": "vehicleExit",
+"d": "Vehicle exiting"
+}
+],
+"directionIndex": [
+{
+"v": "back",
+"d": "Backward"
+},
+{
+"v": "eastWest",
+"d": "From east to west"
+},
+{
+"v": "forward",
+"d": "Forward"
+},
+{
+"v": "northSouth",
+"d": "From north to south"
+},
+{
+"v": "northeastToSouthwest",
+"d": "From northeast to southwest"
+},
+{
+"v": "northwestToSoutheast",
+"d": "From northwest to southeast"
+},
+{
+"v": "other",
+"d": "Others"
+},
+{
+"v": "southNorth",
+"d": "From south to north"
+},
+{
+"v": "southeastToNorthwest",
+"d": "From southeast to northwest"
+},
+{
+"v": "southwestToNortheast",
+"d": "From southwest to northeast"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "westEast",
+"d": "From west to east"
+}
+],
+"decoration": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"tissueBox": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"frontChild": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"label": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"copilot": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"ecolabel": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"dangmark": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"envprosign": [
+{
+"v": "green",
+"d": "Green label"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yellow",
+"d": "Yellow label"
+}
+],
+"bodyDirection": [
+{
+"v": "backwise",
+"d": "Backward"
+},
+{
+"v": "frontwise",
+"d": "Forward"
+},
+{
+"v": "sidewise",
+"d": "Sided"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"playMobilePhone": [
+{
+"v": "no",
+"d": "Not using mobile phone"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Using mobile phone"
+}
+],
+"headOnDesk": [
+{
+"v": "no",
+"d": "Not resting on desk"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Resting on desk"
+}
+],
+"temporaryLicense": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"vehicleHead": [
+{
+"v": "back",
+"d": "Backward"
+},
+{
+"v": "forward",
+"d": "Forward"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"smile": [
+{
+"v": "no",
+"d": "Not smiling"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Smiling"
+}
+],
+"eventState": [
+{
+"v": "active",
+"d": "Valid event"
+},
+{
+"v": "inactive",
+"d": "Invalid event"
+}
+],
+"addressingFormatType": [
+{
+"v": "hostname",
+"d": "Host name"
+},
+{
+"v": "ipaddress",
+"d": "IP address"
+}
+],
+"parameterFormatType": [
+{
+"v": "JSON",
+"d": "JSON format"
+},
+{
+"v": "XML",
+"d": "XML format"
+},
+{
+"v": "querystring",
+"d": "Querystring format"
+}
+],
+"protocolType": [
+{
+"v": "HTTP",
+"d": "HTTP protocol"
+},
+{
+"v": "HTTPS",
+"d": "HTTPS protocol"
+}
+],
+"radarType": [
+{
+"v": "IOBox",
+"d": "Radar connecting I/O expansion box"
+},
+{
+"v": "SSTK",
+"d": "Sensortech"
+},
+{
+"v": "adr",
+"d": "Andoray"
+},
+{
+"v": "adr4Byte",
+"d": "Andoray (No radar controller)"
+},
+{
+"v": "csr",
+"d": "TransMicrowave"
+},
+{
+"v": "olvia",
+"d": "Olvia"
+}
+],
+"image": [
+{
+"v": "DSS",
+"d": "Digital slow shutter"
+},
+{
+"v": "ISPMode",
+"d": "ISP mode"
+},
+{
+"v": "brightEnhance",
+"d": "Brightness enhancement"
+},
+{
+"v": "defog",
+"d": "Digital defog"
+},
+{
+"v": "exposure",
+"d": "Exposure"
+},
+{
+"v": "gain",
+"d": "Gain"
+},
+{
+"v": "gammaCorrection",
+"d": "Gamma correction"
+},
+{
+"v": "hdr",
+"d": "Dark space enhancement"
+},
+{
+"v": "imageEnhancement",
+"d": "Image enhancement"
+},
+{
+"v": "imageFlip",
+"d": "Image flipping"
+},
+{
+"v": "ircutFilter",
+"d": "ICR filter"
+},
+{
+"v": "mce",
+"d": "Memory color"
+},
+{
+"v": "multishut",
+"d": "Multiple shutters"
+},
+{
+"v": "noiseReduce",
+"d": "Denoise"
+},
+{
+"v": "noiseReduce2D",
+"d": "2D denoise"
+},
+{
+"v": "sectionCtrl",
+"d": "Exposure control in segment"
+},
+{
+"v": "sharpness",
+"d": "Sharpness"
+},
+{
+"v": "shutter",
+"d": "Shutter"
+},
+{
+"v": "svce",
+"d": "Local contrast"
+},
+{
+"v": "whiteBalance",
+"d": "White balance"
+}
+],
+"carDriveDirect": [
+{
+"v": "down2up",
+"d": "From bottom to top"
+},
+{
+"v": "up2down",
+"d": "From top to bottom"
+}
+],
+"laneType": [
+{
+"v": "banLeft",
+"d": "Left turn prohibited lane"
+},
+{
+"v": "banPasser",
+"d": "Pedestrian prohibited lane"
+},
+{
+"v": "banRight",
+"d": "Right turn prohibited lane"
+},
+{
+"v": "banTrucks",
+"d": "Large-sized vehicle prohibited lane"
+},
+{
+"v": "bus",
+"d": "Bus lane"
+},
+{
+"v": "carriageWay",
+"d": "Normal lane"
+},
+{
+"v": "emgLane",
+"d": "Highway emergency lane"
+},
+{
+"v": "fast",
+"d": "Overtaking lane"
+},
+{
+"v": "highway",
+"d": "Highway"
+},
+{
+"v": "motor",
+"d": "Motorcycle lane"
+},
+{
+"v": "nonmotor",
+"d": "Non-motor vehicle lane"
+},
+{
+"v": "other",
+"d": "Other roads"
+},
+{
+"v": "reverse",
+"d": "Contraflow lane"
+},
+{
+"v": "slow",
+"d": "Slow lane"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "urbanFastWay",
+"d": "Urban expressway"
+}
+],
+"TriggerMode": [
+{
+"v": "TPS",
+"d": "Traffic parameter collection"
+},
+{
+"v": "epoliceRS485",
+"d": "Checkpoint intersection violation system vehicle detector"
+},
+{
+"v": "plateRecognition",
+"d": "LPR area"
+},
+{
+"v": "postBOT",
+"d": "Bus lane occupation"
+},
+{
+"v": "postEpoliceRS485",
+"d": "Checkpoint intersection violation system vehicle detector"
+},
+{
+"v": "postHVT",
+"d": "Checkpoint mixed lane"
+},
+{
+"v": "postIOSpeed",
+"d": "Checkpoint I/O speed detection"
+},
+{
+"v": "postMPR",
+"d": "Entrance/exit video"
+},
+{
+"v": "postMobile",
+"d": "Mobile transport"
+},
+{
+"v": "postNoComityPed",
+"d": "Failing to yield for pedestrians"
+},
+{
+"v": "postPRS",
+"d": "LPR system"
+},
+{
+"v": "postRedLightPed",
+"d": "Pedestrian running red light"
+},
+{
+"v": "postSingleIO",
+"d": "Checkpoint single I/O"
+},
+{
+"v": "postVTCoil",
+"d": "Virtual checkpoint loop"
+},
+{
+"v": "postradar",
+"d": "Checkpoint radar"
+},
+{
+"v": "postrs485",
+"d": "Checkpoint vehicle detector"
+},
+{
+"v": "videoEpolice",
+"d": "Intersection violation system"
+},
+{
+"v": "videoMonitor",
+"d": "Intelligent monitoring"
+}
+],
+"speed": [
+{
+"v": "fast",
+"d": "Fast"
+},
+{
+"v": "medium",
+"d": "Middle"
+},
+{
+"v": "slow",
+"d": "Slow"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"targetSize": [
+{
+"v": "big",
+"d": "Large"
+},
+{
+"v": "medium",
+"d": "Medium"
+},
+{
+"v": "small",
+"d": "Small"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"fireImageMode": [
+{
+"v": "blackWhite",
+"d": "Black and white mode"
+},
+{
+"v": "fireGround",
+"d": "Fire scene mode"
+},
+{
+"v": "thermalProbe",
+"d": "Heat detection mode"
+}
+],
+"scanState": [
+{
+"v": "not Set",
+"d": "Not set"
+},
+{
+"v": "set",
+"d": "Set"
+}
+],
+"strategyType": [
+{
+"v": "any",
+"d": "Random alarm"
+},
+{
+"v": "appointFire",
+"d": "Specified fire source alarm"
+},
+{
+"v": "appointSmoke",
+"d": "Specified smoke alarm"
+},
+{
+"v": "cooperate",
+"d": "Coordinated alarm"
+},
+{
+"v": "multiSystem",
+"d": "Multi-system alarm"
+}
+],
+"detectionTarget": [
+{
+"v": "human",
+"d": "Human"
+},
+{
+"v": "human_vehicle",
+"d": "Human and vehicle"
+},
+{
+"v": "vehicle",
+"d": "Vehicle"
+}
+],
+"twoWheelVehicleBox": [
+{
+"v": "no",
+"d": "None"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"driver": [
+{
+"v": "copilot",
+"d": "Front passenger"
+},
+{
+"v": "pilot",
+"d": "Driver"
+}
+],
+"cardType": [
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "vehiclePass",
+"d": "Pass card"
+}
+],
+"vehicleColorDepth": [
+{
+"v": "deep",
+"d": "Dark"
+},
+{
+"v": "shallow",
+"d": "Light"
+}
+],
+"vehicleColor": [
+{
+"v": "black",
+"d": "Black"
+},
+{
+"v": "blue",
+"d": "Blue"
+},
+{
+"v": "brown",
+"d": "Brown"
+},
+{
+"v": "cyan",
+"d": "Cyan"
+},
+{
+"v": "deepBlue",
+"d": "Dark blue"
+},
+{
+"v": "deepGray",
+"d": "Dark gray"
+},
+{
+"v": "gray",
+"d": "Gray"
+},
+{
+"v": "green",
+"d": "Green"
+},
+{
+"v": "orange",
+"d": "Orange"
+},
+{
+"v": "pink",
+"d": "Pink"
+},
+{
+"v": "purple",
+"d": "Purple"
+},
+{
+"v": "red",
+"d": "Red"
+},
+{
+"v": "silver",
+"d": "Silver"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "white",
+"d": "White"
+},
+{
+"v": "yellow",
+"d": "Yellow"
+}
+],
+"vehicleLamp": [
+{
+"v": "no",
+"d": "No (even)"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes (uneven)"
+}
+],
+"pdvs": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"pendant": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"detectDir": [
+{
+"v": "1",
+"d": "Upward"
+},
+{
+"v": "2",
+"d": "Downward"
+},
+{
+"v": "3",
+"d": "Two-way"
+},
+{
+"v": "4",
+"d": "From east to west"
+},
+{
+"v": "5",
+"d": "From south to north"
+},
+{
+"v": "6",
+"d": "From west to east"
+},
+{
+"v": "7",
+"d": "From north to south"
+},
+{
+"v": "8",
+"d": "Others"
+}
+],
+"parkType": [
+{
+"v": "permanent",
+"d": "Fixed"
+},
+{
+"v": "temporary",
+"d": "Temporary"
+}
+],
+"sunroof": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"vicePilotSafebelt": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"vicePilotSunvisor": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"uphone": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"pilotSunvisor": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"pilotSafebelt": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"spareTire": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"vehicleSprayPainted": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"luggageRack": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"coverPlate": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"muckTruck": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"raisingHand": [
+{
+"v": "no",
+"d": "Hands down"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Hands up"
+}
+],
+"writing": [
+{
+"v": "no",
+"d": "Not writing"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Writing"
+}
+],
+"reading": [
+{
+"v": "no",
+"d": "Not reading"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Reading"
+}
+],
+"listening": [
+{
+"v": "no",
+"d": "Not listening"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Listening"
+}
+],
+"cyclingType": [
+{
+"v": "any",
+"d": "Condition unlimited (used to search)"
+},
+{
+"v": "bicycle",
+"d": "Bicycle"
+},
+{
+"v": "motorcycle",
+"d": "Motorcycle (electric scooter)"
+},
+{
+"v": "threeWheelVehicle",
+"d": "Tricycle"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"cyclingPersonNumber": [
+{
+"v": "any",
+"d": "Condition unlimited (used to search)"
+},
+{
+"v": "multiplePersons",
+"d": "Multiple persons"
+},
+{
+"v": "onePerson",
+"d": "Single person"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"hairStyle": [
+{
+"v": "longHair",
+"d": "Long hair"
+},
+{
+"v": "shortHair",
+"d": "Short hair"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"trousersType": [
+{
+"v": "longTrousers",
+"d": "Long pants"
+},
+{
+"v": "shortTrousers",
+"d": "Short pants"
+},
+{
+"v": "skirt",
+"d": "Skirt"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"jacketType": [
+{
+"v": "any",
+"d": "Condition unlimited (used to search)"
+},
+{
+"v": "longSleeve",
+"d": "Long sleeves"
+},
+{
+"v": "shortSleeve",
+"d": "Short sleeves"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"hat": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"things": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"bag": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"ride": [
+{
+"v": "any",
+"d": "Condition unlimited (used to search)"
+},
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"trousersColor": [
+{
+"v": "any",
+"d": "Condition unlimited (used to search)"
+},
+{
+"v": "black",
+"d": "Black"
+},
+{
+"v": "blue",
+"d": "Blue"
+},
+{
+"v": "brown",
+"d": "Brown"
+},
+{
+"v": "cyan",
+"d": "Cyan"
+},
+{
+"v": "deepBlue",
+"d": "Dark Blue"
+},
+{
+"v": "deepGray",
+"d": "Dark gray"
+},
+{
+"v": "gray",
+"d": "Gray"
+},
+{
+"v": "green",
+"d": "Green"
+},
+{
+"v": "mixture",
+"d": "Mixed color"
+},
+{
+"v": "orange",
+"d": "Orange"
+},
+{
+"v": "pink",
+"d": "Pink"
+},
+{
+"v": "purple",
+"d": "Purple"
+},
+{
+"v": "red",
+"d": "Red"
+},
+{
+"v": "silver",
+"d": "Silver"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "white",
+"d": "White"
+},
+{
+"v": "yellow",
+"d": "Yellow"
+}
+],
+"jacketColor": [
+{
+"v": "any",
+"d": "Condition unlimited (used to search)"
+},
+{
+"v": "black",
+"d": "Black"
+},
+{
+"v": "blue",
+"d": "Blue"
+},
+{
+"v": "brown",
+"d": "Brown"
+},
+{
+"v": "cyan",
+"d": "Cyan"
+},
+{
+"v": "deepBlue",
+"d": "Dark blue"
+},
+{
+"v": "deepGray",
+"d": "Dark gray"
+},
+{
+"v": "gray",
+"d": "Gray"
+},
+{
+"v": "green",
+"d": "Green"
+},
+{
+"v": "mixture",
+"d": "Mixed color"
+},
+{
+"v": "orange",
+"d": "Orange"
+},
+{
+"v": "pink",
+"d": "Pink"
+},
+{
+"v": "purple",
+"d": "Purple"
+},
+{
+"v": "red",
+"d": "Red"
+},
+{
+"v": "silver",
+"d": "Silver"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "white",
+"d": "White"
+},
+{
+"v": "yellow",
+"d": "Yellow"
+}
+],
+"resourcesContent": [
+{
+"v": "faceBackgroundImage",
+"d": "Face picture background picture"
+},
+{
+"v": "faceImage",
+"d": "Small face picture"
+},
+{
+"v": "faceLibImage",
+"d": "Picture in face picture library"
+},
+{
+"v": "humanBackgroundImage",
+"d": "Human body background picture"
+},
+{
+"v": "humanImage",
+"d": "Small human body picture"
+},
+{
+"v": "nonMotorBackgroundImage",
+"d": "Non-motor vehicle background picture"
+},
+{
+"v": "nonMotorImage",
+"d": "Non-motor vehicle picture"
+},
+{
+"v": "plateImage",
+"d": "License plate sub-picture"
+},
+{
+"v": "vehicleBackgroundImage",
+"d": "Large vehicle background picture"
+},
+{
+"v": "vehicleImage",
+"d": "Motor vehicle picture"
+}
+],
+"ageGroup": [
+{
+"v": "any",
+"d": "Condition unlimited (used to search)"
+},
+{
+"v": "child",
+"d": "Teenager"
+},
+{
+"v": "infant",
+"d": "Infant"
+},
+{
+"v": "kid",
+"d": "Child"
+},
+{
+"v": "middle",
+"d": "Middle age"
+},
+{
+"v": "middleAged",
+"d": "Middle age and elderly"
+},
+{
+"v": "old",
+"d": "Elderly"
+},
+{
+"v": "prime",
+"d": "Adult"
+},
+{
+"v": "teenager",
+"d": "Young adult"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "young",
+"d": "Youth"
+}
+],
+"gender": [
+{
+"v": "any",
+"d": "Condition unlimited (used to search)"
+},
+{
+"v": "female",
+"d": "Female"
+},
+{
+"v": "male",
+"d": "Male"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"mask": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"livenessDetectionStatus": [
+{
+"v": "detectionFailed",
+"d": "Unknown (failed detection)"
+},
+{
+"v": "liveFace",
+"d": "Human face"
+},
+{
+"v": "notEnabled",
+"d": "Face anti-spoofing not enabled"
+},
+{
+"v": "notLiveFace",
+"d": "Not human face"
+}
+],
+"faceExpression": [
+{
+"v": "angry",
+"d": "Angry"
+},
+{
+"v": "contemptuous",
+"d": "Contemptuous"
+},
+{
+"v": "disgusted",
+"d": "Disgusted"
+},
+{
+"v": "happy",
+"d": "Happy"
+},
+{
+"v": "panic",
+"d": "Afraid"
+},
+{
+"v": "poker-faced",
+"d": "No facial expression"
+},
+{
+"v": "sad",
+"d": "Sad"
+},
+{
+"v": "surprised",
+"d": "Surprised"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"reason": [
+{
+"v": "analysisFailed",
+"d": "Failed analysis"
+},
+{
+"v": "diskError",
+"d": "HDD error"
+},
+{
+"v": "diskFull",
+"d": "HDD full"
+},
+{
+"v": "errorPictureResolution",
+"d": "Wrong picture resolution"
+},
+{
+"v": "faceSizeBig",
+"d": "Picture too large"
+},
+{
+"v": "faceSizeSmall",
+"d": "Picture too small"
+},
+{
+"v": "imageURLDownloadFailed",
+"d": "Pictured not downloaded"
+},
+{
+"v": "multipleFaces",
+"d": "More than one face picture"
+},
+{
+"v": "noJpgPicture",
+"d": "Picture not in JPG format"
+},
+{
+"v": "noface",
+"d": "No human face"
+},
+{
+"v": "shadeFace",
+"d": "Face covered"
+},
+{
+"v": "unknow",
+"d": "Unknown error"
+}
+],
+"modelingStatus": [
+{
+"v": "DSPInternalError",
+"d": "DSP internal error"
+},
+{
+"v": "faceDetectingFail",
+"d": "Facial detection failed"
+},
+{
+"v": "faceGradingFail",
+"d": "Face picture quality grade failed"
+},
+{
+"v": "faceModelingFail",
+"d": "Face picture modeling failed"
+},
+{
+"v": "featureAnalyzeFail",
+"d": "Attribute extraction failed"
+},
+{
+"v": "featureExtractFail",
+"d": "Feature extraction failed"
+},
+{
+"v": "otherErrors",
+"d": "Engine error"
+},
+{
+"v": "resourceInsuf",
+"d": "Inadequate engine capability"
+},
+{
+"v": "succeeded",
+"d": "Succeeded"
+}
+],
+"smoking": [
+{
+"v": "no",
+"d": "Not smoking"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Smoking"
+}
+],
+"detectMode": [
+{
+"v": "eq",
+"d": "Equal"
+},
+{
+"v": "gt",
+"d": "Larger than"
+},
+{
+"v": "lt",
+"d": "Less than"
+},
+{
+"v": "neq",
+"d": "Unequal"
+}
+],
+"posture": [
+{
+"v": "sitting",
+"d": "Sitting"
+},
+{
+"v": "standingUp",
+"d": "Standing up"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"emi_area": [
+{
+"v": "Abu Dhabi",
+"d": "Abu Dhabi"
+},
+{
+"v": "Ajman",
+"d": "Ajman"
+},
+{
+"v": "Dubai",
+"d": "Dubai"
+},
+{
+"v": "Fuchayiha",
+"d": "Al Fujayrah"
+},
+{
+"v": "Ras al Khaimah",
+"d": "Ras Al Khaimah"
+},
+{
+"v": "Sharjah",
+"d": "Sharjah"
+},
+{
+"v": "Umm al Qaiwain",
+"d": "Umm Al Qaiwain"
+},
+{
+"v": "Unknown Area",
+"d": "Area recognition not supported"
+},
+{
+"v": "Unrecognized",
+"d": "Unrecognized (the algorithm is supported by device, but unrecognized because of environment issue)"
+}
+],
+"statisticsPeriod": [
+{
+"v": "5days",
+"d": "5 days"
+},
+{
+"v": "5hours",
+"d": "5 hours"
+},
+{
+"v": "5minutes",
+"d": "5 minutes"
+},
+{
+"v": "5weeks",
+"d": "5 weeks"
+}
+],
+"suitcase": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"glasses": [
+{
+"v": "no",
+"d": "Not wearing glasses"
+},
+{
+"v": "sunglasses",
+"d": "Wearing sunglasses"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"monitorPointType": [
+{
+"v": "0",
+"d": "All"
+},
+{
+"v": "1",
+"d": "Conventional camera"
+},
+{
+"v": "2",
+"d": "Capture camera"
+},
+{
+"v": "3",
+"d": "Recording"
+},
+{
+"v": "4",
+"d": "Structuralized capture camera"
+},
+{
+"v": "5",
+"d": "Face capture camera"
+}
+],
+"vehicleSize": [
+{
+"v": "light",
+"d": "Small-sized vehicle"
+},
+{
+"v": "middle",
+"d": "Medium-sized vehicle"
+},
+{
+"v": "oversize",
+"d": "Large-sized vehicle"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"helmet": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"status": [
+{
+"v": "abnormal",
+"d": "Exception"
+},
+{
+"v": "failed",
+"d": "Modeling failed"
+},
+{
+"v": "none",
+"d": "Unmodeled"
+},
+{
+"v": "normal",
+"d": "Normal"
+},
+{
+"v": "success",
+"d": "Modeling succeeded"
+}
+],
+"subStatusCode": [
+{
+"v": "activeNumMax",
+"d": "No more accessing devices allowed by license"
+},
+{
+"v": "licenseExpired",
+"d": "License expired"
+}
+],
+"divisionEW": [
+{
+"v": "E",
+"d": "East hemisphere"
+},
+{
+"v": "N",
+"d": "North hemisphere"
+},
+{
+"v": "S",
+"d": "South hemisphere"
+},
+{
+"v": "W",
+"d": "West hemisphere"
+}
+],
+"upgradeTime": [
+{
+"v": "scheduleUpgrade",
+"d": "Reservation required"
+},
+{
+"v": "upgradeNow",
+"d": "Instant"
+}
+],
+"upgradeType": [
+{
+"v": "upgradeInQueue",
+"d": "Queue upgraded"
+},
+{
+"v": "upgradeSimultaneously",
+"d": "Simultaneous upgrade"
+}
+],
+"notLookStraightAhead": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"trafficSignWarning": [
+{
+"v": "heightLimit",
+"d": "Height limit"
+},
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "speedLimit",
+"d": "Speed Limit"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "widthLimit",
+"d": "Width limit"
+}
+],
+"notYieldToPedestrian": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"rollover": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"suddenTurn": [
+{
+"v": "left",
+"d": "Sharp left turn"
+},
+{
+"v": "right",
+"d": "Sharp right turn"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"rapidDeceleration": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"rapidAcceleration": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"vehicleBlindSpotDetection": [
+{
+"v": "back",
+"d": "Back"
+},
+{
+"v": "left",
+"d": "Left"
+},
+{
+"v": "right",
+"d": "Right"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"pedestrianCollision": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"vehicleDistanceDetection": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"drivingOnLaneLine": [
+{
+"v": "left",
+"d": "Left deviation"
+},
+{
+"v": "right",
+"d": "Right deviation"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"frontVehicleCollision": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"wearingIRInterruptedSunglasses": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"driverAbsent": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"fatigueDriving": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"loadStatus": [
+{
+"v": "alg set",
+"d": "Preloading setting added to engine"
+},
+{
+"v": "alg start",
+"d": "Preloading started"
+},
+{
+"v": "algDownloadFailed",
+"d": "Pre-allocating algorithm not downloaded"
+},
+{
+"v": "loadFailed",
+"d": "Preloading failed"
+},
+{
+"v": "loadSuccess",
+"d": "Preloading succeeded"
+},
+{
+"v": "loading",
+"d": "Preloading"
+},
+{
+"v": "unknown",
+"d": "Unknown preloading status"
+},
+{
+"v": "waiting",
+"d": "Preloading to be started"
+}
+],
+"analysisType": [
+{
+"v": "1",
+"d": "Detection"
+},
+{
+"v": "2",
+"d": "Attribute"
+},
+{
+"v": "3",
+"d": "Modeling"
+},
+{
+"v": "4",
+"d": "Comparison"
+},
+{
+"v": "5",
+"d": "Behavior"
+}
+],
+"motionStatus": [
+{
+"v": "enter",
+"d": "Entered"
+},
+{
+"v": "leave",
+"d": "Left"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"analysisSourceType": [
+{
+"v": "model",
+"d": "Model"
+},
+{
+"v": "picture",
+"d": "Picture"
+},
+{
+"v": "video",
+"d": "Video"
+}
+],
+"algorithmType": [
+{
+"v": "1",
+"d": "High-quality vehicle"
+},
+{
+"v": "10",
+"d": "AI open platform algorithm general video analysis"
+},
+{
+"v": "10001",
+"d": "Alarm structuralization-temperature alarm, face picture analysis"
+},
+{
+"v": "10002",
+"d": "Alarm structuralization-temperature alarm, human body analysis"
+},
+{
+"v": "10003",
+"d": "Alarm structuralization-temperature alarm, face picture and human body analysis"
+},
+{
+"v": "10004",
+"d": "Alarm structuralization-temperature alarm, vehicle analysis"
+},
+{
+"v": "10005",
+"d": "Alarm structuralization-temperature alarm, face picture and vehicle analysis"
+},
+{
+"v": "10006",
+"d": "Alarm structuralization-temperature alarm, human body and vehicle analysis"
+},
+{
+"v": "10007",
+"d": "Alarm structuralization-temperature alarm, face picture, human body, and vehicle analysis"
+},
+{
+"v": "10010",
+"d": "Face picture comparison alarm, face picture analysis for comparison"
+},
+{
+"v": "10020",
+"d": "AI open platform alarm, human body analysis"
+},
+{
+"v": "11",
+"d": "AI open platform algorithm general picture analysis"
+},
+{
+"v": "12",
+"d": "Person analysis"
+},
+{
+"v": "2",
+"d": "High-performance vehicle"
+},
+{
+"v": "3",
+"d": "Person structuralization modeling"
+},
+{
+"v": "4",
+"d": "Human and vehicle structuralization modeling"
+},
+{
+"v": "5",
+"d": "Facial detection via video"
+},
+{
+"v": "6",
+"d": "Facial detection and face modeling via video"
+},
+{
+"v": "7",
+"d": "Facial detection (output coordinate, attribute unrecognized)+human body detection (output attribute, coordinate)+behavior detection"
+},
+{
+"v": "8",
+"d": "Face picture"
+},
+{
+"v": "9",
+"d": "Picture structuralization"
+}
+],
+"country": [
+{
+"v": "0",
+"d": "Country of license plate not supported by algorithm library."
+},
+{
+"v": "1",
+"d": "Czechia"
+},
+{
+"v": "10",
+"d": "Moldova"
+},
+{
+"v": "100",
+"d": "Reserved field"
+},
+{
+"v": "101",
+"d": "Reserved field"
+},
+{
+"v": "102",
+"d": "Reserved field"
+},
+{
+"v": "103",
+"d": "Reserved field"
+},
+{
+"v": "104",
+"d": "Egypt"
+},
+{
+"v": "105",
+"d": "Libya"
+},
+{
+"v": "106",
+"d": "Sudan"
+},
+{
+"v": "107",
+"d": "Tunisia"
+},
+{
+"v": "108",
+"d": "Algeria"
+},
+{
+"v": "109",
+"d": "Morocco"
+},
+{
+"v": "11",
+"d": "Russia"
+},
+{
+"v": "110",
+"d": "Ethiopia"
+},
+{
+"v": "111",
+"d": "Eritrea"
+},
+{
+"v": "112",
+"d": "Somalia"
+},
+{
+"v": "113",
+"d": "Djibouti"
+},
+{
+"v": "114",
+"d": "Kenya"
+},
+{
+"v": "115",
+"d": "Tanzania"
+},
+{
+"v": "116",
+"d": "Uganda"
+},
+{
+"v": "117",
+"d": "Rwanda"
+},
+{
+"v": "118",
+"d": "Burundi"
+},
+{
+"v": "119",
+"d": "Seychelles"
+},
+{
+"v": "12",
+"d": "Ukraine"
+},
+{
+"v": "120",
+"d": "Chad"
+},
+{
+"v": "121",
+"d": "Central Africa"
+},
+{
+"v": "122",
+"d": "Cameroon"
+},
+{
+"v": "123",
+"d": "Equatorial Guinea"
+},
+{
+"v": "124",
+"d": "Gabon"
+},
+{
+"v": "125",
+"d": "Congo-Brazzaville"
+},
+{
+"v": "126",
+"d": "Congo-Kinshasa"
+},
+{
+"v": "127",
+"d": "Sao Tome and Principe"
+},
+{
+"v": "128",
+"d": "Mauritania"
+},
+{
+"v": "129",
+"d": "Western Sahara"
+},
+{
+"v": "13",
+"d": "Belgium"
+},
+{
+"v": "130",
+"d": "Senegal"
+},
+{
+"v": "131",
+"d": "Gambia"
+},
+{
+"v": "132",
+"d": "Mali"
+},
+{
+"v": "133",
+"d": "Burkina Faso"
+},
+{
+"v": "134",
+"d": "Guinea"
+},
+{
+"v": "135",
+"d": "Guinea-Bissau"
+},
+{
+"v": "136",
+"d": "Cape Verde"
+},
+{
+"v": "137",
+"d": "Sierra Leone"
+},
+{
+"v": "138",
+"d": "Liberia"
+},
+{
+"v": "139",
+"d": "Côte d'Ivoire"
+},
+{
+"v": "14",
+"d": "Bulgaria"
+},
+{
+"v": "140",
+"d": "Ghana"
+},
+{
+"v": "141",
+"d": "Togo"
+},
+{
+"v": "142",
+"d": "Benin"
+},
+{
+"v": "143",
+"d": "Niger"
+},
+{
+"v": "144",
+"d": "Zambia"
+},
+{
+"v": "145",
+"d": "Angola"
+},
+{
+"v": "146",
+"d": "Zimbabwe"
+},
+{
+"v": "147",
+"d": "Malawi"
+},
+{
+"v": "148",
+"d": "Mozambique"
+},
+{
+"v": "149",
+"d": "Botswana"
+},
+{
+"v": "15",
+"d": "Denmark"
+},
+{
+"v": "150",
+"d": "Namibia"
+},
+{
+"v": "151",
+"d": "South Africa"
+},
+{
+"v": "152",
+"d": "Swaziland"
+},
+{
+"v": "153",
+"d": "Lesotho"
+},
+{
+"v": "154",
+"d": "Madagascar"
+},
+{
+"v": "155",
+"d": "Comoros"
+},
+{
+"v": "156",
+"d": "Mauritius"
+},
+{
+"v": "157",
+"d": "Nigeria"
+},
+{
+"v": "158",
+"d": "South Sudan"
+},
+{
+"v": "159",
+"d": "Saint Helena"
+},
+{
+"v": "16",
+"d": "Finland"
+},
+{
+"v": "160",
+"d": "Mayotte"
+},
+{
+"v": "161",
+"d": "Reunion"
+},
+{
+"v": "162",
+"d": "Canary Islands"
+},
+{
+"v": "163",
+"d": "Azores"
+},
+{
+"v": "164",
+"d": "Madeira"
+},
+{
+"v": "165",
+"d": "Reserved field"
+},
+{
+"v": "166",
+"d": "Reserved field"
+},
+{
+"v": "167",
+"d": "Reserved field"
+},
+{
+"v": "168",
+"d": "Reserved field"
+},
+{
+"v": "169",
+"d": "Canada"
+},
+{
+"v": "17",
+"d": "United Kingdom"
+},
+{
+"v": "170",
+"d": "Greenland"
+},
+{
+"v": "171",
+"d": "St. Pierre and Miquelon"
+},
+{
+"v": "172",
+"d": "United States"
+},
+{
+"v": "173",
+"d": "Bermuda"
+},
+{
+"v": "174",
+"d": "Mexico"
+},
+{
+"v": "175",
+"d": "Guatemala"
+},
+{
+"v": "176",
+"d": "Belize"
+},
+{
+"v": "177",
+"d": "El Salvador"
+},
+{
+"v": "178",
+"d": "Honduras"
+},
+{
+"v": "179",
+"d": "Nicaragua"
+},
+{
+"v": "18",
+"d": "Greece"
+},
+{
+"v": "180",
+"d": "Costa Rica"
+},
+{
+"v": "181",
+"d": "Panama"
+},
+{
+"v": "182",
+"d": "Bahamas"
+},
+{
+"v": "183",
+"d": "Turks and  Caicos Islands"
+},
+{
+"v": "184",
+"d": "Cuba"
+},
+{
+"v": "185",
+"d": "Jamaica"
+},
+{
+"v": "186",
+"d": "Cayman Islands"
+},
+{
+"v": "187",
+"d": "Haiti"
+},
+{
+"v": "188",
+"d": "Dominica"
+},
+{
+"v": "189",
+"d": "Puerto Rico"
+},
+{
+"v": "19",
+"d": "Croatia"
+},
+{
+"v": "190",
+"d": "United States Virgin Islands"
+},
+{
+"v": "191",
+"d": "British Virgin Islands"
+},
+{
+"v": "192",
+"d": "Anguilla"
+},
+{
+"v": "193",
+"d": "Antigua and Barbuda"
+},
+{
+"v": "194",
+"d": "Collectivité de Saint-Martin"
+},
+{
+"v": "195",
+"d": "Autonomous country"
+},
+{
+"v": "196",
+"d": "Saint-Barthélemy"
+},
+{
+"v": "197",
+"d": "Saint Kitts and Nevis"
+},
+{
+"v": "198",
+"d": "Montserrat"
+},
+{
+"v": "199",
+"d": "Guadeloupe"
+},
+{
+"v": "2",
+"d": "France"
+},
+{
+"v": "20",
+"d": "Hungary"
+},
+{
+"v": "200",
+"d": "Dominica"
+},
+{
+"v": "201",
+"d": "Martinique"
+},
+{
+"v": "202",
+"d": "St. Lucia"
+},
+{
+"v": "203",
+"d": "Saint Vincent and the Grenadines"
+},
+{
+"v": "204",
+"d": "Grenada"
+},
+{
+"v": "205",
+"d": "Barbados"
+},
+{
+"v": "206",
+"d": "Trinidad and Tobago"
+},
+{
+"v": "207",
+"d": "Curaçao"
+},
+{
+"v": "208",
+"d": "Aruba"
+},
+{
+"v": "209",
+"d": "Marshall Islands"
+},
+{
+"v": "21",
+"d": "Israel"
+},
+{
+"v": "210",
+"d": "Colombia"
+},
+{
+"v": "211",
+"d": "Venezuela"
+},
+{
+"v": "212",
+"d": "Guyana"
+},
+{
+"v": "213",
+"d": "Suriname"
+},
+{
+"v": "214",
+"d": "French Guiana"
+},
+{
+"v": "215",
+"d": "Ecuador"
+},
+{
+"v": "216",
+"d": "Peru"
+},
+{
+"v": "217",
+"d": "Bolivia"
+},
+{
+"v": "218",
+"d": "Paraguay"
+},
+{
+"v": "219",
+"d": "Chile"
+},
+{
+"v": "22",
+"d": "Luxembourg"
+},
+{
+"v": "220",
+"d": "Brazil"
+},
+{
+"v": "221",
+"d": "Uruguay"
+},
+{
+"v": "222",
+"d": "Argentina"
+},
+{
+"v": "223",
+"d": "Reserved field"
+},
+{
+"v": "224",
+"d": "Reserved field"
+},
+{
+"v": "225",
+"d": "Reserved field"
+},
+{
+"v": "226",
+"d": "Reserved field"
+},
+{
+"v": "227",
+"d": "Australia"
+},
+{
+"v": "228",
+"d": "New Zealand"
+},
+{
+"v": "229",
+"d": "Papua New Guinea"
+},
+{
+"v": "23",
+"d": "Macedonia, North Macedonia after 2018"
+},
+{
+"v": "230",
+"d": "Solomon Islands"
+},
+{
+"v": "231",
+"d": "Vanuatu"
+},
+{
+"v": "232",
+"d": "New Caledonia"
+},
+{
+"v": "233",
+"d": "Palau"
+},
+{
+"v": "234",
+"d": "Federated States of Micronesia"
+},
+{
+"v": "235",
+"d": "Marshall Islands"
+},
+{
+"v": "236",
+"d": "Northern Mariana Islands"
+},
+{
+"v": "237",
+"d": "Guam"
+},
+{
+"v": "238",
+"d": "Nauru"
+},
+{
+"v": "239",
+"d": "Kiribati"
+},
+{
+"v": "24",
+"d": "Norway"
+},
+{
+"v": "240",
+"d": "Fiji Islands"
+},
+{
+"v": "241",
+"d": "Tonga"
+},
+{
+"v": "242",
+"d": "Tuvalu"
+},
+{
+"v": "243",
+"d": "Wallis et Futuna"
+},
+{
+"v": "244",
+"d": "Samoa"
+},
+{
+"v": "245",
+"d": "Eastern Samoa"
+},
+{
+"v": "246",
+"d": "Tokelau"
+},
+{
+"v": "247",
+"d": "Niue"
+},
+{
+"v": "248",
+"d": "Cook Islands"
+},
+{
+"v": "249",
+"d": "French Polynesia"
+},
+{
+"v": "25",
+"d": "Portugal"
+},
+{
+"v": "250",
+"d": "Pitcairn Islands"
+},
+{
+"v": "251",
+"d": "Hawaii State"
+},
+{
+"v": "252",
+"d": "Reserved field"
+},
+{
+"v": "253",
+"d": "Invalid field (use CRIndex)"
+},
+{
+"v": "254",
+"d": "Unrecognized"
+},
+{
+"v": "255",
+"d": "All"
+},
+{
+"v": "26",
+"d": "Romania"
+},
+{
+"v": "27",
+"d": "Serbia"
+},
+{
+"v": "28",
+"d": "Azerbaijan"
+},
+{
+"v": "29",
+"d": "Georgia"
+},
+{
+"v": "3",
+"d": "Germany"
+},
+{
+"v": "30",
+"d": "Kazakhstan"
+},
+{
+"v": "31",
+"d": "Lithuania"
+},
+{
+"v": "32",
+"d": "Turkmenistan"
+},
+{
+"v": "33",
+"d": "Uzbekistan"
+},
+{
+"v": "34",
+"d": "Latvia"
+},
+{
+"v": "35",
+"d": "Estonia"
+},
+{
+"v": "36",
+"d": "Albania"
+},
+{
+"v": "37",
+"d": "Austria"
+},
+{
+"v": "38",
+"d": "Bosnia and Herzegovina"
+},
+{
+"v": "39",
+"d": "Ireland"
+},
+{
+"v": "4",
+"d": "Spain"
+},
+{
+"v": "40",
+"d": "Iceland"
+},
+{
+"v": "41",
+"d": "Vatican"
+},
+{
+"v": "42",
+"d": "Malta"
+},
+{
+"v": "43",
+"d": "Sweden"
+},
+{
+"v": "44",
+"d": "Switzerland"
+},
+{
+"v": "45",
+"d": "Cyprus"
+},
+{
+"v": "46",
+"d": "Turkey"
+},
+{
+"v": "47",
+"d": "Slovenia"
+},
+{
+"v": "48",
+"d": "Montenegro"
+},
+{
+"v": "49",
+"d": "Kosovo"
+},
+{
+"v": "5",
+"d": "Italy"
+},
+{
+"v": "50",
+"d": "Andorra"
+},
+{
+"v": "51",
+"d": "Armenia"
+},
+{
+"v": "52",
+"d": "Monaco"
+},
+{
+"v": "53",
+"d": "Liechtenstein"
+},
+{
+"v": "54",
+"d": "San Marino"
+},
+{
+"v": "55",
+"d": "Reserved field"
+},
+{
+"v": "56",
+"d": "Reserved field"
+},
+{
+"v": "57",
+"d": "Reserved field"
+},
+{
+"v": "58",
+"d": "Reserved field"
+},
+{
+"v": "59",
+"d": "China"
+},
+{
+"v": "6",
+"d": "Netherlands"
+},
+{
+"v": "60",
+"d": "Bahrain"
+},
+{
+"v": "61",
+"d": "South Korea"
+},
+{
+"v": "62",
+"d": "Lebanon"
+},
+{
+"v": "63",
+"d": "Nepal"
+},
+{
+"v": "64",
+"d": "Thailand"
+},
+{
+"v": "65",
+"d": "Pakistan"
+},
+{
+"v": "66",
+"d": "United Arab Emirates"
+},
+{
+"v": "67",
+"d": "Bhutan"
+},
+{
+"v": "68",
+"d": "Oman"
+},
+{
+"v": "69",
+"d": "North Korea"
+},
+{
+"v": "7",
+"d": "Poland"
+},
+{
+"v": "70",
+"d": "Philippines"
+},
+{
+"v": "71",
+"d": "Cambodia"
+},
+{
+"v": "72",
+"d": "Qatar"
+},
+{
+"v": "73",
+"d": "Kyrgyzstan"
+},
+{
+"v": "74",
+"d": "Maldives"
+},
+{
+"v": "75",
+"d": "Malaysia"
+},
+{
+"v": "76",
+"d": "Mongolia"
+},
+{
+"v": "77",
+"d": "Saudi Arabia"
+},
+{
+"v": "78",
+"d": "Brunei"
+},
+{
+"v": "79",
+"d": "Laos"
+},
+{
+"v": "8",
+"d": "Slovak"
+},
+{
+"v": "80",
+"d": "Japan"
+},
+{
+"v": "81",
+"d": "Turkey"
+},
+{
+"v": "82",
+"d": "Palestine"
+},
+{
+"v": "83",
+"d": "Tajikistan"
+},
+{
+"v": "84",
+"d": "Kuwait"
+},
+{
+"v": "85",
+"d": "Syria"
+},
+{
+"v": "86",
+"d": "India"
+},
+{
+"v": "87",
+"d": "Indonesia"
+},
+{
+"v": "88",
+"d": "Afghanistan"
+},
+{
+"v": "89",
+"d": "Sri Lanka"
+},
+{
+"v": "9",
+"d": "Belarus"
+},
+{
+"v": "90",
+"d": "Iraq"
+},
+{
+"v": "91",
+"d": "Vietnam"
+},
+{
+"v": "92",
+"d": "Iran"
+},
+{
+"v": "93",
+"d": "Yemen"
+},
+{
+"v": "94",
+"d": "Jordan"
+},
+{
+"v": "95",
+"d": "Burma/Myanmar"
+},
+{
+"v": "96",
+"d": "Sikkim"
+},
+{
+"v": "97",
+"d": "Bangladesh"
+},
+{
+"v": "98",
+"d": "Singapore"
+},
+{
+"v": "99",
+"d": "Democratic Republic of Timor-Leste"
+}
+],
+"taskStatus": [
+{
+"v": "1",
+"d": "Not scheduled"
+},
+{
+"v": "10",
+"d": "Node restarting"
+},
+{
+"v": "11",
+"d": "Paused"
+},
+{
+"v": "12",
+"d": "Pausing"
+},
+{
+"v": "13",
+"d": "Task failed"
+},
+{
+"v": "14",
+"d": "Task ID not existing"
+},
+{
+"v": "15",
+"d": "Task exceeding execution time"
+},
+{
+"v": "16",
+"d": "Task interrupted"
+},
+{
+"v": "2",
+"d": "Waiting"
+},
+{
+"v": "3",
+"d": "Executing"
+},
+{
+"v": "4",
+"d": "Completed"
+},
+{
+"v": "5",
+"d": "Deleted"
+},
+{
+"v": "6",
+"d": "Node offline"
+},
+{
+"v": "7",
+"d": "Server down"
+},
+{
+"v": "8",
+"d": "Stopping"
+},
+{
+"v": "9",
+"d": "Stopped"
+}
+],
+"plateType": [
+{
+"v": "02TypePersonalized",
+"d": "Type 02 custom vehicle"
+},
+{
+"v": "04NewMilitay",
+"d": "Type 04 new military vehicle"
+},
+{
+"v": "92FarmVehicle",
+"d": "Civil vehicle two-line rear license plate"
+},
+{
+"v": "92TypeArm",
+"d": "Type 92 armed police vehicle"
+},
+{
+"v": "92TypeCivil",
+"d": "Type 92 civil vehicle"
+},
+{
+"v": "arm",
+"d": "Police vehicle"
+},
+{
+"v": "civilAviation",
+"d": "Civil aviation license plate"
+},
+{
+"v": "coach",
+"d": "Driver-training vehicle"
+},
+{
+"v": "consulate",
+"d": "Consular vehicle"
+},
+{
+"v": "embassy",
+"d": "Embassy vehicle"
+},
+{
+"v": "emergency",
+"d": "Emergency license plate"
+},
+{
+"v": "green1325FarmVehicle",
+"d": "Agricultural vehicle (Green 1325)"
+},
+{
+"v": "hongKongMacao",
+"d": "Hong Kong/Macao entrance vehicle"
+},
+{
+"v": "leftRightMilitay",
+"d": "Left and right military vehicle"
+},
+{
+"v": "motorola",
+"d": "Motorcycle"
+},
+{
+"v": "newEnergy",
+"d": "New energy vehicle license plate"
+},
+{
+"v": "oneLineArm",
+"d": "New armed police vehicle (one-line)"
+},
+{
+"v": "oneLineArmHeadquarters",
+"d": "Armed police headquarter license plate (one-line)"
+},
+{
+"v": "tempEntry",
+"d": "Temporary entry vehicle"
+},
+{
+"v": "tempTravl",
+"d": "Temporary license plate vehicle"
+},
+{
+"v": "trailer",
+"d": "Trailer"
+},
+{
+"v": "twoLineArm",
+"d": "Two line structure new armed police vehicle"
+},
+{
+"v": "twoLineArmHeadquarters",
+"d": "Armed police headquarter license plate (two-line)"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "upDownMilitay",
+"d": "Up and down military vehicle"
+},
+{
+"v": "yellow1225FarmVehicle",
+"d": "Agricultural vehicle (Yellow 1225)"
+},
+{
+"v": "yellow1325FarmVehicle",
+"d": "Yellow 1325 structure farm vehicle"
+},
+{
+"v": "yellowTwoLine",
+"d": "Yellow two-line rear license plate"
+}
+],
+"vehicleType": [
+{
+"v": "SUVMPV",
+"d": "SUV/MPV"
+},
+{
+"v": "buggy",
+"d": "Small-sized truck"
+},
+{
+"v": "bus",
+"d": "Bus"
+},
+{
+"v": "concreteMixer",
+"d": "Concrete mixer"
+},
+{
+"v": "containerTruck",
+"d": "Container truck"
+},
+{
+"v": "coupe",
+"d": "Coupe"
+},
+{
+"v": "crane",
+"d": "Crane and engineering vehicle"
+},
+{
+"v": "hatchback",
+"d": "Hatchback"
+},
+{
+"v": "largeBus",
+"d": "Large-sized coach"
+},
+{
+"v": "lightTruck",
+"d": "Small-sized truck"
+},
+{
+"v": "mediumBus",
+"d": "Middle-sized bus"
+},
+{
+"v": "mediumHeavyTruck",
+"d": "Medium and heavy truck"
+},
+{
+"v": "miniCar",
+"d": "Mini sedan"
+},
+{
+"v": "minibus",
+"d": "Minibus"
+},
+{
+"v": "minitruck",
+"d": "Minitruck, dropside trailer"
+},
+{
+"v": "motorVehicle",
+"d": "Vehicle"
+},
+{
+"v": "nonmotorVehicle",
+"d": "Non-motor vehicle"
+},
+{
+"v": "oilTankTruck",
+"d": "Oil tank truck"
+},
+{
+"v": "pedestrian",
+"d": "Pedestrian"
+},
+{
+"v": "pickupTruck",
+"d": "Pickup truck"
+},
+{
+"v": "platformTrailer",
+"d": "Flatbed trailer"
+},
+{
+"v": "saloon",
+"d": "Saloon"
+},
+{
+"v": "slagTruck",
+"d": "Slag truck"
+},
+{
+"v": "smallCar",
+"d": "Small sedan"
+},
+{
+"v": "threeWheelVehicle",
+"d": "Tricycle"
+},
+{
+"v": "truck",
+"d": "Truck"
+},
+{
+"v": "twoWheelVehicle",
+"d": "Two-wheel vehicle"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "van",
+"d": "Minivan"
+},
+{
+"v": "vehicle",
+"d": "Salon car"
+}
+],
+"vehicleState": [
+{
+"v": "abnormal",
+"d": "Abnormal"
+},
+{
+"v": "incomplete",
+"d": "Broken"
+},
+{
+"v": "invalid",
+"d": "Invalid license plate"
+},
+{
+"v": "noLicense",
+"d": "No license plate"
+},
+{
+"v": "noVehicle",
+"d": "Non-motor vehicle"
+},
+{
+"v": "normal",
+"d": "Normal"
+},
+{
+"v": "temporaryLicense",
+"d": "Temporary license plate"
+},
+{
+"v": "unrealPlate",
+"d": "Fake license plate"
+},
+{
+"v": "unrecognized",
+"d": "Unrecognized"
+}
+],
+"faceSelectStrategy": [
+{
+"v": "best",
+"d": "Optimized face picture"
+},
+{
+"v": "biggest",
+"d": "Largest face picture"
+},
+{
+"v": "middest",
+"d": "Face in middle of picture"
+}
+],
+"CRIndex": [
+{
+"v": "0",
+"d": "Unsupported"
+},
+{
+"v": "1",
+"d": "Czech Republic"
+},
+{
+"v": "10",
+"d": "Moldova"
+},
+{
+"v": "100",
+"d": "Reserved"
+},
+{
+"v": "101",
+"d": "Reserved"
+},
+{
+"v": "102",
+"d": "Reserved"
+},
+{
+"v": "103",
+"d": "Reserved"
+},
+{
+"v": "104",
+"d": "Egypt"
+},
+{
+"v": "105",
+"d": "Libya"
+},
+{
+"v": "106",
+"d": "Sudan"
+},
+{
+"v": "107",
+"d": "Tunisia"
+},
+{
+"v": "108",
+"d": "Algeria"
+},
+{
+"v": "109",
+"d": "Morocco"
+},
+{
+"v": "11",
+"d": "Russia"
+},
+{
+"v": "110",
+"d": "Ethiopia"
+},
+{
+"v": "111",
+"d": "Eritrea"
+},
+{
+"v": "112",
+"d": "Somalia Democratic"
+},
+{
+"v": "113",
+"d": "Djibouti"
+},
+{
+"v": "114",
+"d": "Kenya"
+},
+{
+"v": "115",
+"d": "Tanzania"
+},
+{
+"v": "116",
+"d": "Uganda"
+},
+{
+"v": "117",
+"d": "Rwanda"
+},
+{
+"v": "118",
+"d": "Burundi"
+},
+{
+"v": "119",
+"d": "Seychelles"
+},
+{
+"v": "12",
+"d": "Ukraine"
+},
+{
+"v": "120",
+"d": "Chad"
+},
+{
+"v": "121",
+"d": "Central African"
+},
+{
+"v": "122",
+"d": "Cameroon"
+},
+{
+"v": "123",
+"d": "Equatorial Guinea"
+},
+{
+"v": "124",
+"d": "Gabon"
+},
+{
+"v": "125",
+"d": "Congo-Brazzaville"
+},
+{
+"v": "126",
+"d": "Democratic Republic of the Congo"
+},
+{
+"v": "127",
+"d": "Sao Tome and Principe"
+},
+{
+"v": "128",
+"d": "Mauritania"
+},
+{
+"v": "129",
+"d": "Western Sahara"
+},
+{
+"v": "13",
+"d": "Belgium"
+},
+{
+"v": "130",
+"d": "Senegal"
+},
+{
+"v": "131",
+"d": "Gambia"
+},
+{
+"v": "132",
+"d": "Mali"
+},
+{
+"v": "133",
+"d": "Burkina Faso"
+},
+{
+"v": "134",
+"d": "Guinea"
+},
+{
+"v": "135",
+"d": "Guinea-Bissau"
+},
+{
+"v": "136",
+"d": "Cape Verde"
+},
+{
+"v": "137",
+"d": "Sierra Leone"
+},
+{
+"v": "138",
+"d": "Liberia"
+},
+{
+"v": "139",
+"d": "Ivory Coast"
+},
+{
+"v": "14",
+"d": "Bulgaria"
+},
+{
+"v": "140",
+"d": "Ghana"
+},
+{
+"v": "141",
+"d": "Togo"
+},
+{
+"v": "142",
+"d": "Benin"
+},
+{
+"v": "143",
+"d": "Niger"
+},
+{
+"v": "144",
+"d": "Zambia"
+},
+{
+"v": "145",
+"d": "Angola"
+},
+{
+"v": "146",
+"d": "Zimbabwe"
+},
+{
+"v": "147",
+"d": "Malawi"
+},
+{
+"v": "148",
+"d": "Mozambique"
+},
+{
+"v": "149",
+"d": "Botswana"
+},
+{
+"v": "15",
+"d": "Denmark"
+},
+{
+"v": "150",
+"d": "Namibia"
+},
+{
+"v": "151",
+"d": "South Africa"
+},
+{
+"v": "152",
+"d": "Swaziland"
+},
+{
+"v": "153",
+"d": "Lesotho"
+},
+{
+"v": "154",
+"d": "Madagasca"
+},
+{
+"v": "155",
+"d": "Comoros"
+},
+{
+"v": "156",
+"d": "Mauritius"
+},
+{
+"v": "157",
+"d": "Nigeria"
+},
+{
+"v": "158",
+"d": "South Sudan"
+},
+{
+"v": "159",
+"d": "Saint Helena"
+},
+{
+"v": "16",
+"d": "Finland"
+},
+{
+"v": "160",
+"d": "Mayotte"
+},
+{
+"v": "161",
+"d": "Reunion"
+},
+{
+"v": "162",
+"d": "Canary Islands"
+},
+{
+"v": "163",
+"d": "Azores"
+},
+{
+"v": "164",
+"d": "Madeira"
+},
+{
+"v": "165",
+"d": "Reserved"
+},
+{
+"v": "166",
+"d": "Reserved"
+},
+{
+"v": "167",
+"d": "Reserved"
+},
+{
+"v": "168",
+"d": "Reserved"
+},
+{
+"v": "169",
+"d": "Canada"
+},
+{
+"v": "17",
+"d": "United Kingdom"
+},
+{
+"v": "170",
+"d": "Greenland Nuuk"
+},
+{
+"v": "171",
+"d": "Pierre and Miquelon"
+},
+{
+"v": "172",
+"d": "United State"
+},
+{
+"v": "173",
+"d": "Bermuda"
+},
+{
+"v": "174",
+"d": "Mexico"
+},
+{
+"v": "175",
+"d": "Guatemala"
+},
+{
+"v": "176",
+"d": "Belize"
+},
+{
+"v": "177",
+"d": "El Salvador"
+},
+{
+"v": "178",
+"d": "Honduras"
+},
+{
+"v": "179",
+"d": "Nicaragua"
+},
+{
+"v": "18",
+"d": "Greece"
+},
+{
+"v": "180",
+"d": "Costa Rica"
+},
+{
+"v": "181",
+"d": "Panama"
+},
+{
+"v": "182",
+"d": "Bahamas"
+},
+{
+"v": "183",
+"d": "Turks and  Caicos Islands"
+},
+{
+"v": "184",
+"d": "Cuba"
+},
+{
+"v": "185",
+"d": "Jamaica"
+},
+{
+"v": "186",
+"d": "Cayman Islands"
+},
+{
+"v": "187",
+"d": "Haiti"
+},
+{
+"v": "188",
+"d": "Dominican"
+},
+{
+"v": "189",
+"d": "Puerto Rico"
+},
+{
+"v": "19",
+"d": "Croatia"
+},
+{
+"v": "190",
+"d": "United States Virgin Islands"
+},
+{
+"v": "191",
+"d": "British Virgin Islands"
+},
+{
+"v": "192",
+"d": "Anguilla"
+},
+{
+"v": "193",
+"d": "Antigua and Barbuda"
+},
+{
+"v": "194",
+"d": "Collectivité de Saint-Martin"
+},
+{
+"v": "195",
+"d": "Saint Martin"
+},
+{
+"v": "196",
+"d": "Saint Barthélemy"
+},
+{
+"v": "197",
+"d": "Saint Kitts and Nevis"
+},
+{
+"v": "198",
+"d": "Montserrat"
+},
+{
+"v": "199",
+"d": "Guadeloupe"
+},
+{
+"v": "2",
+"d": "France"
+},
+{
+"v": "20",
+"d": "Hungary"
+},
+{
+"v": "200",
+"d": "Dominica"
+},
+{
+"v": "201",
+"d": "Martinique"
+},
+{
+"v": "202",
+"d": "Saint Lucia"
+},
+{
+"v": "203",
+"d": "Saint Vincent and the Grenadines"
+},
+{
+"v": "204",
+"d": "Grenada"
+},
+{
+"v": "205",
+"d": "Barbados"
+},
+{
+"v": "206",
+"d": "Trinidad and Tobago"
+},
+{
+"v": "207",
+"d": "Curaçao"
+},
+{
+"v": "208",
+"d": "Aruba"
+},
+{
+"v": "209",
+"d": "Netherlands Antilles"
+},
+{
+"v": "21",
+"d": "Israel"
+},
+{
+"v": "210",
+"d": "Colombia"
+},
+{
+"v": "211",
+"d": "Venezuela"
+},
+{
+"v": "212",
+"d": "Guyana"
+},
+{
+"v": "213",
+"d": "Suriname"
+},
+{
+"v": "214",
+"d": "French Guiana"
+},
+{
+"v": "215",
+"d": "Ecuador"
+},
+{
+"v": "216",
+"d": "Peru"
+},
+{
+"v": "217",
+"d": "Bolivia"
+},
+{
+"v": "218",
+"d": "Paraguay"
+},
+{
+"v": "219",
+"d": "Chile"
+},
+{
+"v": "22",
+"d": "Luxembourg"
+},
+{
+"v": "220",
+"d": "Brazil"
+},
+{
+"v": "221",
+"d": "Uruguay"
+},
+{
+"v": "222",
+"d": "Argentina"
+},
+{
+"v": "223",
+"d": "Reserved"
+},
+{
+"v": "224",
+"d": "Reserved"
+},
+{
+"v": "225",
+"d": "Reserved"
+},
+{
+"v": "226",
+"d": "Reserved"
+},
+{
+"v": "227",
+"d": "Australia"
+},
+{
+"v": "228",
+"d": "New Zealand"
+},
+{
+"v": "229",
+"d": "Papua New Guinea"
+},
+{
+"v": "23",
+"d": "North Macedonia"
+},
+{
+"v": "230",
+"d": "Salomonen"
+},
+{
+"v": "231",
+"d": "Vanuatu"
+},
+{
+"v": "232",
+"d": "New Caledonia"
+},
+{
+"v": "233",
+"d": "Palau"
+},
+{
+"v": "234",
+"d": "Federated States of Micronesia"
+},
+{
+"v": "235",
+"d": "Marshall Islands"
+},
+{
+"v": "236",
+"d": "Northern Mariana Islands"
+},
+{
+"v": "237",
+"d": "Guam"
+},
+{
+"v": "238",
+"d": "Nauru"
+},
+{
+"v": "239",
+"d": "Kiribati"
+},
+{
+"v": "24",
+"d": "Norway"
+},
+{
+"v": "240",
+"d": "Fiji"
+},
+{
+"v": "241",
+"d": "Tonga"
+},
+{
+"v": "242",
+"d": "Tuvalu"
+},
+{
+"v": "243",
+"d": "Wallis and Futuna"
+},
+{
+"v": "244",
+"d": "Samoa"
+},
+{
+"v": "245",
+"d": "American Samoa"
+},
+{
+"v": "246",
+"d": "Tokelau"
+},
+{
+"v": "247",
+"d": "Niue"
+},
+{
+"v": "248",
+"d": "Cook Islands"
+},
+{
+"v": "249",
+"d": "French Polynesia"
+},
+{
+"v": "25",
+"d": "Portugal"
+},
+{
+"v": "250",
+"d": "Pitcairn Islands"
+},
+{
+"v": "251",
+"d": "Hawaii State"
+},
+{
+"v": "252",
+"d": "Reserved"
+},
+{
+"v": "253",
+"d": "Reserved"
+},
+{
+"v": "254",
+"d": "Unrecognized"
+},
+{
+"v": "255",
+"d": "All"
+},
+{
+"v": "256",
+"d": "Taiwan (China)"
+},
+{
+"v": "257",
+"d": "Hong Kong (China)"
+},
+{
+"v": "258",
+"d": "Macau (China)"
+},
+{
+"v": "26",
+"d": "Romania"
+},
+{
+"v": "27",
+"d": "Serbia"
+},
+{
+"v": "28",
+"d": "Azerbaijan"
+},
+{
+"v": "29",
+"d": "Georgia"
+},
+{
+"v": "3",
+"d": "Germany"
+},
+{
+"v": "30",
+"d": "Kazakhstan"
+},
+{
+"v": "31",
+"d": "Lithuania"
+},
+{
+"v": "32",
+"d": "Turkmenistan"
+},
+{
+"v": "33",
+"d": "Uzbekistan"
+},
+{
+"v": "34",
+"d": "Latvia"
+},
+{
+"v": "35",
+"d": "Estonia"
+},
+{
+"v": "36",
+"d": "Albania"
+},
+{
+"v": "37",
+"d": "Austria"
+},
+{
+"v": "38",
+"d": "Bosnia and Herzegovina"
+},
+{
+"v": "39",
+"d": "Ireland"
+},
+{
+"v": "4",
+"d": "Spain"
+},
+{
+"v": "40",
+"d": "Iceland"
+},
+{
+"v": "41",
+"d": "Vatican"
+},
+{
+"v": "42",
+"d": "Malta"
+},
+{
+"v": "43",
+"d": "Sweden"
+},
+{
+"v": "44",
+"d": "Switzerland"
+},
+{
+"v": "45",
+"d": "Cyprus"
+},
+{
+"v": "46",
+"d": "Turkey"
+},
+{
+"v": "47",
+"d": "Slovenia"
+},
+{
+"v": "48",
+"d": "Montenegro"
+},
+{
+"v": "49",
+"d": "Kosovo"
+},
+{
+"v": "5",
+"d": "Italy"
+},
+{
+"v": "50",
+"d": "Andorra"
+},
+{
+"v": "51",
+"d": "Armenia"
+},
+{
+"v": "52",
+"d": "Monaco"
+},
+{
+"v": "53",
+"d": "Liechtenstein"
+},
+{
+"v": "54",
+"d": "San Marino"
+},
+{
+"v": "55",
+"d": "Reserved"
+},
+{
+"v": "56",
+"d": "Reserved"
+},
+{
+"v": "57",
+"d": "Reserved"
+},
+{
+"v": "58",
+"d": "Reserved"
+},
+{
+"v": "59",
+"d": "China"
+},
+{
+"v": "6",
+"d": "Netherlands"
+},
+{
+"v": "60",
+"d": "Bahrain"
+},
+{
+"v": "61",
+"d": "South Korea"
+},
+{
+"v": "62",
+"d": "Lebanon"
+},
+{
+"v": "63",
+"d": "Nepal"
+},
+{
+"v": "64",
+"d": "Thailand"
+},
+{
+"v": "65",
+"d": "Pakistan"
+},
+{
+"v": "66",
+"d": "United Arab Emirates"
+},
+{
+"v": "67",
+"d": "Bhutan"
+},
+{
+"v": "68",
+"d": "Oman"
+},
+{
+"v": "69",
+"d": "North Korea"
+},
+{
+"v": "7",
+"d": "Poland"
+},
+{
+"v": "70",
+"d": "Philippines"
+},
+{
+"v": "71",
+"d": "Cambodia"
+},
+{
+"v": "72",
+"d": "Qatar"
+},
+{
+"v": "73",
+"d": "Kyrgyzstan"
+},
+{
+"v": "74",
+"d": "Maldives"
+},
+{
+"v": "75",
+"d": "Malaysia"
+},
+{
+"v": "76",
+"d": "Mongolia"
+},
+{
+"v": "77",
+"d": "Saudi Arabia"
+},
+{
+"v": "78",
+"d": "Brunei"
+},
+{
+"v": "79",
+"d": "Laos"
+},
+{
+"v": "8",
+"d": "Slovakia"
+},
+{
+"v": "80",
+"d": "Japan"
+},
+{
+"v": "81",
+"d": "Turkey"
+},
+{
+"v": "82",
+"d": "Palestinian"
+},
+{
+"v": "83",
+"d": "Tajikistan"
+},
+{
+"v": "84",
+"d": "Kuwait"
+},
+{
+"v": "85",
+"d": "Syria"
+},
+{
+"v": "86",
+"d": "India"
+},
+{
+"v": "87",
+"d": "Indonesia"
+},
+{
+"v": "88",
+"d": "Afghanistan"
+},
+{
+"v": "89",
+"d": "Sri Lanka"
+},
+{
+"v": "9",
+"d": "Belarus"
+},
+{
+"v": "90",
+"d": "Iraq"
+},
+{
+"v": "91",
+"d": "Vietnam"
+},
+{
+"v": "92",
+"d": "Iran"
+},
+{
+"v": "93",
+"d": "Yemen"
+},
+{
+"v": "94",
+"d": "Jordan"
+},
+{
+"v": "95",
+"d": "Burma/Myanmar"
+},
+{
+"v": "96",
+"d": "Sikkim"
+},
+{
+"v": "97",
+"d": "Bangladesh"
+},
+{
+"v": "98",
+"d": "Singapore"
+},
+{
+"v": "99",
+"d": "Democratic Republic of Timor-Leste"
+}
+],
+"threeWheelVehicleCanopy": [
+{
+"v": "closed",
+"d": "Closed"
+},
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"hatStyle": [
+{
+"v": "helmet",
+"d": "Helmet"
+},
+{
+"v": "no",
+"d": "No hat"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Normal hat"
+}
+],
+"area": [
+{
+"v": "AD",
+"d": "Abu Dhabi"
+},
+{
+"v": "AM",
+"d": "Ajman"
+},
+{
+"v": "DB",
+"d": "Dubai"
+},
+{
+"v": "FJR",
+"d": "Fujairah"
+},
+{
+"v": "RAK",
+"d": "Ras al-Khaimah"
+},
+{
+"v": "SJ",
+"d": "Sharjah"
+},
+{
+"v": "UMW",
+"d": "Umm al-Qaiwain"
+},
+{
+"v": "other",
+"d": "Others"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"plateColor": [
+{
+"v": "black",
+"d": "Black"
+},
+{
+"v": "blue",
+"d": "Blue"
+},
+{
+"v": "civilAviationBlack",
+"d": "Civil aviation black"
+},
+{
+"v": "civilAviationGreen",
+"d": "Civil aviation green"
+},
+{
+"v": "golden",
+"d": "Golden"
+},
+{
+"v": "green",
+"d": "Green"
+},
+{
+"v": "mixedColor",
+"d": "Mixed color"
+},
+{
+"v": "newEnergyGreen",
+"d": "New energy green"
+},
+{
+"v": "newEnergyYellowGreen",
+"d": "New energy green and yellow"
+},
+{
+"v": "orange",
+"d": "Orange"
+},
+{
+"v": "other",
+"d": "Other color"
+},
+{
+"v": "red",
+"d": "Red"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "white",
+"d": "White"
+},
+{
+"v": "yellow",
+"d": "Yellow"
+}
+],
+"nonMotorType": [
+{
+"v": "threeWheelVehicle",
+"d": "Tricycle"
+},
+{
+"v": "twoWheelVehicle",
+"d": "Two-wheel vehicle"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"direction": [
+{
+"v": "backward",
+"d": "Down"
+},
+{
+"v": "forward",
+"d": "Up"
+},
+{
+"v": "leftward",
+"d": "Left"
+},
+{
+"v": "lowerLeft",
+"d": "Lower left"
+},
+{
+"v": "lowerRight",
+"d": "Lower right"
+},
+{
+"v": "rightward",
+"d": "Right"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "upperLeft",
+"d": "Upper left"
+},
+{
+"v": "upperRight",
+"d": "Upper right"
+}
+],
+"illegalTrafficEvent": [
+{
+"v": "abandonedObject",
+"d": "Thrown object"
+},
+{
+"v": "checkPoint",
+"d": "Checkpoint detection"
+},
+{
+"v": "conflagration",
+"d": "Fire"
+},
+{
+"v": "congestion",
+"d": "Congestion"
+},
+{
+"v": "construction",
+"d": "Under construction"
+},
+{
+"v": "crossLane",
+"d": "Driving on lane line"
+},
+{
+"v": "edfManual",
+"d": "Manual enforcement"
+},
+{
+"v": "fogDetection",
+"d": "Fog detection"
+},
+{
+"v": "gasser",
+"d": "Queue jumping"
+},
+{
+"v": "group",
+"d": "People gathering"
+},
+{
+"v": "illegalParking",
+"d": "Illegal parking"
+},
+{
+"v": "intersectionStranded",
+"d": "Vehicle overstay"
+},
+{
+"v": "laneChange",
+"d": "Lane change"
+},
+{
+"v": "objectDroppedDown",
+"d": "Object falling"
+},
+{
+"v": "occupyOvertakingLane",
+"d": "Occupy overtaking lane"
+},
+{
+"v": "parallelParking",
+"d": "Parallel parking"
+},
+{
+"v": "pedestrian",
+"d": "Pedestrian detection"
+},
+{
+"v": "polyJam",
+"d": "Polygonal congestion"
+},
+{
+"v": "prohibitionMarkViolation",
+"d": "Prohibition violation"
+},
+{
+"v": "roadBlock",
+"d": "Roadblock"
+},
+{
+"v": "slowMoving",
+"d": "Slow moving"
+},
+{
+"v": "smoke",
+"d": "Smoke"
+},
+{
+"v": "speed",
+"d": "Speeding"
+},
+{
+"v": "suddenSpeedDrop",
+"d": "Sudden speed drop"
+},
+{
+"v": "trafficAccident",
+"d": "Traffic accident detection"
+},
+{
+"v": "trafficConflict",
+"d": "Traffic flow conflict"
+},
+{
+"v": "turnRound",
+"d": "U-Turn"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "vehicleexist",
+"d": "Motor vehicle on non-motor vehicle lane"
+},
+{
+"v": "wrongDirection",
+"d": "Wrong-way driving"
+}
+],
+"week": [
+{
+"v": "1",
+"d": "Monday"
+},
+{
+"v": "2",
+"d": "Tuesday"
+},
+{
+"v": "3",
+"d": "Wednesday"
+},
+{
+"v": "4",
+"d": "Thursday"
+},
+{
+"v": "5",
+"d": "Friday"
+},
+{
+"v": "6",
+"d": "Saturday"
+},
+{
+"v": "7",
+"d": "Sunday"
+}
+],
+"certificateType": [
+{
+"v": "ID",
+"d": "ID card"
+},
+{
+"v": "LawyerCertificate",
+"d": "Lawyer’s certificate"
+},
+{
+"v": "birthCertificate",
+"d": "Birth certificate"
+},
+{
+"v": "foreignPermanentResidentIDCard",
+"d": "Foreign permanent resident ID card"
+},
+{
+"v": "householdRegister",
+"d": "Household register"
+},
+{
+"v": "judgeCertificate",
+"d": "Judge's certificate"
+},
+{
+"v": "officerID",
+"d": "Military officer ID"
+},
+{
+"v": "other",
+"d": "Others"
+},
+{
+"v": "passport",
+"d": "Passport"
+},
+{
+"v": "policeID",
+"d": "Police ID"
+},
+{
+"v": "pressCard",
+"d": "Press card"
+},
+{
+"v": "prosecutorCard",
+"d": "Prosecutor's certificate"
+},
+{
+"v": "studentIDCard",
+"d": "Student ID card"
+},
+{
+"v": "temporaryIDCard",
+"d": "Temporary ID card"
+},
+{
+"v": "temporaryResidencePermit",
+"d": "Temporary residence permit"
+},
+{
+"v": "workCard",
+"d": "Work card"
+}
+],
+"laneGuidingDirection": [
+{
+"v": "around",
+"d": "U-Turn"
+},
+{
+"v": "left",
+"d": "Left turn"
+},
+{
+"v": "leftAround",
+"d": "Left and U-turn"
+},
+{
+"v": "leftRight",
+"d": "Left and right"
+},
+{
+"v": "leftStraight",
+"d": "Left turn and straight"
+},
+{
+"v": "leftStraightRight",
+"d": "Left turn, straight, and right turn"
+},
+{
+"v": "right",
+"d": "Right turn"
+},
+{
+"v": "straight",
+"d": "Straight"
+},
+{
+"v": "straightRight",
+"d": "Straight and right"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"location": [
+{
+"v": "east",
+"d": "East"
+},
+{
+"v": "eastWest",
+"d": "East-west"
+},
+{
+"v": "north",
+"d": "North"
+},
+{
+"v": "south",
+"d": "South"
+},
+{
+"v": "southNorth",
+"d": "North-south"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "west",
+"d": "West"
+}
+],
+"roadMaint": [
+{
+"v": "cementPierDamage",
+"d": "Cement pier damage"
+},
+{
+"v": "crack",
+"d": "Crack"
+},
+{
+"v": "guardrailDamage",
+"d": "Guardrail damage"
+},
+{
+"v": "plantLodging",
+"d": "Plant lodging"
+},
+{
+"v": "ponding",
+"d": "Road waterlogging"
+},
+{
+"v": "pothole",
+"d": "Potholes"
+},
+{
+"v": "roadSignDamage",
+"d": "Road sign damage"
+},
+{
+"v": "wheelRut",
+"d": "Wheel rut"
+}
+],
+"BandIdx": [
+{
+"v": "0",
+"d": "China Unicom B3"
+},
+{
+"v": "1",
+"d": "China Telecom B3"
+},
+{
+"v": "10",
+"d": "China Unicom WCDMA"
+},
+{
+"v": "11",
+"d": "China Telecom CDMA"
+},
+{
+"v": "12",
+"d": "China Telecom CDMA2000"
+},
+{
+"v": "13",
+"d": "China Mobile TD-SCDMA"
+},
+{
+"v": "2",
+"d": "China Mobile B39"
+},
+{
+"v": "3",
+"d": "China Mobile B38"
+},
+{
+"v": "4",
+"d": "China Mobile B40"
+},
+{
+"v": "5",
+"d": "China Mobile B41"
+},
+{
+"v": "6",
+"d": "China Unicom B1"
+},
+{
+"v": "7",
+"d": "China Telecom B1"
+},
+{
+"v": "8",
+"d": "China Mobile 2G"
+},
+{
+"v": "9",
+"d": "China Unicom 2G"
+}
+],
+"EPlateVehicleColor": [
+{
+"v": "black",
+"d": "Black"
+},
+{
+"v": "blue",
+"d": "Blue"
+},
+{
+"v": "brown",
+"d": "Brown"
+},
+{
+"v": "cyan",
+"d": "Cyan"
+},
+{
+"v": "deepBlue",
+"d": "Dark blue"
+},
+{
+"v": "deepGray",
+"d": "Dark gray"
+},
+{
+"v": "gray",
+"d": "Gray"
+},
+{
+"v": "green",
+"d": "Green"
+},
+{
+"v": "orange",
+"d": "Orange"
+},
+{
+"v": "pink",
+"d": "Pink"
+},
+{
+"v": "purple",
+"d": "Purple"
+},
+{
+"v": "red",
+"d": "Red"
+},
+{
+"v": "silver",
+"d": "Silver"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "white",
+"d": "White"
+},
+{
+"v": "yellow",
+"d": "Yellow"
+}
+],
+"EPlateNonMotorType": [
+{
+"v": "threeWheelVehicle",
+"d": "Tricycle"
+},
+{
+"v": "twoWheelVehicle",
+"d": "Two-wheel vehicle"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"EPlateNonMotorPlateType": [
+{
+"v": "normal",
+"d": "Normal license plate"
+},
+{
+"v": "temporary",
+"d": "Temporary license plate"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"EPlateColor": [
+{
+"v": "black",
+"d": "Black"
+},
+{
+"v": "blue",
+"d": "Blue"
+},
+{
+"v": "civilAviationBlack",
+"d": "Civil aviation black"
+},
+{
+"v": "civilAviationGreen",
+"d": "Civil aviation green"
+},
+{
+"v": "golden",
+"d": "Golden"
+},
+{
+"v": "green",
+"d": "Green"
+},
+{
+"v": "mixedColor",
+"d": "Mixed color"
+},
+{
+"v": "newEnergyGreen",
+"d": "New energy green"
+},
+{
+"v": "newEnergyYellowGreen",
+"d": "New energy green and yellow"
+},
+{
+"v": "orange",
+"d": "Orange"
+},
+{
+"v": "other",
+"d": "Other color"
+},
+{
+"v": "red",
+"d": "Red"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "white",
+"d": "White"
+},
+{
+"v": "yellow",
+"d": "Yellow"
+}
+],
+"EPlateUseType": [
+{
+"v": "express",
+"d": "Express delivery"
+},
+{
+"v": "nonOperating",
+"d": "Non-operating"
+},
+{
+"v": "takeOut",
+"d": "Take out"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"snapDirection": [
+{
+"v": "back",
+"d": "Rear"
+},
+{
+"v": "bothway",
+"d": "Bidirectional"
+},
+{
+"v": "forward",
+"d": "Front"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+}
+],
+"detectType": [
+{
+"v": "1",
+"d": "Induction trigger"
+},
+{
+"v": "2",
+"d": "Video trigger"
+},
+{
+"v": "3",
+"d": "Multi-frame recognition"
+},
+{
+"v": "4",
+"d": "Radar trigger"
+},
+{
+"v": "5",
+"d": "Electronic license plate (RFID) trigger"
+},
+{
+"v": "6",
+"d": "Video and electronic license plate (RFID) trigger"
+}
+],
+"lineType": [
+{
+"v": "dfyellow",
+"d": "Double yellow line (left: dotted, right: solid)"
+},
+{
+"v": "dottedLine",
+"d": "Dotted line"
+},
+{
+"v": "doubleYellow",
+"d": "Double yellow line"
+},
+{
+"v": "fdYellow",
+"d": "Double yellow line (left: solid, right: dotted)"
+},
+{
+"v": "guardRail",
+"d": "Lane line with guardrail"
+},
+{
+"v": "noCross",
+"d": "Lane line prohibited to cross by vehicle"
+},
+{
+"v": "singleYellow",
+"d": "Single yellow line"
+},
+{
+"v": "stop",
+"d": "Stop line"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "white",
+"d": "White line"
+}
+],
+"libArmingType": [
+{
+"v": "armingLib",
+"d": "Arm library"
+},
+{
+"v": "nonArmingLib",
+"d": "Non-arm library"
+}
+],
+"libAttribute": [
+{
+"v": "VIP",
+"d": "VIP library"
+},
+{
+"v": "blackList",
+"d": "Blocklist library"
+},
+{
+"v": "passerby",
+"d": "Stranger library"
+}
+],
+"withBackToCamera": [
+{
+"v": "no",
+"d": "Sitting backward"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Not sitting backward"
+}
+],
+"packageType": [
+{
+"v": "HEOP",
+"d": "Third-party HEOP application"
+},
+{
+"v": "basePackage",
+"d": "Basic component package (AIOP algorithm)"
+},
+{
+"v": "model",
+"d": "Algorithm model"
+},
+{
+"v": "package",
+"d": "Algorithm package"
+},
+{
+"v": "service",
+"d": "Algorithm service"
+}
+],
+"vendorID": [
+{
+"v": "1",
+"d": null
+},
+{
+"v": "10",
+"d": "YISA"
+},
+{
+"v": "11",
+"d": "Custom 1"
+},
+{
+"v": "12",
+"d": "Custom 2"
+},
+{
+"v": "13",
+"d": "Custom 3"
+},
+{
+"v": "14",
+"d": "Custom 4"
+},
+{
+"v": "15",
+"d": "Custom 5"
+},
+{
+"v": "2",
+"d": "Harzone"
+},
+{
+"v": "3",
+"d": "Dahua"
+},
+{
+"v": "4",
+"d": "Uniview"
+},
+{
+"v": "5",
+"d": "YITU"
+},
+{
+"v": "6",
+"d": "SenseTime"
+},
+{
+"v": "7",
+"d": "Face++"
+},
+{
+"v": "8",
+"d": "Cloudwalk"
+},
+{
+"v": "9",
+"d": "Huawei"
+}
+],
+"localVideoType": [
+{
+"v": "hardDisk",
+"d": "Hard disk storage recording"
+},
+{
+"v": "mobileStorage",
+"d": "Mobile storage recording"
+}
+],
+"card": [
+{
+"v": "no",
+"d": "No"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Yes"
+}
+],
+"studentScene": [
+{
+"v": "answer",
+"d": "Answer"
+},
+{
+"v": "discuss",
+"d": "Discussion"
+},
+{
+"v": "takeLesson",
+"d": "In class"
+}
+],
+"discuss": [
+{
+"v": "no",
+"d": "Not discussing"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "yes",
+"d": "Discussing"
+}
+],
+"effectMode": [
+{
+"v": "0",
+"d": "Zoom in the upper left"
+},
+{
+"v": "1",
+"d": "Zoom in the upper right"
+},
+{
+"v": "10",
+"d": "Zoom in the middle right"
+},
+{
+"v": "11",
+"d": "Zoom in the upper middle"
+},
+{
+"v": "12",
+"d": "Zoom in the lower middle"
+},
+{
+"v": "2",
+"d": "Zoom in the lower left"
+},
+{
+"v": "3",
+"d": "Zoom in the lower right"
+},
+{
+"v": "4",
+"d": "Zoom in the left"
+},
+{
+"v": "5",
+"d": "Zoom in the right"
+},
+{
+"v": "6",
+"d": "Zoom in the upper part"
+},
+{
+"v": "7",
+"d": "Zoom in the lower part"
+},
+{
+"v": "8",
+"d": "Zoom in the middle part"
+},
+{
+"v": "9",
+"d": "Zoom in the middle left"
+}
+],
+"controlType": [
+{
+"v": "auto",
+"d": "Auto control"
+},
+{
+"v": "manual",
+"d": "Manual control"
+}
+],
+"mirrorMode": [
+{
+"v": "L1R2",
+"d": "One big view on the left with two small views on the right"
+},
+{
+"v": "L1R3",
+"d": "One big view on the left with three small views on the right"
+},
+{
+"v": "L1R4",
+"d": "One big view on the left with four small views on the right"
+},
+{
+"v": "L2R1",
+"d": "One big view on the right with two small views on the left"
+},
+{
+"v": "L3R1",
+"d": "One big view on the right with three small views on the left"
+},
+{
+"v": "L4R1",
+"d": "One big view on the right with four small views on the left"
+},
+{
+"v": "NSquare1",
+"d": "9-split screen"
+},
+{
+"v": "NSquare2",
+"d": "16-split screen"
+},
+{
+"v": "pinpL",
+"d": "Picture-in-picture mode with the small picture in the lower left"
+},
+{
+"v": "pinpR",
+"d": "Picture-in-picture mode with the small picture in the lower right"
+},
+{
+"v": "split1",
+"d": "1-window division"
+},
+{
+"v": "split2",
+"d": "2-window division"
+},
+{
+"v": "split4",
+"d": "4-window division"
+},
+{
+"v": "split6UL",
+"d": "6-window division with a big window on the upper left"
+},
+{
+"v": "split8UL",
+"d": "8-window division with a big window on the upper left"
+}
+],
+"IoTEventType": [
+{
+"v": "LSE",
+"d": "Logistics scanning event"
+},
+{
+"v": "alarmRecovered",
+"d": "Alarm restored event (access controller)"
+},
+{
+"v": "alarmTriggered",
+"d": "Alarm event (access controller)"
+},
+{
+"v": "authenticated",
+"d": "Authentication passed (access controller)"
+},
+{
+"v": "authenticationFailed",
+"d": "Authentication failed (access controller)"
+},
+{
+"v": "batteryLow",
+"d": "Low device battery (Luminite alarm host)"
+},
+{
+"v": "callCenter",
+"d": "Call center (access controller)"
+},
+{
+"v": "cloak",
+"d": "Light and IR sensor signal tampered (Luminite alarm host)"
+},
+{
+"v": "closingDoor",
+"d": "Door-closing action (access controller)"
+},
+{
+"v": "codeViolation",
+"d": "Device manual conflicted data (Luminite alarm host)"
+},
+{
+"v": "deviceException",
+"d": "Device exception event (access controller)"
+},
+{
+"v": "deviceRecovered",
+"d": "Device recovered event (access controller)"
+},
+{
+"v": "doorException",
+"d": "Door exception (access controller)"
+},
+{
+"v": "duressAlarm",
+"d": "Duress alarm (video intercom)"
+},
+{
+"v": "failure",
+"d": "Error occurred in sensor (Luminite alarm host)"
+},
+{
+"v": "host",
+"d": "Host event (alarm host)"
+},
+{
+"v": "intercom",
+"d": "Intercom alarm (video intercom)"
+},
+{
+"v": "jamming",
+"d": "Received massive useless interference information (Luminite alarm host)"
+},
+{
+"v": "lockingDoorFailed",
+"d": "Door not-closed alarm (video intercom)"
+},
+{
+"v": "lowlightDetection",
+"d": "Dim light detection alarm (GJD alarm host)"
+},
+{
+"v": "mastheadTamper",
+"d": "Device anti-tamper spring loose (Luminite alarm host)"
+},
+{
+"v": "move",
+"d": "Sensor moved (Luminite alarm host)"
+},
+{
+"v": "openingDoor",
+"d": "Door-opening action (access controller)"
+},
+{
+"v": "pcA1",
+"d": "Event occurred in area A1 (OPTEX alarm host)"
+},
+{
+"v": "pcA11",
+"d": "Event occurred in area A11 (OPTEX alarm host)"
+},
+{
+"v": "pcA12",
+"d": "Event occurred in area A12 (OPTEX alarm host)"
+},
+{
+"v": "pcA2",
+"d": "Event occurred in area A2 (OPTEX alarm host)"
+},
+{
+"v": "pcA21",
+"d": "Event occurred in area A21 (OPTEX alarm host)"
+},
+{
+"v": "pcA22",
+"d": "Event occurred in area A22 (OPTEX alarm host)"
+},
+{
+"v": "pcB1",
+"d": "Event occurred in area B1 (OPTEX alarm host)"
+},
+{
+"v": "pcB11",
+"d": "Event occurred in area B11 (OPTEX alarm host)"
+},
+{
+"v": "pcB12",
+"d": "Event occurred in area B12 (OPTEX alarm host)"
+},
+{
+"v": "pcB2",
+"d": "Event occurred in area B2 (OPTEX alarm host)"
+},
+{
+"v": "pcB21",
+"d": "Event occurred in area B21 (OPTEX alarm host)"
+},
+{
+"v": "pcB22",
+"d": "Event occurred in area B22 (OPTEX alarm host)"
+},
+{
+"v": "pcCr",
+"d": "Slowly moving object detected in area (OPTEX alarm host)"
+},
+{
+"v": "pcFn",
+"d": "Event occurred from short distance and long Distance (OPTEX alarm host)"
+},
+{
+"v": "pcFr",
+"d": "Event occurred from long distance (OPTEX alarm host)"
+},
+{
+"v": "pcNr",
+"d": "Event occurred from short distance (OPTEX alarm host)"
+},
+{
+"v": "pirDetection",
+"d": "Object detection alarm (GJD and Luminite alarm host)"
+},
+{
+"v": "pirTamper",
+"d": "Man-made interference to sensor detected (Luminite alarm host)"
+},
+{
+"v": "remoteOperation",
+"d": "Remote operation (access controller)"
+},
+{
+"v": "shock",
+"d": "Sensor detected vibration (Luminite alarm host)"
+},
+{
+"v": "tampering",
+"d": "Anti-tamper alarm (GJD alarm host)"
+},
+{
+"v": "tcAm",
+"d": "Anti-masking alarm (OPTEX alarm host)"
+},
+{
+"v": "tcAr",
+"d": "Anti-rotation alarm (OPTEX alarm host)"
+},
+{
+"v": "tcDq",
+"d": "Exceptional circuit activation (OPTEX alarm host)"
+},
+{
+"v": "tcFa",
+"d": "Device fault (OPTEX alarm host)"
+},
+{
+"v": "tcSo",
+"d": "Dirt coverage (OPTEX alarm host)"
+},
+{
+"v": "tcTa",
+"d": "Interference detected (OPTEX alarm host)"
+},
+{
+"v": "tcTr",
+"d": "Sensor exception (OPTEX alarm host)"
+},
+{
+"v": "temperature",
+"d": "Temperature detection alarm (GJD alarm host)"
+},
+{
+"v": "timeSynchronization",
+"d": "Time sync event (access controller)"
+},
+{
+"v": "timer",
+"d": "Scheduled alarm (periodic) (GJD alarm host)"
+},
+{
+"v": "unlockingByCard",
+"d": "Unlock by card (video intercom)"
+},
+{
+"v": "unlockingByCenter",
+"d": "Unlock by center (video intercom)"
+},
+{
+"v": "unlockingByDuress",
+"d": "Unlock by duress (video intercom)"
+},
+{
+"v": "unlockingByPassword",
+"d": "Unlock by password (video intercom)"
+},
+{
+"v": "unlockingByPasswordFailed",
+"d": "Incorrect password alarm (video intercom)"
+},
+{
+"v": "unlockingByResident",
+"d": "Unlock by householder (video intercom)"
+},
+{
+"v": "unlockingDoorFailed",
+"d": "Door not-opened alarm (video intercom)"
+},
+{
+"v": "zone",
+"d": "Zone event (alarm host)"
+}
+],
+"quality": [
+{
+"v": "best",
+"d": "Best"
+},
+{
+"v": "general",
+"d": "General"
+},
+{
+"v": "good",
+"d": "Good"
+}
+],
+"inductiveDeviceType": [
+{
+"v": "inductiveType1",
+"d": "Access control and video intercom devices"
+},
+{
+"v": "inductiveType2",
+"d": "Alarm devices"
+},
+{
+"v": "inductiveType3",
+"d": "Logistics code scanning devices"
+}
+],
+"IOTProtocolType": [
+{
+"v": "CodeMaster",
+"d": "CodeMaster protocol"
+},
+{
+"v": "GJD",
+"d": "GJD Alarm Host protocol"
+},
+{
+"v": "HIKVISION",
+"d": "SDK Access protocol"
+},
+{
+"v": "Luminite",
+"d": "Luminite Alarm Host protocol"
+},
+{
+"v": "OPTEX",
+"d": "OPTEX Alarm Host protocol"
+},
+{
+"v": "SIA-CID",
+"d": "SIA-CID protocol"
+},
+{
+"v": "logisticsScanningGun",
+"d": "Barcode scanner protocol"
+}
+],
+"audioClass": [
+{
+"v": "alertAudio",
+"d": "Alarm audio"
+},
+{
+"v": "customAudio",
+"d": "Custom audio"
+},
+{
+"v": "promptAudio",
+"d": "Prompt audio"
+}
+],
+"audioID": [
+{
+"v": "1",
+"d": "Warning area, please keep away."
+},
+{
+"v": "10",
+"d": "Whistle alarm"
+},
+{
+"v": "11",
+"d": "Warning alarm"
+},
+{
+"v": "12",
+"d": "Prompt sound"
+},
+{
+"v": "13",
+"d": "Custom audio 1"
+},
+{
+"v": "14",
+"d": "Custom audio 2"
+},
+{
+"v": "15",
+"d": "Custom audio 3"
+},
+{
+"v": "2",
+"d": "Dangerous area, please keep away."
+},
+{
+"v": "3",
+"d": "Parking is not allowed in this area."
+},
+{
+"v": "4",
+"d": "You have entered the real-time monitoring area."
+},
+{
+"v": "5",
+"d": "Welcome."
+},
+{
+"v": "6",
+"d": "Valuables, please do not touch."
+},
+{
+"v": "7",
+"d": "Private area, please do not enter."
+},
+{
+"v": "8",
+"d": "Danger! Deep water."
+},
+{
+"v": "9",
+"d": "Danger of falling. Please do not climb."
+}
+],
+"region": [
+{
+"v": "AFandAM",
+"d": "Africa and America"
+},
+{
+"v": "APAC",
+"d": "Asia-Pacific region"
+},
+{
+"v": "All",
+"d": "All regions"
+},
+{
+"v": "ER",
+"d": "Russian region"
+},
+{
+"v": "EU",
+"d": "Europe region"
+},
+{
+"v": "EUandCIS",
+"d": "Europe and Russia"
+},
+{
+"v": "HKandMO",
+"d": "Hong Kong and Macao"
+},
+{
+"v": "India",
+"d": "India"
+},
+{
+"v": "ME",
+"d": "Middle East"
+},
+{
+"v": "THAandLA",
+"d": "Thailand and Laos"
+},
+{
+"v": "other",
+"d": "Others"
+}
+],
+"responseStatusStrg": [
+{
+"v": "MORE",
+"d": "Waiting for data search"
+},
+{
+"v": "NO MATCHES",
+"d": "No data"
+},
+{
+"v": "OK",
+"d": "Searching finished"
+}
+],
+"modelType": [
+{
+"v": "classification",
+"d": "Category"
+},
+{
+"v": "detection",
+"d": "Detection"
+},
+{
+"v": "detectionAndClassification",
+"d": "Detection and classification"
+},
+{
+"v": "selfLearning",
+"d": "Self-learning"
+}
+],
+"alignment": [
+{
+"v": "alignLeft",
+"d": "Left align"
+},
+{
+"v": "alignMiddle",
+"d": "Middle align"
+},
+{
+"v": "alignRight",
+"d": "Right align"
+},
+{
+"v": "customize",
+"d": "Custom"
+}
+],
+"notificationMethod": [
+{
+"v": "FTP",
+"d": "FTP uploading"
+},
+{
+"v": "HTTP",
+"d": "HTTP uploading"
+},
+{
+"v": "IM",
+"d": "Instant messaging"
+},
+{
+"v": "IO",
+"d": "I/O output"
+},
+{
+"v": "LightAudioAlarm",
+"d": "Audible and visual alarm"
+},
+{
+"v": "audio",
+"d": "Sound"
+},
+{
+"v": "beep",
+"d": "Buzzer"
+},
+{
+"v": "center",
+"d": "Uploading center"
+},
+{
+"v": "cloud",
+"d": "Cloud Storage"
+},
+{
+"v": "email",
+"d": "Email"
+},
+{
+"v": "focus",
+"d": "Focus"
+},
+{
+"v": "monitorAlarm",
+"d": "Monitor alarm"
+},
+{
+"v": "ptz",
+"d": "PTZ"
+},
+{
+"v": "record",
+"d": "Recording"
+},
+{
+"v": "syslog",
+"d": "System log"
+},
+{
+"v": "trace",
+"d": "Tracking"
+},
+{
+"v": "whiteLight",
+"d": "White light"
+}
+],
+"daysOfWeek": [
+{
+"v": "Friday",
+"d": "Friday"
+},
+{
+"v": "Monday",
+"d": "Monday"
+},
+{
+"v": "Saturday",
+"d": "Saturday"
+},
+{
+"v": "Sunday",
+"d": "Sunday"
+},
+{
+"v": "Thursday",
+"d": "Thursday"
+},
+{
+"v": "Tuesday",
+"d": "Tuesday"
+},
+{
+"v": "Wednesday",
+"d": "Wednesday"
+}
+],
+"timeZoneIdx": [
+{
+"v": "0",
+"d": "Invalid"
+},
+{
+"v": "1",
+"d": "GMT-12"
+},
+{
+"v": "10",
+"d": "GMT-04"
+},
+{
+"v": "11",
+"d": "GMT-03"
+},
+{
+"v": "12",
+"d": "GMT-03"
+},
+{
+"v": "13",
+"d": "GMT-02"
+},
+{
+"v": "14",
+"d": "GMT-01"
+},
+{
+"v": "15",
+"d": "(GMT) Dublin, Edinburgh, London, Kasablanka, Monrovia, Lisboa"
+},
+{
+"v": "16",
+"d": "GMT +01"
+},
+{
+"v": "17",
+"d": "GMT +02"
+},
+{
+"v": "18",
+"d": "GMT +03"
+},
+{
+"v": "19",
+"d": "GMT +03"
+},
+{
+"v": "2",
+"d": "GMT-11"
+},
+{
+"v": "20",
+"d": "GMT +04"
+},
+{
+"v": "21",
+"d": "GMT +04"
+},
+{
+"v": "22",
+"d": "GMT +05"
+},
+{
+"v": "23",
+"d": "GMT +05"
+},
+{
+"v": "24",
+"d": "GMT +05"
+},
+{
+"v": "25",
+"d": "GMT +06"
+},
+{
+"v": "26",
+"d": "GMT +06"
+},
+{
+"v": "27",
+"d": "GMT +07"
+},
+{
+"v": "28",
+"d": "GMT +08"
+},
+{
+"v": "29",
+"d": "GMT +09"
+},
+{
+"v": "3",
+"d": "GMT-10"
+},
+{
+"v": "30",
+"d": "GMT +09"
+},
+{
+"v": "31",
+"d": "GMT +10"
+},
+{
+"v": "32",
+"d": "GMT +11"
+},
+{
+"v": "33",
+"d": "GMT +12"
+},
+{
+"v": "34",
+"d": "GMT +13"
+},
+{
+"v": "35",
+"d": "GMT +14"
+},
+{
+"v": "4",
+"d": "GMT-09"
+},
+{
+"v": "5",
+"d": "GMT-08"
+},
+{
+"v": "6",
+"d": "GMT-07"
+},
+{
+"v": "7",
+"d": "GMT-06"
+},
+{
+"v": "8",
+"d": "GMT-05"
+},
+{
+"v": "9",
+"d": "GMT-04"
+}
+],
+"dataSetType": [
+{
+"v": "classification",
+"d": "Classification"
+},
+{
+"v": "detection",
+"d": "Detection"
+},
+{
+"v": "detectionAndClassification",
+"d": "Detection + Classification"
+},
+{
+"v": "selfLearning",
+"d": "Self-learning"
+}
+],
+"classificationID": [
+{
+"v": "1",
+"d": "Obsolete"
+},
+{
+"v": "10",
+"d": "Multi-type abnormal event detection (simple scene: prison, perimeter)"
+},
+{
+"v": "11",
+"d": "Perimeter"
+},
+{
+"v": "12",
+"d": "Prison"
+},
+{
+"v": "13",
+"d": "Street behavior"
+},
+{
+"v": "14",
+"d": "Trend analysis"
+},
+{
+"v": "15",
+"d": "City management"
+},
+{
+"v": "16",
+"d": "Regional people counting detection"
+},
+{
+"v": "17",
+"d": "Walking method"
+},
+{
+"v": "18",
+"d": "Indoor"
+},
+{
+"v": "19",
+"d": "Traffic incident"
+},
+{
+"v": "2",
+"d": "Obsolete"
+},
+{
+"v": "20",
+"d": "Person pattern"
+},
+{
+"v": "21",
+"d": "Supervised self-learning"
+},
+{
+"v": "22",
+"d": "Slag truck"
+},
+{
+"v": "23",
+"d": "City management"
+},
+{
+"v": "24",
+"d": "Land and resource unauthorized building"
+},
+{
+"v": "25",
+"d": "Algorithm training platform configuration"
+},
+{
+"v": "26",
+"d": "Escalator"
+},
+{
+"v": "27",
+"d": "Voice recognition"
+},
+{
+"v": "28",
+"d": "Floating object detection"
+},
+{
+"v": "29",
+"d": "Face picture comparison"
+},
+{
+"v": "3",
+"d": "Video analysis server algorithm"
+},
+{
+"v": "30",
+"d": "Human body and vehicle comparison"
+},
+{
+"v": "31",
+"d": "Video analysis server + face picture"
+},
+{
+"v": "32",
+"d": "Video analysis server + face picture"
+},
+{
+"v": "33",
+"d": "OCR recognition"
+},
+{
+"v": "34",
+"d": "Detection"
+},
+{
+"v": "4",
+"d": "Face video"
+},
+{
+"v": "5",
+"d": "Face picture"
+},
+{
+"v": "52",
+"d": "Experiment examination algorithm"
+},
+{
+"v": "53",
+"d": "People number exception"
+},
+{
+"v": "54",
+"d": "Capture polling"
+},
+{
+"v": "55",
+"d": "Hard hat detection"
+},
+{
+"v": "56",
+"d": "Person analysis algorithm"
+},
+{
+"v": "57",
+"d": "City management training algorithm"
+},
+{
+"v": "58",
+"d": "City management BIN"
+},
+{
+"v": "59",
+"d": "Fire and smoke detection algorithm"
+},
+{
+"v": "6",
+"d": "Vehicle analysis server algorithm"
+},
+{
+"v": "60",
+"d": "City management quality algorithm"
+},
+{
+"v": "7",
+"d": "Vehicle analysis server algorithm"
+},
+{
+"v": "8",
+"d": "Custom (mainly used in algorithm training platforms)"
+},
+{
+"v": "9",
+"d": "Multi-type abnormal event detection (complex scene: indoor, perimeter, trend, street)"
+}
+],
+"AIDEventType": [
+{
+"v": "SSharpDriving",
+"d": "Slalom driving"
+},
+{
+"v": "abandonedObject",
+"d": "Fallen object"
+},
+{
+"v": "blackList",
+"d": "Blocklist"
+},
+{
+"v": "changeLaneContinuously",
+"d": "Continuous lane change"
+},
+{
+"v": "checkPoint",
+"d": "Checkpoint"
+},
+{
+"v": "conflagration",
+"d": "Fire"
+},
+{
+"v": "congestion",
+"d": "Congested"
+},
+{
+"v": "construction",
+"d": "Roadblock"
+},
+{
+"v": "crossLane",
+"d": "Driving on lane line"
+},
+{
+"v": "dragRacing",
+"d": "Street racing"
+},
+{
+"v": "fogDetection",
+"d": "Fog"
+},
+{
+"v": "illegalMannedNonMotorVeh",
+"d": "Illegal manned non-motor vehicle"
+},
+{
+"v": "illegalMannedVeh",
+"d": "Illegal manned motor vehicle"
+},
+{
+"v": "illegalParking",
+"d": "Parking"
+},
+{
+"v": "jamCrossLine",
+"d": "Queue jumping"
+},
+{
+"v": "laneChange",
+"d": "Lane change"
+},
+{
+"v": "largeVehicleOccupyLine",
+"d": "Lane occupation by large-sized vehicle"
+},
+{
+"v": "loadingDockTriggerUpload",
+"d": "Upload loading dock triggered information"
+},
+{
+"v": "lowSpeed",
+"d": "Driving motor vehicle in low speed"
+},
+{
+"v": "nonMotorVehOnVehLane",
+"d": "Non-motor vehicle on motor vehicle lane"
+},
+{
+"v": "notKeepDistance",
+"d": "Not keeping vehicle distance"
+},
+{
+"v": "notSlowZebraCrossing",
+"d": "Not slowing down at zebra crossing"
+},
+{
+"v": "occupyEmergencyLane",
+"d": "Occupy emergency lane"
+},
+{
+"v": "occupyOvertakingLane",
+"d": "Occupy overtaking lane"
+},
+{
+"v": "overSpeed",
+"d": "Speeding"
+},
+{
+"v": "overtakeRightSide",
+"d": "Overtaking on the right"
+},
+{
+"v": "parallelParking",
+"d": "Parallel parking"
+},
+{
+"v": "pedestOnNonMotorVehLane",
+"d": "Pedestrian walking on non-motor vehicle lane"
+},
+{
+"v": "pedestOnVehLane",
+"d": "Pedestrian walking on motor vehicle lane"
+},
+{
+"v": "pedestRedLightRunning",
+"d": "Pedestrian red light running"
+},
+{
+"v": "pedestrian",
+"d": "Pedestrian"
+},
+{
+"v": "prohibitionMarkViolation",
+"d": "Prohibition sign"
+},
+{
+"v": "roadBlock",
+"d": "Roadblock"
+},
+{
+"v": "slowMoving",
+"d": "Slow moving"
+},
+{
+"v": "smoke",
+"d": "Smoke"
+},
+{
+"v": "suddenSpeedDrop",
+"d": "Sudden speed drop"
+},
+{
+"v": "tfsManuaTrigger",
+"d": "Manual evidence capture"
+},
+{
+"v": "trafficAccident",
+"d": "Traffic accident"
+},
+{
+"v": "turnRound",
+"d": "U-turn"
+},
+{
+"v": "umbrellaTentInstall",
+"d": "Umbrella tent installation violation on non-motor vehicle"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "vehNoYieldPedest",
+"d": "Motor vehicles failing to yield for pedestrians"
+},
+{
+"v": "vehicleExist",
+"d": "Motor vehicle on non-motor vehicle"
+},
+{
+"v": "wearingNoHelmet",
+"d": "Wearing no helmet"
+},
+{
+"v": "wrongDirection",
+"d": "Wrong-way driving"
+}
+],
+"eventType": [
+{
+"v": "ADAS",
+"d": "ADAS (advanced driver assistance system) alarm"
+},
+{
+"v": "ADASAlarm",
+"d": "ADAS (advanced driver assistance system) alarm"
+},
+{
+"v": "AID",
+"d": "Traffic incident detection"
+},
+{
+"v": "AIOP_Picture",
+"d": "AI picture task detection event"
+},
+{
+"v": "AIOP_Polling_Snap",
+"d": "AI capture polling task detection"
+},
+{
+"v": "AIOP_Video",
+"d": "AI video task detection event"
+},
+{
+"v": "ANPR",
+"d": "License plate recognition"
+},
+{
+"v": "AccessControllerEvent",
+"d": "Access control event"
+},
+{
+"v": "CDsStatus",
+"d": "CD burning status uploading"
+},
+{
+"v": "DBD",
+"d": "Driving behavior alarm"
+},
+{
+"v": "GPSUpload",
+"d": "GPS information uploading"
+},
+{
+"v": "HFPD",
+"d": "Frequently appeared person alarm"
+},
+{
+"v": "HPPeopleDetection",
+"d": "Person near dock vehicle detection"
+},
+{
+"v": "HPVehicleDoorDetection",
+"d": "Dock carriage door detection"
+},
+{
+"v": "HPVehicleLoadingRate",
+"d": "Dock vehicle loading rate event"
+},
+{
+"v": "HPVehicleStatus",
+"d": "Dock vehicle status event"
+},
+{
+"v": "HPWorkingStatus",
+"d": "Dock working status scheduled event"
+},
+{
+"v": "IO",
+"d": "Signal alarm"
+},
+{
+"v": "IOTD",
+"d": "IoT device detection"
+},
+{
+"v": "LFPD",
+"d": "Rarely appeared person detection"
+},
+{
+"v": "MEF",
+"d": "Mobile electronic fence data"
+},
+{
+"v": "PALMismatch",
+"d": "Video standard mismatch"
+},
+{
+"v": "PCW",
+"d": "Pedestrian detection of driver assistance system"
+},
+{
+"v": "PIR",
+"d": "PIR"
+},
+{
+"v": "PackingSpaceRecognition",
+"d": "Parking space detection"
+},
+{
+"v": "PeopleCounting",
+"d": "People counting statistics"
+},
+{
+"v": "PeopleNumChange",
+"d": "People number exception"
+},
+{
+"v": "Standup",
+"d": "Standing up detection"
+},
+{
+"v": "TFS",
+"d": "Enforcement event"
+},
+{
+"v": "TMA",
+"d": "Temperature measurement alarm"
+},
+{
+"v": "TMPA",
+"d": "Temperature measurement pre-alarm"
+},
+{
+"v": "TOFShelterAlarm",
+"d": "TOF tampering alarm details"
+},
+{
+"v": "VMD",
+"d": "Motion detection"
+},
+{
+"v": "VQDDiagnose",
+"d": "VQD image quality diagnosis"
+},
+{
+"v": "abnormalAcceleration",
+"d": "Device acceleration exception alarm"
+},
+{
+"v": "abnormalDriving",
+"d": "Abnormal driving behavior"
+},
+{
+"v": "advReachHeight",
+"d": "Climbing detection"
+},
+{
+"v": "alarmResult",
+"d": "Face picture comparison"
+},
+{
+"v": "alcoholDetectionResult",
+"d": "Alcohol detection results uploading"
+},
+{
+"v": "alcoholDetectionRodBind",
+"d": "Alcohol tester linkage request"
+},
+{
+"v": "alcoholDetectionRodBindQuery",
+"d": "Alcohol tester linkage information request"
+},
+{
+"v": "ambientTempAbnormal",
+"d": "Device environment temperature is abnormal"
+},
+{
+"v": "attendance",
+"d": "Attendance event"
+},
+{
+"v": "attendedBaggage",
+"d": "Object removal"
+},
+{
+"v": "audioAbnormal",
+"d": "Sudden change of sound intensity detection"
+},
+{
+"v": "audioexception",
+"d": "Audio exception detection"
+},
+{
+"v": "barrierGateStatus",
+"d": "Entrance and exit control"
+},
+{
+"v": "behaviorResult",
+"d": "Uploading abnormal event detection results"
+},
+{
+"v": "blindSpotDetection",
+"d": "Blind spot detection alarm"
+},
+{
+"v": "cardMatch",
+"d": "Authentication"
+},
+{
+"v": "changedStatus",
+"d": "Status change"
+},
+{
+"v": "collision",
+"d": "Collision"
+},
+{
+"v": "containerDetection",
+"d": "Container detection"
+},
+{
+"v": "crowdSituationAnalysis",
+"d": "Crowd trend analysis"
+},
+{
+"v": "databaseException",
+"d": "Database exception"
+},
+{
+"v": "defocus",
+"d": "Defocus"
+},
+{
+"v": "diskUnformat",
+"d": "Disk unformatted"
+},
+{
+"v": "diskerror",
+"d": "HDD error (diskError)"
+},
+{
+"v": "diskfull",
+"d": "HDD full (diskFull)"
+},
+{
+"v": "driverConditionMonitor",
+"d": "Driver status monitoring"
+},
+{
+"v": "drivingDirectionAtIntersection",
+"d": "Intersection violation system turning analysis"
+},
+{
+"v": "emergencyAlarm",
+"d": "Emergency alarm"
+},
+{
+"v": "exhaustDetection",
+"d": "Exhaust detection"
+},
+{
+"v": "faceCapture",
+"d": "Face capture and recognition event"
+},
+{
+"v": "faceContrastFailure",
+"d": "Face picture comparison failed"
+},
+{
+"v": "faceContrastSuccess",
+"d": "Face picture matched"
+},
+{
+"v": "faceSnapModeling",
+"d": "Face picture capturing and modeling"
+},
+{
+"v": "facedetection",
+"d": "Face detection"
+},
+{
+"v": "failDown",
+"d": "People falling down (fallDown)"
+},
+{
+"v": "faultAlarm",
+"d": "Fault alarm"
+},
+{
+"v": "fielddetection",
+"d": "Intrusion"
+},
+{
+"v": "fireDetection",
+"d": "Fire detection"
+},
+{
+"v": "fireEscapeDetection",
+"d": "Fire engine access detection"
+},
+{
+"v": "fishingShipDetection",
+"d": "Fishing ship detection"
+},
+{
+"v": "flowOverrun",
+"d": "Over-limit traffic flow"
+},
+{
+"v": "framesPeopleCounting",
+"d": "Regional people counting"
+},
+{
+"v": "getUp",
+"d": "Getting up detection"
+},
+{
+"v": "group",
+"d": "People gathering"
+},
+{
+"v": "hdBadBlock",
+"d": "HDD has bad sectors"
+},
+{
+"v": "hdImpact",
+"d": "HDD impact"
+},
+{
+"v": "headRiseRate",
+"d": "Head-up rate event"
+},
+{
+"v": "heatmap",
+"d": "Heat map alarm"
+},
+{
+"v": "highHDTemperature",
+"d": "HDD high temperature"
+},
+{
+"v": "highTempAlarm",
+"d": "High temperature alarm"
+},
+{
+"v": "hotSpare",
+"d": "Hot spare exception"
+},
+{
+"v": "illaccess",
+"d": "Illegal access (illAccess)"
+},
+{
+"v": "ipcTransferAbnormal",
+"d": "IPC migration failed"
+},
+{
+"v": "ipconflict",
+"d": "IP address conflicted (ipConflict)"
+},
+{
+"v": "keyPersonGetUp",
+"d": "Key person getting up detection"
+},
+{
+"v": "leavePosition",
+"d": "Absence detection"
+},
+{
+"v": "linedetection",
+"d": "Line crossing"
+},
+{
+"v": "listSyncException",
+"d": "List synchronization exception"
+},
+{
+"v": "loitering",
+"d": "Loitering"
+},
+{
+"v": "lowHDTemperature",
+"d": "HDD low temperature"
+},
+{
+"v": "methaneConcentrationException",
+"d": "Methane density exception"
+},
+{
+"v": "methaneLightIntensityException",
+"d": "Methane light intensity exception"
+},
+{
+"v": "mixedTargetDetection",
+"d": "Multi-target-type detection"
+},
+{
+"v": "modelError",
+"d": "Model error"
+},
+{
+"v": "nicbroken",
+"d": "Network disconnected (nicBroken)"
+},
+{
+"v": "nodeOffline",
+"d": "Abnormal disconnection"
+},
+{
+"v": "nonPoliceIntrusion",
+"d": "Intrusion of non-police"
+},
+{
+"v": "objectAccumulationDetection",
+"d": "Object accumulation detection"
+},
+{
+"v": "objectsThrownDetection",
+"d": "Detection of throwing objects from building"
+},
+{
+"v": "openAPISelf",
+"d": "Custom event of OpenAPI platforms"
+},
+{
+"v": "overSpeed",
+"d": "Speeding alarm"
+},
+{
+"v": "overtimeTarry",
+"d": "Overstay detection event"
+},
+{
+"v": "parking",
+"d": "Parking"
+},
+{
+"v": "peopleNumChange",
+"d": "People amount change"
+},
+{
+"v": "peopleNumCounting",
+"d": "People counting (different from regional people counting)"
+},
+{
+"v": "personAbnormalAlarm",
+"d": "Person identity exception alarm"
+},
+{
+"v": "personDensityDetection",
+"d": "People gathering density"
+},
+{
+"v": "personQueueCounting",
+"d": "Queuing people amount counting"
+},
+{
+"v": "personQueueDetection",
+"d": "Queue detection"
+},
+{
+"v": "personQueueRealTime",
+"d": "Uploading of real-time information of queue detection"
+},
+{
+"v": "personQueueTime",
+"d": "Waiting duration detection"
+},
+{
+"v": "personQueueTimingStatistics",
+"d": "Scheduled counting of queuing people amount"
+},
+{
+"v": "plateQuaAlarm",
+"d": "Quality assessment of license plate recognition"
+},
+{
+"v": "playCellphone",
+"d": "Playing mobile phone detection"
+},
+{
+"v": "pocException",
+"d": "Video exception"
+},
+{
+"v": "poe",
+"d": "PoE power supply exception"
+},
+{
+"v": "policeAbsent",
+"d": "Police absence"
+},
+{
+"v": "radarAlarm",
+"d": "Radar alarm"
+},
+{
+"v": "radarFieldDetection",
+"d": "Intrusion detection (radar)"
+},
+{
+"v": "radarLineDetection",
+"d": "Line crossing detection (radar)"
+},
+{
+"v": "radarPerimeterRule",
+"d": "Radar rule data"
+},
+{
+"v": "radarTargetDetection",
+"d": "Radar target data"
+},
+{
+"v": "radarVideoDetection",
+"d": "Radar target detection"
+},
+{
+"v": "raidException",
+"d": "RAID exception"
+},
+{
+"v": "rapidMove",
+"d": "Fast moving"
+},
+{
+"v": "reachHeight",
+"d": "Climbing detection"
+},
+{
+"v": "recordCycleAbnormal",
+"d": "Recording period is insufficient"
+},
+{
+"v": "recordException",
+"d": "Abnormal recording"
+},
+{
+"v": "regionEntrance",
+"d": "Region entrance"
+},
+{
+"v": "regionExiting",
+"d": "Region exiting"
+},
+{
+"v": "retention",
+"d": "People overstay detection"
+},
+{
+"v": "roadVisibilityAbnormal",
+"d": "Road visibility exception"
+},
+{
+"v": "roadWeatherAbnormal",
+"d": "Whether exception"
+},
+{
+"v": "rollover",
+"d": "Rollover"
+},
+{
+"v": "running",
+"d": "People running"
+},
+{
+"v": "safetyHelmetDetection",
+"d": "Hard hat detection"
+},
+{
+"v": "scenechangedetection",
+"d": "Scene change"
+},
+{
+"v": "sensorAlarm",
+"d": "Angular acceleration alarm"
+},
+{
+"v": "severeHDFailure",
+"d": "HDD severe failure"
+},
+{
+"v": "shelteralarm",
+"d": "Video tampering alarm"
+},
+{
+"v": "shipsDetection",
+"d": "Ship detection"
+},
+{
+"v": "sitQuietly",
+"d": "Sitting detection"
+},
+{
+"v": "slagTruckCoverPlateDetection",
+"d": "Slag truck cover detection"
+},
+{
+"v": "smokeAndFireDetection",
+"d": "Fire and smoke detection"
+},
+{
+"v": "smokeDetection",
+"d": "Smoke detection"
+},
+{
+"v": "softIO",
+"d": "Alarm soft IO"
+},
+{
+"v": "spacingChange",
+"d": "Distance exception"
+},
+{
+"v": "sysStorFull",
+"d": "Storage full alarm of the cluster system"
+},
+{
+"v": "takingElevatorDetection",
+"d": "Electric moped entering elevator detection"
+},
+{
+"v": "targetCapture",
+"d": "Target capture"
+},
+{
+"v": "temperature",
+"d": "Temperature difference alarm"
+},
+{
+"v": "thermometry",
+"d": "Temperature alarm"
+},
+{
+"v": "thirdPartyException",
+"d": "Third-party exception"
+},
+{
+"v": "toiletTarry",
+"d": "In-toilet overtime detection"
+},
+{
+"v": "tollCodeInfo",
+"d": "QR code information"
+},
+{
+"v": "tossing",
+"d": "Fallen object"
+},
+{
+"v": "trafficLightMalfunction",
+"d": "Traffic lights faults detection"
+},
+{
+"v": "trainDetection",
+"d": "Train detection"
+},
+{
+"v": "unattendedBaggage",
+"d": "Unattended baggage"
+},
+{
+"v": "vacantSeatRate",
+"d": "Vacancy rate detection"
+},
+{
+"v": "vandalProofAlarm",
+"d": "Compass vandal-proof alarm"
+},
+{
+"v": "vehicleAllowlist",
+"d": "Vehicle allowlist event"
+},
+{
+"v": "vehicleBlocklist",
+"d": "Vehicle blocklist event"
+},
+{
+"v": "vehicleMatchResult",
+"d": "Alarm of vehicles matched in allowlist/blocklist"
+},
+{
+"v": "vehiclePassingInParkingLot",
+"d": "Vehicle passing event of parking lot entrance and exit"
+},
+{
+"v": "vehicleRcogResult",
+"d": "Vehicle image secondary recognition"
+},
+{
+"v": "versionAbnormal",
+"d": "Cluster version exception"
+},
+{
+"v": "videoException",
+"d": "Video exception"
+},
+{
+"v": "videoloss",
+"d": "Video loss detection"
+},
+{
+"v": "violationAlarm",
+"d": "Violation alarm"
+},
+{
+"v": "violentMotion",
+"d": "Violent motion"
+},
+{
+"v": "waterLevelDetection",
+"d": "Water level detection"
+},
+{
+"v": "waterQualityDetection",
+"d": "Water quality detection"
+},
+{
+"v": "yardTarry",
+"d": "Yard overstay detection"
+}
+],
+"destinationType": [
+{
+"v": "1400Destination",
+"d": "1400"
+},
+{
+"v": "AIAlarm",
+"d": "AI alarm data uploading"
+},
+{
+"v": "ActiveMQ",
+"d": "ActiveMQ"
+},
+{
+"v": "AlarmRMQ",
+"d": "RabbitMQ"
+},
+{
+"v": "BladeStorage",
+"d": "Local storage of vehicle analysis server"
+},
+{
+"v": "KafkaAiUpload",
+"d": "Uploading AI analysis result to Kafka"
+},
+{
+"v": "KafkaFaceAnalysis",
+"d": "Fusion big data of face picture list library"
+},
+{
+"v": "KafkaFaceLabel",
+"d": "Fusion big data tagging"
+},
+{
+"v": "KafkaFaceSnap",
+"d": "Fusion big data of face capture"
+},
+{
+"v": "KafkaGaitCollectionVideo",
+"d": null
+},
+{
+"v": "KafkaGaitVideo",
+"d": null
+},
+{
+"v": "KafkaHumanInfo",
+"d": "Importing one person one archive to big data"
+},
+{
+"v": "KafkaHumanVideo",
+"d": "Human body video merged with big data"
+},
+{
+"v": "KafkaPersonAnalysis",
+"d": "Importing person analysis to Kafka"
+},
+{
+"v": "KafkaScoreResult",
+"d": "Importing score result to Kafka"
+},
+{
+"v": "KafkaVehiclePic",
+"d": "Vehicle picture merged with big data"
+},
+{
+"v": "KafkaVehicleVideo",
+"d": "Vehicle video merged with big data"
+},
+{
+"v": "PeopleTrace",
+"d": "Person pattern library"
+},
+{
+"v": "SDKUpload",
+"d": "SDK receiving address"
+},
+{
+"v": "Server86SDK",
+"d": "Server86SDK"
+},
+{
+"v": "ServerAnalysis",
+"d": "Facial recognition server"
+},
+{
+"v": "ServerCVR",
+"d": "CVR"
+},
+{
+"v": "ServerClient",
+"d": "Third-party uploading (ISAPI)"
+},
+{
+"v": "ServerCloud",
+"d": "Cloud storage"
+},
+{
+"v": "ServerCompare",
+"d": "Comparison sever"
+},
+{
+"v": "ServerComparison",
+"d": "Facial comparison server"
+},
+{
+"v": "ServerHCS",
+"d": "Micro cloud"
+},
+{
+"v": "ServerK08",
+"d": "K08"
+},
+{
+"v": "ServerKafka",
+"d": "Kafka"
+},
+{
+"v": "ServerLocalRestful",
+"d": "Local RESTful alarm address"
+},
+{
+"v": "ServerS08",
+"d": "Image and Video Library S08"
+},
+{
+"v": "ServerSDKServerWS",
+"d": "Big data webserver"
+},
+{
+"v": "ServerVideo",
+"d": "Video big data"
+},
+{
+"v": "VehicleServer",
+"d": "Vehicle big data"
+},
+{
+"v": "deploymentUpload",
+"d": "Alarm arming"
+},
+{
+"v": "faceAlarmLib",
+"d": "Alarm library of face picture big data"
+},
+{
+"v": "faceAlarmSdkUpload",
+"d": "List alarm data uploading (SDK)"
+},
+{
+"v": "faceAlarmUpload",
+"d": "List alarm data uploading (ISAPI)"
+},
+{
+"v": "faceCaptureLib",
+"d": "Captured library of face picture big data"
+},
+{
+"v": "faceCaptureUpload",
+"d": "Captured data uploading (ISAPI)"
+},
+{
+"v": "faceDetectUpload",
+"d": "Face detection data uploading (ISAPI)"
+},
+{
+"v": "faceLabelUpload",
+"d": "Face picture tagging"
+},
+{
+"v": "faceListLib",
+"d": "List library of face picture big data"
+},
+{
+"v": "hfpdAlarmUpload",
+"d": "Frequent alarm data uploading (ISAPI)"
+},
+{
+"v": "hfpdRMQ",
+"d": "Frequent alarm data uploading (RMQ)"
+},
+{
+"v": "kafaWhiteAlarmLib",
+"d": "Kafka allowlist alarm library"
+}
+],
+"deviceType": [
+{
+"v": "AIOT",
+"d": "Intelligent IoT server"
+},
+{
+"v": "AIThinkBox",
+"d": "AI box"
+},
+{
+"v": "AIserver",
+"d": "AI open platfrom server"
+},
+{
+"v": "Blade",
+"d": "Vehicle analysis server"
+},
+{
+"v": "BladePS",
+"d": "Security analysis server"
+},
+{
+"v": "CMSelflearning",
+"d": "City management self-learning server"
+},
+{
+"v": "CVR",
+"d": "CVR"
+},
+{
+"v": "DM",
+"d": "Full analysis server"
+},
+{
+"v": "DMbehavior",
+"d": "Abnormal event detection device"
+},
+{
+"v": "DVR",
+"d": "DVR"
+},
+{
+"v": "DVS",
+"d": "Encoder"
+},
+{
+"v": "DockStation",
+"d": "Dock station"
+},
+{
+"v": "FA",
+"d": "Facial real-time comparison server"
+},
+{
+"v": "FD",
+"d": "Capture detection server"
+},
+{
+"v": "FS",
+"d": "Face static data server"
+},
+{
+"v": "HAWK",
+"d": "Video structural analysis server"
+},
+{
+"v": "HMCP",
+"d": "Hybrid model comparison product"
+},
+{
+"v": "HPB",
+"d": "Cloud storage box"
+},
+{
+"v": "HybirdNVR",
+"d": "Hybrid DVR"
+},
+{
+"v": "IPCamera",
+"d": "Network camera"
+},
+{
+"v": "IPDome",
+"d": "Speed dome"
+},
+{
+"v": "IPZoom",
+"d": "Integrated camera"
+},
+{
+"v": "InfoReleaseSys",
+"d": "Digital signage system"
+},
+{
+"v": "InfoTerminal",
+"d": "Digital signage terminal"
+},
+{
+"v": "LocationBasedFusionServer",
+"d": null
+},
+{
+"v": "LocationBasedFusionTerminal",
+"d": null
+},
+{
+"v": "MCU",
+"d": "MCU"
+},
+{
+"v": "NVR",
+"d": "NVR"
+},
+{
+"v": "PHA",
+"d": "Security control panel"
+},
+{
+"v": "PURE",
+"d": "Analysis server"
+},
+{
+"v": "RFID",
+"d": "RFID"
+},
+{
+"v": "SipServer",
+"d": "SIP server"
+},
+{
+"v": "Switch",
+"d": "Network switch"
+},
+{
+"v": "lightFace",
+"d": "Intelligent fusion server"
+}
+],
+"plateNo": [
+{
+"v": "noPlate",
+"d": "Recognized vehicle without license plate"
+},
+{
+"v": "unknown",
+"d": "No license plate recognized"
+},
+{
+"v": "蓝浙A12345",
+"d": "License plate No."
+}
+],
+"targetType": [
+{
+"v": "1",
+"d": "Face"
+},
+{
+"v": "10",
+"d": "Regional people counting detection"
+},
+{
+"v": "11",
+"d": "Walking method"
+},
+{
+"v": "12",
+"d": "Perimeter"
+},
+{
+"v": "13",
+"d": "Prison"
+},
+{
+"v": "14",
+"d": "Street"
+},
+{
+"v": "15",
+"d": "Trend analysis"
+},
+{
+"v": "16",
+"d": "Indoor"
+},
+{
+"v": "17",
+"d": "Person pattern"
+},
+{
+"v": "18",
+"d": "Supervised self-learning platform"
+},
+{
+"v": "19",
+"d": "Slag truck"
+},
+{
+"v": "2",
+"d": "Vehicle"
+},
+{
+"v": "20",
+"d": "Unauthorized building"
+},
+{
+"v": "21",
+"d": "Land and resource"
+},
+{
+"v": "29",
+"d": "OCR recognition"
+},
+{
+"v": "3",
+"d": "Target (human and vehicle)"
+},
+{
+"v": "35",
+"d": "City management_City Environment (CityManage_CityAppearanceImg)"
+},
+{
+"v": "36",
+"d": "City Management_Street Order (CityManage_StreetOrderImg)"
+},
+{
+"v": "37",
+"d": "City Management_Street Order (CityManage_AdvertiseImg)"
+},
+{
+"v": "38",
+"d": "City Management_Construction Management (CityManage_ConstructionImg);"
+},
+{
+"v": "39",
+"d": "City Management_Enmergency (CityManage_EmergencyImg);"
+},
+{
+"v": "4",
+"d": "Human body"
+},
+{
+"v": "40",
+"d": "City Management_Other Events (CityManage_OtherEventImg);"
+},
+{
+"v": "41",
+"d": "City Management_City Environment Facility (CityManage_CityAppearanceFacilitiesImg);"
+},
+{
+"v": "42",
+"d": "City Management_Public Facility (CityManage_CommunalFacilitiesImg);"
+},
+{
+"v": "43",
+"d": "City Management_Traffic Facility (CityManage_TrafficFacilitiesImg);"
+},
+{
+"v": "44",
+"d": "City Management_Landscape Facility (CityManage_LandscapingFacilitiesImg);"
+},
+{
+"v": "5",
+"d": "Behavior (behavior_basic)"
+},
+{
+"v": "6",
+"d": "Custom target analysis (coustom)"
+},
+{
+"v": "7",
+"d": "Target analysis (behavior_smart)"
+},
+{
+"v": "8",
+"d": "City management"
+},
+{
+"v": "9",
+"d": "Traffic"
+},
+{
+"v": "animal",
+"d": "Creature"
+},
+{
+"v": "face",
+"d": "Face"
+},
+{
+"v": "human",
+"d": "Person"
+},
+{
+"v": "nonMotor",
+"d": "Non-motor vehicle"
+},
+{
+"v": "plate",
+"d": "License plate"
+},
+{
+"v": "threeWheelVehicle",
+"d": "Tricycle"
+},
+{
+"v": "twoWheelVehicle",
+"d": "Two-wheel vehicle"
+},
+{
+"v": "unknown",
+"d": "Unknown"
+},
+{
+"v": "vehicle",
+"d": "Motor vehicle"
+}
+]
+}

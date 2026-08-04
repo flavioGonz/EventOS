@@ -58,9 +58,18 @@ export function classify(xml) {
   return {
     drop: false, k, channelID, eventState: eventState || "active",
     eventType, dateTime: xmlTag(xml, "dateTime"), ipAddress: xmlTag(xml, "ipAddress"),
+    // `detectionTarget` es el campo confiable de humano/vehiculo (AcuSense); se
+    // manda APARTE de `targetType` para que normalizeTarget lo priorice y no lo
+    // pise un targetType numerico basura.
     detectionTarget: xmlTag(xml, "detectionTarget"),
-    targetType: xmlTag(xml, "targetType"),
-    regionID: xmlTag(xml, "RegionID") || xmlTag(xml, "regionID"),
+    targetType: xmlTag(xml, "targetType") || xmlTag(xml, "detectionTarget"),
+    regionID: xmlTag(xml, "RegionID") || xmlTag(xml, "regionID") || xmlTag(xml, "ID"),
+    // ESTRICTO: solo las etiquetas que de verdad identifican la regla dibujada.
+    // El fallback a <ID> sirve para mostrar "Region N" pero NO para resolver el
+    // nombre del punto: <ID> aparece tambien dentro de otras listas del alert y
+    // nombraria la zona equivocada. En un ARC eso manda al operario al lugar
+    // equivocado, asi que preferimos no nombrar antes que nombrar mal.
+    regionIdStrict: xmlTag(xml, "RegionID") || xmlTag(xml, "regionID"),
   };
 }
 
@@ -76,11 +85,19 @@ function nvrTargets() {
   }
   return out;
 }
+// OJO (multi-cliente): el `slug` sale de hardcodear el puerto ISAPI (82→srv2,
+// 83→srv1), así que NO es único entre clientes: dos sitios con un NVR en :82
+// comparten el tag `nvr:srv2`. Por eso el sitio manda SIEMPRE que se conozca —
+// sin eso, un evento del canal 6 del cliente A podía resolver a la cámara del
+// canal 6 del cliente B, y en un ARC eso despacha un operario al domicilio
+// equivocado. El tag sólo desempata DENTRO del sitio.
 function cameraFor(nvr, channelID) {
   let devices = []; try { devices = listConfig("devices"); } catch { /* store */ }
   const ch = String(channelID);
-  let cam = nvr.slug && devices.find((d) => d.type !== "nvr" && (d.tags || []).map(String).includes(`nvr:${nvr.slug}`) && String(d.channel) === ch);
-  if (!cam && nvr.siteId) cam = devices.find((d) => d.type !== "nvr" && d.siteId === nvr.siteId && String(d.channel) === ch);
+  const sameChannel = (d) => d.type !== "nvr" && String(d.channel) === ch;
+  const pool = nvr.siteId ? devices.filter((d) => d.siteId === nvr.siteId) : devices;
+  let cam = nvr.slug && pool.find((d) => sameChannel(d) && (d.tags || []).map(String).includes(`nvr:${nvr.slug}`));
+  if (!cam) cam = pool.find(sameChannel);
   return cam || null;
 }
 function siteName(siteId) {
@@ -106,14 +123,15 @@ function handleAlert(nvr, xml, image = null) {
   // Objeto enriquecido → normalizeHikvision lo mapea (source.deviceId/site/etc.).
   const enriched = {
     eventType: c.eventType, eventState: c.eventState, channelID: c.channelID,
-    dateTime: c.dateTime, ipAddress: c.ipAddress, targetType: c.targetType, detectionTarget: c.detectionTarget, regionID: c.regionID,
+    dateTime: c.dateTime, ipAddress: c.ipAddress, targetType: c.targetType,
+    detectionTarget: c.detectionTarget, regionID: c.regionID, regionIdStrict: c.regionIdStrict,
     deviceID: (cam && cam.id) || null,                 // → source.deviceId (playback/analíticas)
     channelName: (cam && cam.name) || xmlTag(xml, "channelName") || null, // → source.deviceName
     site,                                              // → source.site
   };
   const opts = image && image.length ? { image } : {};
   ingestRaw("hikvision", enriched, opts)
-    .then((ev) => log.info(`alertStream[${nvr.name}] ${c.k} ch${c.channelID}${image ? " +foto" : ""} → ${ev.type} ${cam ? `(${cam.name})` : ""} [${ev.status}]`))
+    .then((ev) => log.info(`alertStream[${nvr.name}] ${c.k} ch${c.channelID}${image ? " +foto" : ""} → ${ev.type} ${cam ? `(${cam.name})` : ""}${ev.point ? ` [${ev.point.name}]` : ""} [${ev.status}]`))
     .catch((e) => log.warn(`alertStream ingest err: ${e.message}`));
 }
 
@@ -211,6 +229,29 @@ async function runNvr(nvr) {
   }
 }
 
+// ── Cobertura: ¿qué dispositivos recibe EventOS por alertStream (pull)? ────────
+// Usado por la página de Recepción para marcar el medio real de cada equipo y
+// NO sugerir configurar un webhook redundante. Espeja el targeting de runNvr:
+// cada NVR con credenciales/puerto ISAPI + sus cámaras (por tag nvr:slug o sitio).
+export function alertStreamCoverage() {
+  const active = String(process.env.EVENTOS_ALERTSTREAM || "") === "1";
+  const ids = new Set();
+  if (!active) return { active, deviceIds: ids };
+  const nvrs = nvrTargets();
+  let devices = []; try { devices = listConfig("devices"); } catch { /* store */ }
+  for (const nvr of nvrs) {
+    ids.add(nvr.id);
+    for (const d of devices) {
+      if (d.type === "nvr") continue;
+      const tags = (d.tags || []).map(String);
+      const byTag = nvr.slug && tags.includes(`nvr:${nvr.slug}`);
+      const bySite = nvr.siteId && d.siteId === nvr.siteId && d.channel != null;
+      if (byTag || bySite) ids.add(d.id);
+    }
+  }
+  return { active, deviceIds: ids };
+}
+
 let started = false;
 export function startAlertStreams() {
   if (started) return;
@@ -225,4 +266,4 @@ export function startAlertStreams() {
   log.info(`alertStream: escuchando ${nvrs.length} NVR (dedup ${DEDUP_MS / 1000}s)`);
 }
 
-export default { startAlertStreams, classify };
+export default { startAlertStreams, classify, alertStreamCoverage };
