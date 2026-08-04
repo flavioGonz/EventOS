@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Hikvision ISAPI · OpenAPI</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui.css">
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#fafafa}
+  header{background:#11161d;color:#f2f5f8;padding:14px 22px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px}
+  header span.sub{font-size:12px;color:#8b97a6}
+  select{background:#1d242e;color:#e8edf3;border:1px solid #333d4a;border-radius:6px;padding:7px 10px;font-size:13px}
+  .note{padding:10px 22px;font-size:12px;color:#5b6672;background:#eef1f4;border-bottom:1px solid #dde2e8}
+  code{background:#e2e6eb;padding:1px 5px;border-radius:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Hikvision ISAPI · OpenAPI 3.1</h1>
+  <select id="spec">
+    <option value="deepinview.yaml">Network Cameras · DeepinView (558 ops)</option>
+    <option value="ipc-value.yaml">Network Cameras · Value Series (157 ops)</option>
+    <option value="anpr.yaml">ANPR / Vehicle Access Control (278 ops)</option>
+    <option value="dvr-pro.yaml">DVR Pro con AcuSense (187 ops)</option>
+    <option value="dvr-value.yaml">DVR Value Series (215 ops)</option>
+  </select>
+  <span class="sub">generado desde los manuales oficiales · cada operación trae <code>x-hik-source</code></span>
+</header>
+<div class="note">
+  Servir por HTTP para que cargue el spec: <code>python3 -m http.server 8080</code> dentro de
+  <code>isapi/openapi/</code> y abrir <code>http://localhost:8080/</code>. Autenticación real = HTTP Digest.
+</div>
+<div id="ui"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.js"></script>
+<script>
+  function render(url){
+    window.ui = SwaggerUIBundle({url:url, dom_id:'#ui', deepLinking:true,
+      docExpansion:'none', filter:true, tryItOutEnabled:false,
+      defaultModelsExpandDepth:0, presets:[SwaggerUIBundle.presets.apis]});
+  }
+  const sel = document.getElementById('spec');
+  sel.addEventListener('change', e => render(e.target.value));
+  render(sel.value);
+</script>
+</body>
+</html>

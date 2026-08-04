@@ -1,0 +1,57 @@
+feat(isapi): kit ISAPI Hikvision + registro de puntos vendor-neutral
+
+Catalogo ISAPI
+--------------
+Genera y versiona el catalogo completo de la API ISAPI a partir de los
+manuales oficiales: 941 endpoints y 1257 schemas repartidos en 5 specs
+OpenAPI 3.1 (ipc-value, deepinview, dvr-value, dvr-pro, anpr), mas un
+catalogo indexado (JSON + SQLite con FTS5) y Swagger UI para navegarlo.
+
+  isapi/openapi/   specs + catalogo + index.html
+  isapi/tools/     pipeline de generacion (extract -> parse -> schemagen
+                   -> build_openapi/build_catalog), CLI `hik.py`,
+                   verificador contra equipo real y auditoria por canal
+
+458 endpoints GET quedaron verificados contra un DS-9632NI-I16 real
+(solo GET, nunca PUT/POST/DELETE). El verificador reusa UN reto digest
+para todo el barrido: el equipo corta a las ~88 autenticaciones nuevas,
+y ese corte tumbaba el alertStream de EventOS por venir de la misma IP.
+
+Registro de puntos, vendor-neutral
+----------------------------------
+server/src/events/points.js traduce (dispositivo, kind, id) al nombre
+humano del punto y su geometria, indexado por el deviceId de EventOS y
+no por convenciones del fabricante. Kinds canonicos: line, region,
+entrance, exiting, zone, door, input, output.
+
+Con esto el evento deja de decir "Region 1" y dice el nombre de la zona
+realmente dibujada; la geometria viaja en event.point.geometry para que
+el popup pinte solo la zona que disparo. Si no hay points.json, todo
+sigue igual que antes: es aditivo.
+
+Deteccion de objetivo y resolucion estricta del punto
+-----------------------------------------------------
+- alertStream manda `detectionTarget` APARTE de `targetType`, para que
+  normalizeTarget lo priorice y no lo pise un targetType numerico.
+- parseHikXml tambien lee `detectionTarget`: faltaba en el camino del
+  XML crudo (webhook directo), asi que un targetType "2" dejaba el
+  evento sin objetivo.
+- se agrega `regionIdStrict` (solo <RegionID>/<regionID>) y es lo unico
+  que resuelve el nombre del punto. El fallback a <ID> nombraba la zona
+  equivocada, y en un ARC eso manda al operario al lugar equivocado:
+  vale mas no nombrar que nombrar mal.
+
+Aislamiento entre clientes
+--------------------------
+alertStream resolvia la camara de un canal buscando en TODOS los
+dispositivos; con dos clientes que comparten numeracion de canal podia
+adjudicar el evento a la camara del cliente equivocado. Ahora filtra
+por sitio ANTES de mirar los tags del fabricante.
+
+Otros
+-----
+- README: modelo multi-marca (adaptador -> catalogo canonico -> reglas
+  -> despacho -> consola), tabla de kinds canonicos, seccion del kit
+  ISAPI, estructura del repo y roadmap al dia.
+- .gitignore: isapi/reports/ (datos de campo: nombres de camara, IPs y
+  topologia de cliente) y el catalogo SQLite, que es regenerable.
