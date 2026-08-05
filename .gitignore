@@ -1,29 +1,36 @@
-﻿# Dependencias y build
+# Dependencias y builds
 node_modules/
 dist/
+.vite/
 
-# Entornos / secretos
-*.log
+# Entorno y secretos — NUNCA versionar
 .env
+.env.*
+!.env.example
 server/.env
 web/.env
-.DS_Store
-
-# ===== Datos operativos y SECRETOS â€” NO versionar =====
-# (config con credenciales de NVR/tokens, eventos, evidencia, logs de operador)
 server/data/
+.git_deploy_key*
 
-# Claves SSH de despliegue
-.git_deploy_key
-.git_deploy_key.pub
-
-# Backups y temporales (raÃ­z del proyecto)
-/_*
+# Logs y temporales
+*.log
+.install.log
 *.bak
 *.bak-*
+*.bak2-*
+*.bak3-*
+.*.bak
 *.tgz
-web/src/.App.bak
+/_*
 
+# Sistema
+.DS_Store
+Thumbs.db
+desktop.ini
+.__mountprobe.txt
+
+# Datos de campo: nombres de camara, IPs y topologia de cliente
 isapi/reports/
-isapi/openapi/catalog.sqlite
 
+# Regenerable: cd isapi/tools ; make catalog
+isapi/openapi/catalog.sqlite

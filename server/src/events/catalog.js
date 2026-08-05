@@ -15,6 +15,10 @@ export const CATALOG = {
   door_forced: { category: "access", priority: 1, title: "Puerta forzada" },
   door_held: { category: "access", priority: 3, title: "Puerta mantenida abierta" },
   access_denied: { category: "access", priority: 4, title: "Acceso denegado" },
+  // Apertura/cierre normales por contacto o por credencial valida. Baja
+  // prioridad a proposito: es traza, no alarma — pero tiene que existir en
+  // el catalogo o cae a "Evento de sistema" y el operario no entiende nada.
+  access_granted: { category: "access", priority: 5, title: "Acceso concedido" },
   alarm: { category: "intrusion", priority: 1, title: "Alarma de pánico/intrusión" },
   tamper_alarm: { category: "intrusion", priority: 2, title: "Tamper de central de alarma" },
   system: { category: "system", priority: 5, title: "Evento de sistema" },

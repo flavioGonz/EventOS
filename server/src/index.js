@@ -10,6 +10,7 @@ import { bus } from "./bus/redisBus.js";
 import { attachConsole } from "./socket/console.js";
 import { load as loadConfigStore } from "./config/store.js";
 import { startAlertStreams } from "./ingest/alertStream.js";
+import { startPanelIngest } from "./ingest/panels.js";
 import { sweepEvidence } from "./evidence/retention.js";
 
 import apiRouter from "./http/api.js";
@@ -88,6 +89,10 @@ async function main() {
   // Recepción de eventos en tiempo real desde los NVR (Hikvision alertStream).
   // Opt-in por EVENTOS_ALERTSTREAM=1. Nunca tira el server.
   try { startAlertStreams(); } catch (e) { log.warn(`alertStream no arrancó: ${e?.message || e}`); }
+  // Paneles de alarma AX y controladoras DS-K. Va detras de EVENTOS_PANELS=1
+  // y en un try aparte: si un panel esta mal configurado, no puede tumbar la
+  // recepcion de las camaras, que es lo que hoy sostiene la operacion.
+  try { startPanelIngest(); } catch (e) { log.warn(`panels no arrancó: ${e?.message || e}`); }
 
   // Retencion de evidencia: limpia fotos viejas segun config (barrido horario).
   try { sweepEvidence(); const _t = setInterval(sweepEvidence, 3600000); _t.unref && _t.unref(); } catch (e) { log.warn(`retencion evidencia no arranco: ${e?.message || e}`); }

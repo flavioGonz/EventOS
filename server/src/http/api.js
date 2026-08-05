@@ -10,6 +10,7 @@ import { getDispatch, list as listConfig, getProcedure, getVideo } from "../conf
 import { startHls, startHlsFromStream, sessionFile, stopHls, keepAlive } from "../playback/hls.js";
 import { searchSegment, openDownload, compactToMs, deviceTimeOffsetMs } from "../playback/contentmgmt.js";
 import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
+import { openDoor, listOutputs, outputStatus } from "../ingest/doors.js";
 import { verifyPin } from "../auth/pin.js";
 import { config } from "../config.js";
 
@@ -26,35 +27,63 @@ const startedAt = Date.now();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE_DIR = path.resolve(__dirname, "..", "..", "data", "evidence");
 
-// Relé / salida física (abrir puerta). ACCIÓN FÍSICA: la UI confirma con el
-// operador antes de llamar. Hikvision IO output por defecto; AX configurable.
+// ── Puertas y relés ────────────────────────────────────────────────────────
+// ACCIÓN FÍSICA. La lógica vive en ingest/doors.js, que exige `confirmed` y
+// `operatorId` y arma la orden distinta segun la familia del equipo (DS-K por
+// AccessControl, AX por SecurityCP, camara/NVR por System/IO). Acá sólo se
+// resuelve el dispositivo, se identifica al operario y se registra.
+
+// Compatibilidad: el nombre viejo de la ruta se mantiene y ahora acepta ademas
+// `cmd`, `pulseMs` y `dryRun`. Un cliente viejo que sólo mandaba `{output}`
+// sigue funcionando, pero ahora DEBE mandar confirmacion — abrir una puerta sin
+// que un operario lo pida es exactamente lo que no queremos que pueda pasar.
 router.post("/device/:id/relay", async (req, res) => {
   const id = String(req.params.id || "");
   let devices = []; try { devices = listConfig("devices"); } catch {}
   const dev = devices.find((d) => d.id === id);
   if (!dev) return res.status(404).json({ error: "no_device" });
-  const host = dev.ip || dev.camIp;
-  const port = Number(dev.isapiPort) || 80;
-  if (!host || !dev.username) return res.status(400).json({ error: "no_creds", message: "El dispositivo no tiene IP/usuario." });
-  const output = String((req.body && req.body.output) != null ? req.body.output : 1);
-  if (!/^[0-9-]+$/.test(output)) return res.status(400).json({ error: "bad_output" });
-  const kind = (req.body && req.body.kind) || dev.relayKind || "hik-io";
-  let path, body, contentType;
-  if (kind === "ax") {
-    path = `/ISAPI/SecurityCP/control/outputs/${output}?format=json`;
-    body = JSON.stringify({ OutputsCtrl: { switch: "open" } });
-    contentType = "application/json";
-  } else {
-    path = `/ISAPI/System/IO/outputs/${output}/trigger`;
-    body = `<IOPortData><outputState>high</outputState></IOPortData>`;
-    contentType = "application/xml";
-  }
+  const b = req.body || {};
   try {
-    const r = await digestRequest({ host, port, path, method: "PUT", body, contentType, user: dev.username, pass: dev.password || "", timeoutMs: 6000 });
-    const ok = r.status >= 200 && r.status < 300;
-    res.json({ ok, status: r.status, message: r.text ? String(r.text).slice(0, 300) : "" });
+    const r = await openDoor(dev, {
+      output: b.output != null ? b.output : 1,
+      cmd: b.cmd || "open",
+      operatorId: b.operatorId || (req.operator && req.operator.id) || null,
+      confirmed: b.confirmed === true,
+      pulseMs: b.pulseMs != null ? Number(b.pulseMs) : undefined,
+      dryRun: b.dryRun === true,
+    });
+    if (r.ok === false) return res.status(502).json({ error: "relay_failed", ...r });
+    res.json(r);
   } catch (e) {
-    res.status(502).json({ error: "relay_failed", message: e.message });
+    const code = ["not_confirmed", "no_operator", "bad_output", "no_creds"].includes(e.message) ? 400 : 502;
+    res.status(code).json({ error: e.message });
+  }
+});
+
+// Qué salidas/puertas tiene el equipo, para que la UI no pida un numero a ciegas.
+router.get("/device/:id/outputs", async (req, res) => {
+  const id = String(req.params.id || "");
+  let devices = []; try { devices = listConfig("devices"); } catch {}
+  const dev = devices.find((d) => d.id === id);
+  if (!dev) return res.status(404).json({ error: "no_device" });
+  try {
+    res.json(await listOutputs(dev));
+  } catch (e) {
+    res.status(502).json({ error: "outputs_failed", message: e.message });
+  }
+});
+
+// Estado de una salida (sólo lo expone la familia `io`).
+router.get("/device/:id/outputs/:out/status", async (req, res) => {
+  const id = String(req.params.id || "");
+  let devices = []; try { devices = listConfig("devices"); } catch {}
+  const dev = devices.find((d) => d.id === id);
+  if (!dev) return res.status(404).json({ error: "no_device" });
+  if (!/^[\w-]+$/.test(String(req.params.out))) return res.status(400).json({ error: "bad_output" });
+  try {
+    res.json(await outputStatus(dev, req.params.out));
+  } catch (e) {
+    res.status(502).json({ error: "status_failed", message: e.message });
   }
 });
 
@@ -344,7 +373,25 @@ router.post("/playback-hls", async (req, res) => {
     // la ventana pedida, máx 20 min) para no copiar archivos de ~80 min enteros.
     const dur = Math.min(1200, Math.max(60, (eMs - seg.segStartMs) / 1000));
     const s = await startHlsFromStream({ key: `pb:${deviceId}:${start}`, vod: true, dur, open: () => openDownload(dev, seg.uri) });
-    res.json({ id: s.id, url: s.url });
+    // ⚠️ EL VIDEO NO EMPIEZA EN EL INSTANTE PEDIDO, empieza al principio del
+    // archivo del segmento (arriba se explica por que: el NVR ignora Range y no
+    // se puede input-seek un pipe). Hay que DECIRSELO al cliente.
+    //
+    // Sin esto, el front asume `currentTime 0 === instante pedido` y la etiqueta
+    // de la linea de tiempo queda adelantada exactamente lo que el instante
+    // pedido cae DENTRO del archivo. No es un desfase fijo: cambia con cada
+    // evento segun donde caiga en la grabacion, y por eso ningun horario del
+    // popup coincidia con el reloj quemado en la imagen.
+    //
+    // `segStartMs` se devuelve en UTC (se le resta el offset local del NVR, que
+    // es el mismo que se le sumo para buscar).
+    const segStartUtcMs = seg.segStartMs - off;
+    res.json({
+      id: s.id, url: s.url,
+      segStartMs: segStartUtcMs,                 // a que instante REAL corresponde currentTime 0
+      requestedMs: startMs,                      // lo que se pidio
+      seekOffsetSec: Math.max(0, (startMs - segStartUtcMs) / 1000),
+    });
   } catch (e) {
     res.status(502).json({ error: "pb_failed", message: e.message });
   }

@@ -91,6 +91,13 @@ function makeHandler(vendor) {
       if (!body || typeof body !== "object") body = {};
       const image = extractMultipartImage(req); // foto del evento (evidencia), si viene
       const event = await ingestRaw(vendor, body, { image });
+      // null = el normalizador decidio no emitir (p.ej. el eco de una apertura
+      // que ordenamos nosotros). Se responde 202: recibido y descartado a
+      // proposito, que no es lo mismo que un error.
+      if (event === null) {
+        log.info(`Ingesta ${vendor}: descartado (eco de una orden propia)`);
+        return res.status(202).json({ ignored: true, reason: "echo" });
+      }
       log.info(`Ingesta ${vendor}: ${event.type} → ${event.id} (p${event.priority})`);
       res.status(201).json({ event });
     } catch (err) {
@@ -104,6 +111,9 @@ router.post("/hikvision", makeHandler("hikvision"));
 router.post("/akuvox", makeHandler("akuvox"));
 router.post("/nvr", makeHandler("nvr"));
 router.post("/alarm", makeHandler("alarm"));
+// Paneles de alarma AX y controladoras de acceso DS-K. Es el destino que se
+// carga en el `httpHosts` del equipo (PUT /ISAPI/Event/notification/httpHosts).
+router.post("/access", makeHandler("access"));
 router.post("/generic", makeHandler("generic"));
 
 export default router;

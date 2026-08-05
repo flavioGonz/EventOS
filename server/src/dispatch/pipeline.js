@@ -77,7 +77,13 @@ function logFlowEvent(event) {
 // El emit por socket y el enrutamiento (motor de dispatch) ocurren porque la capa
 // de socket está suscrita al bus (allí dispone de `io` para emisión dirigida).
 export async function ingestRaw(vendor, raw, opts = {}) {
-  const event = normalize(vendor, raw); // 1. normalizar
+  const event = normalize(vendor, raw, opts.ctx || {}); // 1. normalizar
+  // Un normalizador puede decidir que ESTE payload no genera evento. Hoy pasa
+  // con el eco de nuestras propias aperturas de puerta (events/access.js): el
+  // equipo reporta "Door Remotely Open" despues de que un operario abrio desde
+  // la consola, y emitirlo le entraria como alarma al que acaba de abrir.
+  // Sin este corte, `event.type` reventaria dos lineas mas abajo.
+  if (event === null) return null;
   const { rule } = applyRules(event); // 2. aplicar reglas (prioridad + procedimiento)
   // Guardamos la regla que casó como campo interno (no canónico) para que el
   // motor de dispatch lea actions.dispatchMode/skills/operatorIds.

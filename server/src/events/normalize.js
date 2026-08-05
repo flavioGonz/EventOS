@@ -5,6 +5,7 @@
 import { randomUUID } from "node:crypto";
 import { catalogEntry } from "./catalog.js";
 import { resolvePoint } from "./points.js";
+import { accessFields } from "./access.js";
 
 const newId = () => "evt_" + randomUUID();
 const nowIso = () => new Date().toISOString();
@@ -404,6 +405,23 @@ export function normalizeAlarm(raw = {}) {
   });
 }
 
+// ── Control de acceso / paneles de alarma (AX, DS-K) ───────────────────────
+// La traduccion vive en events/access.js: aca solo se arma el evento. Devuelve
+// `null` cuando el equipo reporta el ECO de una apertura que ordenamos nosotros
+// (ver accessEvents.js) — el llamador tiene que tolerar null y no emitir nada.
+export function normalizeAccess(raw = {}, ctx = {}) {
+  const a = accessFields(raw, ctx);
+  if (a === null) return null;
+  return buildEvent({
+    sourceType: "access",
+    vendor: pick(ctx.vendor, raw.vendor, "Hikvision"),
+    raw,
+    type: a.type,
+    source: a.source,
+    fields: a.fields,
+  });
+}
+
 // ── Genérico (ya viene casi-canónico) ──────────────────────────────────────
 export function normalizeGeneric(raw = {}) {
   const type = pick(raw.type, "system");
@@ -429,15 +447,19 @@ export function normalizeGeneric(raw = {}) {
 
 export const normalizers = {
   hikvision: normalizeHikvision,
+  access: normalizeAccess,
   akuvox: normalizeAkuvox,
   nvr: normalizeNvr,
   alarm: normalizeAlarm,
   generic: normalizeGeneric,
 };
 
-export function normalize(vendor, raw) {
+// `ctx` lo aporta el ingester, no el equipo: deviceId/site/IP que EventOS ya
+// sabe y que el payload del panel no trae. Los normalizadores viejos ignoran el
+// segundo argumento, asi que agregarlo no cambia nada para ellos.
+export function normalize(vendor, raw, ctx = {}) {
   const fn = normalizers[vendor] || normalizeGeneric;
-  return fn(raw);
+  return fn(raw, ctx);
 }
 
 export default normalize;
