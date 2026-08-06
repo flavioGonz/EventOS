@@ -136,10 +136,18 @@ function parseTriggers(xml) {
   });
 }
 
+// Salidas de relé (IO): cada <IOOutputPort> es una salida física (puerta/relé).
+function parseOutputs(xml) {
+  return blocks(xml, "IOOutputPort").map((b) => ({
+    id: tag(b, "id") || null,
+    name: tag(b, "ioPortDescription") || tag(b, "name") || null,
+  })).filter((o) => o.id);
+}
+
 // ── API ──────────────────────────────────────────────────────────────────────
 export async function discover({ host, port, rtspPort, user, pass, https = false }) {
   const opt = { host: String(host || "").trim(), port: Number(port) || (https ? 443 : 80), rtspPort: Number(rtspPort) || 554, https: !!https, user, pass };
-  const out = { host: opt.host, port: opt.port, device: null, channels: [], streams: [], analytics: [], errors: [] };
+  const out = { host: opt.host, port: opt.port, device: null, channels: [], streams: [], analytics: [], outputs: [], errors: [] };
   if (!opt.host || !user) { out.errors.push("Faltan host o credenciales."); return out; }
 
   const probe = async (path, onOk) => {
@@ -168,6 +176,7 @@ export async function discover({ host, port, rtspPort, user, pass, https = false
   }
   await probe("/ISAPI/Streaming/channels", (t) => { out.streams = parseStreams(t, opt); });
   await probe("/ISAPI/Event/triggers", (t) => { out.analytics = parseTriggers(t); });
+  await probe("/ISAPI/System/IO/outputs", (t) => { out.outputs = parseOutputs(t); });
 
   return out;
 }

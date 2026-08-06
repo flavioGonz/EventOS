@@ -1393,3 +1393,74 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 /* En el paso de conexión, el formulario aprovecha el panel ancho sin estirarse feo */
 .wiz .form-grid--2 { max-width: 100%; }
 @media (max-width: 640px) { .wiz__typegrid { grid-template-columns: repeat(2, 1fr); } }
+
+/* ======================================================================
+   Ficha de dispositivo — layout PREMIUM (multi-columna) + probe modal
+   ====================================================================== */
+.dev-premium { display: grid; gap: 16px; align-items: start; }
+.dev-premium--aside { grid-template-columns: minmax(0, 1.62fr) minmax(300px, 1fr); }
+@media (max-width: 1040px) { .dev-premium--aside { grid-template-columns: 1fr; } }
+
+/* Región del formulario: rejilla de tarjetas de 2 columnas; algunas ocupan todo */
+.dev-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.dev-form > .span-all { grid-column: 1 / -1; }
+@media (max-width: 720px) { .dev-form { grid-template-columns: 1fr; } }
+
+/* Rejillas internas de campos, densas */
+.dev-grid { display: grid; gap: 14px 16px; align-items: start; }
+.dev-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dev-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.dev-grid .span-2 { grid-column: span 2; }
+.dev-grid .span-all { grid-column: 1 / -1; }
+@media (max-width: 1240px) { .dev-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .dev-grid--2, .dev-grid--4 { grid-template-columns: 1fr; } .dev-grid .span-2 { grid-column: 1 / -1; } }
+
+/* Encabezado de sección con chip de icono de color */
+.dev-sec { display: flex; align-items: center; gap: 11px; margin-bottom: 2px; }
+.dev-sec__t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dev-sec__title { font-size: 13.5px; font-weight: 650; color: var(--text); display: inline-flex; align-items: center; gap: 6px; }
+.dev-sec__sub { font-size: 11.5px; color: var(--text-dim); line-height: 1.35; }
+.dev-sec__action { margin-left: auto; flex: none; }
+.dev-chip { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; flex: none;
+  background: color-mix(in srgb, var(--chip, var(--accent)) 16%, transparent); color: var(--chip, var(--accent)); }
+.dev-chip.t-id { --chip: var(--accent); }
+.dev-chip.t-cred { --chip: #8b5cf6; }
+.dev-chip.t-group { --chip: #0ea5a3; }
+.dev-chip.t-relay { --chip: #f59e0b; }
+.dev-chip.t-media { --chip: #3b82f6; }
+
+/* Banner de acción: Probar e importar */
+.dev-cta { flex-direction: row; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--separator));
+  background: linear-gradient(115deg, color-mix(in srgb, var(--accent) 9%, var(--bg-elev)), var(--bg-elev) 62%); }
+.dev-cta__body { display: flex; align-items: center; gap: 13px; min-width: 0; }
+.dev-cta__txt b { font-size: 14px; font-weight: 650; }
+.dev-cta__txt p { font-size: 12.5px; color: var(--text-dim); margin: 2px 0 0; line-height: 1.45; max-width: 62ch; }
+
+/* Aside de la ficha (video o contexto NVR/alarma) */
+.dev-aside { display: flex; flex-direction: column; gap: 10px; align-self: start; }
+
+.relay-empty { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-faint);
+  padding: 9px 11px; border: 1px dashed var(--separator); border-radius: var(--r-sm); width: 100%; }
+.relay-empty svg { color: var(--text-faint); flex: none; }
+
+/* ---------- Modal de test/importación: pasos animados ---------- */
+.probe-steps { display: flex; flex-direction: column; gap: 3px; margin: 14px 0 4px; }
+.probe-step { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 12px;
+  transition: background var(--dur-1, .2s) var(--ease-out, ease); }
+.probe-step.is-active { background: var(--accent-weak); }
+.probe-step__ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none;
+  background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text-faint); transition: all .25s var(--ease-out, ease); }
+.probe-step.is-active .probe-step__ic { background: var(--accent); color: var(--on-accent); box-shadow: 0 0 0 4px var(--accent-weak); }
+.probe-step.is-done .probe-step__ic { background: color-mix(in srgb, var(--ok, #1a9d5a) 18%, transparent); color: var(--ok, #1a9d5a); }
+.probe-step.is-error .probe-step__ic { background: color-mix(in srgb, var(--crit, #e5484d) 16%, transparent); color: var(--crit, #e5484d); }
+.probe-step__lbl { font-size: 13.5px; font-weight: 560; color: var(--text-dim); }
+.probe-step.is-active .probe-step__lbl, .probe-step.is-done .probe-step__lbl { color: var(--text); }
+.probe-step__tick { margin-left: auto; color: var(--ok, #1a9d5a); }
+.probe-error { display: flex; align-items: center; gap: 9px; margin-top: 12px; padding: 11px 13px; border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--crit, #e5484d) 10%, transparent); color: var(--crit, #e5484d); font-size: 13px; }
+.probe-error svg { flex: none; }
+.probe-result { margin-top: 16px; }
+.probe-result__counts { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; align-items: center; }
+.probe-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text-dim); white-space: nowrap; }

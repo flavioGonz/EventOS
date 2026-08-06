@@ -8,6 +8,21 @@ import { EditPage, Loading, useToast } from './_shared.jsx'
 import { Go2RtcView, AnalyticsLegend, useCameraAnalytics } from '../components/CameraLive.jsx'
 import { EventTypeGrid } from './EventTypeGrid.jsx'
 import DeviceHealth from './DeviceHealth.jsx'
+import DeviceProbe from './DeviceProbe.jsx'
+
+// Encabezado de sección con chip de icono de color, título, subtítulo y tooltip.
+function SecHead({ icon, tone, title, sub, hint, action }) {
+  return (
+    <div className="dev-sec">
+      <span className={`dev-chip t-${tone}`}><Icon name={icon} size={16} /></span>
+      <div className="dev-sec__t">
+        <span className="dev-sec__title">{title}{hint && <InfoHint side="right" content={hint} />}</span>
+        {sub && <span className="dev-sec__sub">{sub}</span>}
+      </div>
+      {action && <div className="dev-sec__action">{action}</div>}
+    </div>
+  )
+}
 
 const EMPTY = {
   name: '', type: 'hikvision', vendor: '', ip: '', channel: 1,
@@ -169,6 +184,7 @@ export default function DeviceEdit() {
   const [saving, setSaving] = useState(false)
   const [previewAspect, setPreviewAspect] = useState('16 / 9')
   const [tab, setTab] = useState('datos') // datos | alertas | medios | salud
+  const [probing, setProbing] = useState(false)
   const isAlarm = form.type === 'alarm'
   const isNvr = form.type === 'nvr'
   // Vista previa del canal: solo para cámaras ya guardadas (necesita id + credenciales).
@@ -207,6 +223,8 @@ export default function DeviceEdit() {
     return null
   }
   const back = () => navigate('/admin/devices')
+  const applyImport = (patch) => setForm((f) => ({ ...f, ...patch }))
+  const canProbe = !isAlarm && !!(form.ip || '').trim() && !!(form.username || '').trim()
   const addRelay = () => setForm((f) => ({ ...f, relays: [...(f.relays || []), { name: '', output: '1' }] }))
   const updRelay = (i, patch) => setForm((f) => ({ ...f, relays: (f.relays || []).map((r, j) => (j === i ? { ...r, ...patch } : r)) }))
   const delRelay = (i) => setForm((f) => ({ ...f, relays: (f.relays || []).filter((_, j) => j !== i) }))
@@ -260,12 +278,12 @@ export default function DeviceEdit() {
 
       {/* ===== Pestaña DATOS ===== */}
       {tab === 'datos' && (
-        <div key="datos" className={`device-modal anim-rise ${hasAside ? 'device-modal--2col' : 'device-modal--1col'}`}>
-          <div className="device-modal__main">
+        <div key="datos" className={`dev-premium anim-rise ${hasAside ? 'dev-premium--aside' : ''}`}>
+          <div className="dev-form">
             {isNew && (
-              <div className="mfr-pick dev-card">
-                <p className="section-label"><Icon name="shield" size={14} /> ¿Qué fabricante?</p>
-                <p className="help-block">Elegí el fabricante para preconfigurar el tipo, los puertos y los endpoints/APIs correctos.</p>
+              <div className="dev-card span-all">
+                <SecHead icon="shield" tone="id" title="¿Qué fabricante?"
+                  sub="Preconfigura el tipo, los puertos y los endpoints/APIs correctos." />
                 <div className="mfr-grid">
                   {MANUFACTURERS.map((m) => (
                     <button type="button" key={m.id} className={`mfr-card${form.vendor === m.id ? ' is-on' : ''}`} onClick={() => pickMfr(m)}>
@@ -278,10 +296,24 @@ export default function DeviceEdit() {
               </div>
             )}
 
-            <div className="dev-card">
-              <p className="section-label"><Icon name="device" size={14} /> Identificación
-                <InfoHint side="right" content={<>Datos para identificar el equipo dentro de EventOS. El <b>Tipo</b> define qué campos aplican: una <b>alarma</b> no tiene canal de video ni RTSP. El <b>Canal</b> es el número de cámara dentro de un NVR.<span className="tt__eg">Ej.: «Cámara Acceso Norte» · Hikvision · canal 1.</span></>} /></p>
-              <div className="form-grid form-grid--2">
+            {!isAlarm && (
+              <div className="dev-card dev-cta span-all">
+                <div className="dev-cta__body">
+                  <span className="dev-chip t-media"><Icon name="search" size={17} /></span>
+                  <div className="dev-cta__txt">
+                    <b>Test de conectividad e importación de recursos</b>
+                    <p>Sondeá el equipo con estas credenciales y traé sus canales, analíticas y relés — con un paso a paso animado. {isNvr ? 'En un NVR podés crear un dispositivo por cada cámara.' : ''}</p>
+                  </div>
+                </div>
+                <Button variant="primary" icon="search" disabled={!canProbe} onClick={() => setProbing(true)}>Probar e importar</Button>
+              </div>
+            )}
+
+            <div className="dev-card span-all">
+              <SecHead icon="device" tone="id" title="Identificación"
+                sub="Cómo se identifica el equipo dentro de EventOS."
+                hint={<>Datos para identificar el equipo dentro de EventOS. El <b>Tipo</b> define qué campos aplican: una <b>alarma</b> no tiene canal de video ni RTSP. El <b>Canal</b> es el número de cámara dentro de un NVR.<span className="tt__eg">Ej.: «Cámara Acceso Norte» · Hikvision · canal 1.</span></>} />
+              <div className="dev-grid dev-grid--4">
                 <Field label={<><Icon name="device" size={14} /> Nombre</>} className="span-2">
                   <TextInput autoFocus value={form.name} onChange={set('name')} placeholder={isAlarm ? 'Central de alarma Depósito' : 'Cámara Acceso Norte'} />
                 </Field>
@@ -302,14 +334,17 @@ export default function DeviceEdit() {
                     <TextInput type="number" min="0" value={form.channel ?? ''} onChange={set('channel')} placeholder="1" />
                   </Field>
                 )}
+                <Field label={<><Icon name="online" size={14} /> Estado</>}>
+                  <Switch checked={form.enabled} onChange={(enabled) => setForm((f) => ({ ...f, enabled }))} label={form.enabled ? 'Activo' : 'Deshabilitado'} />
+                </Field>
               </div>
             </div>
 
             <div className="dev-card">
-              <p className="section-label"><Icon name="shield" size={14} /> Credenciales y puertos
-                <InfoHint side="right" content={<>Usuario y clave del propio equipo (los que usás para entrar a su web), <b>no</b> los de EventOS. El server los usa para armar el RTSP/snapshot y consultar estado por ISAPI — nunca viajan en la URL.<span className="tt__eg">Ej.: admin / ••• · RTSP 554 · ISAPI 80.</span></>} /></p>
-              <p className="help-block">Usuario y clave del equipo (no van en la URL). El server arma el RTSP/snapshot con esto.</p>
-              <div className="form-grid form-grid--2">
+              <SecHead icon="shield" tone="cred" title="Credenciales y puertos"
+                sub="Usuario/clave del equipo (no de EventOS)."
+                hint={<>Usuario y clave del propio equipo (los que usás para entrar a su web), <b>no</b> los de EventOS. El server los usa para armar el RTSP/snapshot y consultar estado por ISAPI — nunca viajan en la URL.<span className="tt__eg">Ej.: admin / ••• · RTSP 554 · ISAPI 80.</span></>} />
+              <div className="dev-grid dev-grid--2">
                 <Field label={<><Icon name="user" size={14} /> Usuario</>}>
                   <TextInput value={form.username || ''} onChange={set('username')} placeholder="admin" autoComplete="off" />
                 </Field>
@@ -327,7 +362,7 @@ export default function DeviceEdit() {
                 {!isAlarm && (
                   <Field label={<><Icon name="globe" size={14} /> IP directa de cámara
                     <InfoHint side="right" content={<>Opcional. Si la cámara está detrás de un NVR pero la alcanzás por su <b>propia</b> IP (p. ej. por VPN), poné acá esa IP y el vivo sale <b>directo</b> de la cámara — más limpio y con menos latencia que pasar por el NVR.<span className="tt__eg">Ej.: 192.168.7.129</span></>} /></>} className="span-2"
-                    hint="Opcional. Si la cámara está detrás de un NVR pero la alcanzás por su IP (VPN), poné acá su IP para el vivo DIRECTO (limpio).">
+                    hint="Opcional. Si está detrás de un NVR pero la alcanzás por su IP (VPN), poné acá su IP para el vivo DIRECTO.">
                     <TextInput value={form.camIp || ''} onChange={set('camIp')} placeholder="192.168.7.129" />
                   </Field>
                 )}
@@ -335,14 +370,15 @@ export default function DeviceEdit() {
             </div>
 
             <div className="dev-card">
-              <p className="section-label"><Icon name="site" size={14} /> Agrupación y prioridad
-                <InfoHint side="right" content={<>El <b>Sitio</b> agrupa el equipo por cliente (afecta afinidad de despacho, informes y filtros). La <b>Prioridad por defecto</b> ordena la cola cuando ninguna regla dice otra cosa. La <b>Zona</b> es una etiqueta libre de ubicación.<span className="tt__eg">Ej.: Sitio «Centro Logístico» · P2 · Zona «Playa de camiones».</span></>} /></p>
+              <SecHead icon="site" tone="group" title="Agrupación y prioridad"
+                sub="Cliente, prioridad base y zona."
+                hint={<>El <b>Sitio</b> agrupa el equipo por cliente (afecta afinidad de despacho, informes y filtros). La <b>Prioridad por defecto</b> ordena la cola cuando ninguna regla dice otra cosa. La <b>Zona</b> es una etiqueta libre de ubicación.<span className="tt__eg">Ej.: Sitio «Centro Logístico» · P2 · Zona «Playa de camiones».</span></>} />
               <Field label={<><Icon name="building" size={14} /> Sitio / Cliente</>} hint="Agrupa el dispositivo por cliente. Escribe para buscar o crea uno nuevo aquí.">
                 <Combobox value={form.siteId || ''} onChange={(v) => setForm((f) => ({ ...f, siteId: v }))}
                   options={[{ value: '', label: '— Sin sitio —' }, ...sites.map((s) => ({ value: s.id, label: s.name }))]}
                   placeholder="— Sin sitio —" searchPlaceholder="Buscar o crear sitio…" onCreate={createSite} createLabel="Crear sitio" />
               </Field>
-              <div className="form-grid form-grid--2 u-mt-12">
+              <div className="dev-grid dev-grid--2 u-mt-12">
                 <Field label={<><Icon name="flag" size={14} /> Prioridad por defecto</>} hint="Opcional. Sobrescribe la del catálogo (1–5).">
                   <Select value={form.defaultPriority ?? ''} onChange={set('defaultPriority')}>
                     <option value="">— Catálogo —</option>
@@ -353,16 +389,17 @@ export default function DeviceEdit() {
                   <TextInput value={form.zone || ''} onChange={set('zone')} placeholder="Acceso Norte" />
                 </Field>
               </div>
-              <Field label={<><Icon name="online" size={14} /> Estado</>} className="u-mt-12">
-                <Switch checked={form.enabled} onChange={(enabled) => setForm((f) => ({ ...f, enabled }))} label={form.enabled ? 'Activo' : 'Deshabilitado'} />
-              </Field>
             </div>
 
-            <div className="dev-card">
-              <p className="section-label"><Icon name="route" size={14} /> Relés / Puertas <span className="muted">· salidas físicas</span>
-                <InfoHint side="right" content={<>Salidas de relé del equipo para abrir puertas o accionar dispositivos. Definí un nombre y el número de salida; el botón «Abrir» acciona el relé físico (pide confirmación). Se puede disparar desde la consola del operador durante un evento.<span className="tt__eg">Ej.: «Portón principal» → salida 1.</span></>} /></p>
-              <p className="help-block">Salidas del equipo para abrir puertas (relé IP). Definí nombre y nº de salida; «Abrir» acciona el relé y pide confirmación. {isNew && <b>Guardá el dispositivo primero.</b>}</p>
+            <div className="dev-card span-all">
+              <SecHead icon="route" tone="relay" title="Relés / Puertas" sub="Salidas físicas del equipo."
+                hint={<>Salidas de relé del equipo para abrir puertas o accionar dispositivos. Definí un nombre y el número de salida; el botón «Abrir» acciona el relé físico (pide confirmación). Se puede disparar desde la consola del operador durante un evento.<span className="tt__eg">Ej.: «Portón principal» → salida 1.</span></>}
+                action={!isAlarm && canProbe && <Button variant="ghost" size="sm" icon="search" onClick={() => setProbing(true)}>Detectar del equipo</Button>} />
+              <p className="help-block">Definí nombre y nº de salida; «Abrir» acciona el relé y pide confirmación. {isNew && <b>Guardá el dispositivo primero.</b>}</p>
               <div className="relaylist">
+                {(form.relays || []).length === 0 && (
+                  <div className="relay-empty"><Icon name="route" size={16} /> Sin relés. Agregá uno manualmente o usá «Detectar del equipo».</div>
+                )}
                 {(form.relays || []).map((r, i) => (
                   <div className="relayrow" key={i}>
                     <TextInput value={r.name || ''} placeholder="Puerta principal" onChange={(e) => updRelay(i, { name: e.target.value })} />
@@ -378,8 +415,8 @@ export default function DeviceEdit() {
 
           {/* Aside derecho: video (cámara) o ficha contextual (alarma / NVR) */}
           {canPreview && (
-            <aside className="device-modal__preview">
-              <p className="section-label"><Icon name="video" size={14} /> Canal en vivo + analíticas</p>
+            <aside className="dev-aside">
+              <SecHead icon="video" tone="media" title="Canal en vivo" sub={`Canal #${form.channel ?? '—'} + analíticas`} />
               <div className="device-preview__stage" style={{ aspectRatio: previewAspect }}>
                 <Go2RtcView deviceId={id} rules={ana && ana.rules} space={ana && ana.space} onAspect={setPreviewAspect} />
               </div>
@@ -390,18 +427,20 @@ export default function DeviceEdit() {
             </aside>
           )}
           {!canPreview && hasAside && (
-            <aside className="device-modal__side dev-sidecard">
+            <aside className="dev-aside dev-sidecard">
               <span className="dev-sidecard__ic"><Icon name={isAlarm ? 'siren' : 'device'} size={26} /></span>
               <p className="dev-sidecard__title">{isAlarm ? 'Central de alarma' : 'NVR / DVR'}</p>
               {isAlarm ? (
                 <p className="dev-sidecard__txt">Este dispositivo no tiene canal de video. Reporta eventos por IP/HTTP (intrusión, pánico, sabotaje). Configurá qué eventos alertan y su prioridad en la pestaña <b>Alertas</b>, y las salidas físicas en <b>Relés</b>.</p>
               ) : (
-                <p className="dev-sidecard__txt">Las alertas se configuran <b>por cámara</b>, no en el NVR: cada evento se atribuye a la cámara que lo generó. Descubrí sus canales desde <b>Dispositivos › Descubrir equipo</b> y mirá su estado en <b>Salud</b>.</p>
+                <p className="dev-sidecard__txt">Las alertas se configuran <b>por cámara</b>, no en el NVR: cada evento se atribuye a la cámara que lo generó. Usá <b>Probar e importar</b> para crear un dispositivo por canal, y mirá su estado en <b>Salud</b>.</p>
               )}
             </aside>
           )}
         </div>
       )}
+
+      {probing && <DeviceProbe device={form} onClose={() => setProbing(false)} onImport={applyImport} toast={toast} />}
 
       {/* ===== Pestaña ALERTAS ===== */}
       {tab === 'alertas' && (
