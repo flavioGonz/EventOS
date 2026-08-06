@@ -212,6 +212,8 @@ function seedDispatch() {
     siteAffinityWindowMinutes: 0, // 0 = sin límite temporal; N = solo eventos del sitio de los últimos N min
     escalationGroupId: null, // Reguard "Auto-forwarding→Supervisor": grupo al que escalar (SLA/timeout). null = broadcast
     respectSchedules: false, // Reguard "Off-duty": si true, excluye del reparto a operarios fuera de su turno
+    queueTtlHours: 0, // Higiene de cola (Batch E): auto-cierra `new` sin atender más viejos que N horas. 0 = desactivado
+    queueTtlMinPriority: 4, // Solo auto-cierra prioridad >= este valor (4-5 = baja). Protege críticos/altos
   };
 }
 

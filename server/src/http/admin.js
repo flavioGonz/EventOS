@@ -173,6 +173,8 @@ router.put("/dispatch", (req, res) => {
   if (body.siteAffinityWindowMinutes !== undefined) patch.siteAffinityWindowMinutes = Math.max(0, Number(body.siteAffinityWindowMinutes) || 0);
   if (body.escalationGroupId !== undefined) patch.escalationGroupId = body.escalationGroupId ? String(body.escalationGroupId) : null;
   if (body.respectSchedules !== undefined) patch.respectSchedules = !!body.respectSchedules;
+  if (body.queueTtlHours !== undefined) patch.queueTtlHours = Math.max(0, Number(body.queueTtlHours) || 0);
+  if (body.queueTtlMinPriority !== undefined) patch.queueTtlMinPriority = Math.min(5, Math.max(1, Number(body.queueTtlMinPriority) || 4));
 
   const updated = store.setDispatch(patch);
   log.info(`admin: dispatch actualizado (mode=${updated.mode})`);

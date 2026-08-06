@@ -107,6 +107,31 @@ export function attachConsole(io) {
           }
         }
       }
+
+      // ── Higiene de cola (Batch E): auto-cierra los `new` NUNCA atendidos que
+      // superan el TTL y son de baja prioridad, para que la cola no crezca sin
+      // límite. Protege prioridad alta (número menor). Opt-in (queueTtlHours>0).
+      const dispTtl = getDispatch();
+      const ttlH = Number(dispTtl?.queueTtlHours) || 0;
+      if (ttlH > 0) {
+        const minPrio = Math.min(5, Math.max(1, Number(dispTtl.queueTtlMinPriority) || 4));
+        const cutoff = now - ttlH * 3600 * 1000;
+        for (const ev of listEvents({ status: "new", limit: 1000 })) {
+          if ((ev.priority ?? 5) < minPrio) continue; // prioridad alta → no se toca
+          if (new Date(ev.ts).getTime() > cutoff) continue; // aún dentro del TTL
+          const updated = updateEvent(ev.id, {
+            status: "resolved",
+            disposition: "auto_closed",
+            logEntry: { operatorId: null, operatorName: null, action: "resolve", note: `Auto-cierre por TTL (${ttlH}h sin atender)` },
+          });
+          if (updated) {
+            bus.save(updated);
+            nsp.emit("event:update", { event: updated });
+            nsp.emit("queue:state", queuePayload());
+            log.info(`TTL: auto-cerrado ${ev.id} (new, prio ${ev.priority}, > ${ttlH}h)`);
+          }
+        }
+      }
     } catch (e) {
       log.warn(`Barrido SLA: ${e.message}`);
     }

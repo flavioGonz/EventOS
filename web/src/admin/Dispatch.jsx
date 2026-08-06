@@ -21,6 +21,7 @@ const DEFAULT = {
   reassignOnTimeout: true, maxConcurrentPerOperator: 5, skillRouting: true,
   siteAffinity: false, siteAffinityWindowMinutes: 0,
   escalationGroupId: '', respectSchedules: false,
+  queueTtlHours: 0, queueTtlMinPriority: 4,
 }
 
 export default function Dispatch() {
@@ -52,6 +53,8 @@ export default function Dispatch() {
         ackTimeoutSeconds: Number(policy.ackTimeoutSeconds) || 0,
         maxConcurrentPerOperator: Number(policy.maxConcurrentPerOperator) || 0,
         siteAffinityWindowMinutes: Number(policy.siteAffinityWindowMinutes) || 0,
+        queueTtlHours: Number(policy.queueTtlHours) || 0,
+        queueTtlMinPriority: Number(policy.queueTtlMinPriority) || 4,
       }
       const r = await putDispatch(payload)
       setPolicy({ ...DEFAULT, ...(r || payload) })
@@ -192,6 +195,37 @@ export default function Dispatch() {
               <Switch checked={policy.respectSchedules} onChange={(v) => set('respectSchedules', v)} />
             </div>
           </div>
+        </div>
+      </Panel>
+
+      <Panel title={<span className="ptitle"><Icon name="gauge" size={16} /> Higiene de cola</span>} subtitle="Evita que la cola crezca con alarmas viejas que nunca se atendieron.">
+        <div className="dispatch-sub">
+          <div className="setting-row">
+            <div className="setting-row__info">
+              <b><Icon name="clock" size={14} /> Auto-cierre de alarmas sin atender</b>
+              <span>Cierra automáticamente las alarmas que quedaron sin tomar (estado nuevo) pasadas estas horas. 0 = desactivado. No toca las que un operario ya tomó.</span>
+            </div>
+            <div className="setting-row__ctrl">
+              <TextInput type="number" min="0" className="tnum"
+                value={policy.queueTtlHours} onChange={(e) => set('queueTtlHours', e.target.value)} />
+              <span className="muted">h</span>
+            </div>
+          </div>
+          {Number(policy.queueTtlHours) > 0 && (
+            <div className="setting-row">
+              <div className="setting-row__info">
+                <b><Icon name="gauge" size={14} /> Solo prioridad igual o menor a</b>
+                <span>Protege las prioridades altas: solo se auto-cierran alarmas de prioridad igual o inferior a la elegida (1 = crítica … 5 = baja).</span>
+              </div>
+              <div className="setting-row__ctrl">
+                <Select value={String(policy.queueTtlMinPriority || 4)} onChange={(e) => set('queueTtlMinPriority', Number(e.target.value))}>
+                  <option value="3">3 — media y baja</option>
+                  <option value="4">4 — baja</option>
+                  <option value="5">5 — solo la más baja</option>
+                </Select>
+              </div>
+            </div>
+          )}
         </div>
       </Panel>
     </div>
