@@ -29,8 +29,9 @@ import {
   redispatchOrphans,
   releaseOperatorEvents,
   redispatchOnBoot,
+  escalateToSupervisors,
 } from "../dispatch/engine.js";
-import { list as listConfig } from "../config/store.js";
+import { list as listConfig, getDispatch } from "../config/store.js";
 import { sessionFromHandshake } from "../auth/session.js";
 
 const QUEUE_TOP = 20;
@@ -88,15 +89,22 @@ export function attachConsole(io) {
         if (!ESCALATABLE.includes(ev.status)) continue;
         if (new Date(ev.slaDeadline).getTime() > now) continue;
         ev.slaAutoEscalated = true;
-        const updated = updateEvent(ev.id, {
-          status: "escalated",
-          logEntry: { operatorId: null, operatorName: null, action: "escalate", note: "Auto-escalado: SLA vencido" },
-        });
-        if (updated) {
-          bus.save(updated);
-          nsp.emit("event:update", { event: updated });
-          nsp.emit("queue:state", queuePayload());
-          log.info(`SLA vencido → auto-escalado ${ev.id}`);
+        const disp = getDispatch();
+        if (disp && disp.escalationGroupId) {
+          // Escalado dirigido a supervisión (Batch C).
+          escalateToSupervisors(io, ev, disp, "SLA vencido");
+          log.info(`SLA vencido → escalado a supervisión ${ev.id}`);
+        } else {
+          const updated = updateEvent(ev.id, {
+            status: "escalated",
+            logEntry: { operatorId: null, operatorName: null, action: "escalate", note: "Auto-escalado: SLA vencido" },
+          });
+          if (updated) {
+            bus.save(updated);
+            nsp.emit("event:update", { event: updated });
+            nsp.emit("queue:state", queuePayload());
+            log.info(`SLA vencido → auto-escalado ${ev.id}`);
+          }
         }
       }
     } catch (e) {

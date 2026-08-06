@@ -1,9 +1,9 @@
 // Balanceo — editor de la política de dispatch (PUT /api/admin/dispatch).
 import { useEffect, useState } from 'react'
 import {
-  Panel, Button, Field, TextInput, Switch, Segmented, Icon, Spinner,
+  Panel, Button, Field, TextInput, Switch, Segmented, Select, Icon, Spinner,
 } from '../ui/primitives.jsx'
-import { getDispatch, putDispatch } from '../lib/adminApi.js'
+import { getDispatch, putDispatch, collectionApi } from '../lib/adminApi.js'
 import { seqStrategyLabel } from '../lib/labels.js'
 import { PageHead, Loading, ErrorState, SectionHelp, useToast } from './_shared.jsx'
 
@@ -20,11 +20,13 @@ const DEFAULT = {
   mode: 'simultaneous', sequentialStrategy: 'least_loaded', ackTimeoutSeconds: 30,
   reassignOnTimeout: true, maxConcurrentPerOperator: 5, skillRouting: true,
   siteAffinity: false, siteAffinityWindowMinutes: 0,
+  escalationGroupId: '', respectSchedules: false,
 }
 
 export default function Dispatch() {
   const toast = useToast()
   const [policy, setPolicy] = useState(null)
+  const [groups, setGroups] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -33,11 +35,12 @@ export default function Dispatch() {
   const load = () => {
     setLoading(true); setError(null)
     getDispatch()
-      .then((d) => { setPolicy({ ...DEFAULT, ...(d || {}) }); setDirty(false) })
+      .then((d) => { setPolicy({ ...DEFAULT, ...(d || {}), escalationGroupId: (d && d.escalationGroupId) || '' }); setDirty(false) })
       .catch(setError)
       .finally(() => setLoading(false))
   }
   useEffect(load, [])
+  useEffect(() => { collectionApi('groups').list().then((r) => setGroups(r?.groups || r || [])).catch(() => setGroups([])) }, [])
 
   const set = (k, v) => { setPolicy((p) => ({ ...p, [k]: v })); setDirty(true) }
 
@@ -163,6 +166,32 @@ export default function Dispatch() {
               </div>
             </div>
           )}
+        </div>
+      </Panel>
+
+      <Panel title={<span className="ptitle"><Icon name="alert" size={16} /> Escalado y turnos</span>} subtitle="Qué pasa cuando nadie atiende a tiempo, y disponibilidad por horario.">
+        <div className="dispatch-sub">
+          <div className="setting-row">
+            <div className="setting-row__info">
+              <b><Icon name="alert" size={14} /> Escalar a supervisión</b>
+              <span>Al vencer el SLA o agotarse la reasignación, el evento se dirige a este grupo (en vez de difundirse a toda la consola). Sin grupo = comportamiento actual.</span>
+            </div>
+            <div className="setting-row__ctrl">
+              <Select value={policy.escalationGroupId || ''} onChange={(e) => set('escalationGroupId', e.target.value)}>
+                <option value="">— Sin grupo (broadcast)</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </Select>
+            </div>
+          </div>
+          <div className="setting-row">
+            <div className="setting-row__info">
+              <b><Icon name="clock" size={14} /> Respetar turnos de los operarios</b>
+              <span>Excluye del reparto automático a los operarios fuera de su turno horario (configurable en cada operario). No impide que tomen eventos manualmente.</span>
+            </div>
+            <div className="setting-row__ctrl">
+              <Switch checked={policy.respectSchedules} onChange={(v) => set('respectSchedules', v)} />
+            </div>
+          </div>
         </div>
       </Panel>
     </div>

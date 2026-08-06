@@ -23,7 +23,7 @@ function nowParts() {
 
 function toMin(s) { const [h, m] = String(s || "").split(":").map(Number); return (h || 0) * 60 + (m || 0); }
 
-function inWindow(sch) {
+export function inWindow(sch) {
   if (!sch || sch.mode !== "window") return true; // 'always' o sin schedule → activo
   const { day, minutes } = nowParts();
   const days = Array.isArray(sch.days) && sch.days.length ? sch.days : [0, 1, 2, 3, 4, 5, 6];

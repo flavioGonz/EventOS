@@ -4,6 +4,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { log } from "../logger.js";
 import { appendJsonl } from "../util/jsonl.js";
+import { inWindow } from "../alerts/policy.js";
+import { list as listConfig } from "../config/store.js";
 
 const ACTIVE_STATUSES = ["new", "assigned", "ack", "in_progress", "escalated"];
 const RESOLVED_CAP = 200;
@@ -178,6 +180,23 @@ export function operatorHasActiveSite(operatorId, site, windowMs = 0) {
     return true;
   }
   return false;
+}
+
+// Turnos de agente (Reguard "Off-duty mode"): ¿el operario está DENTRO de su
+// turno horario ahora? El horario vive en la config del operario
+// (`operators[].schedule` = { mode:'always'|'window', days, from, to }, mismo
+// shape que las ventanas de alerts/policy). Sin schedule o mode!=='window' → SIEMPRE
+// en turno (compatibilidad). Se lee la config de forma perezosa y tolerante.
+export function isOperatorOnShift(operatorId) {
+  if (!operatorId) return false;
+  try {
+    const ops = listConfig("operators") || [];
+    const cfg = ops.find((o) => o.id === operatorId);
+    if (!cfg || !cfg.schedule) return true;
+    return inWindow(cfg.schedule);
+  } catch {
+    return true; // ante cualquier error de config, no bloquear el reparto
+  }
 }
 
 // ── Presencia / pausa / tiempo contabilizado (CONTRACT-V3 §1) ───────────────
@@ -428,9 +447,16 @@ export function availableOperators() {
 //    requeridas (de la regla) o, en su defecto, la category/type del evento
 //  - se descartan los que alcanzaron `maxConcurrentPerOperator`
 // El orden final es por carga asc (least_loaded-friendly), luego lastSeen asc.
-export function selectCandidates(event, { operatorIds = [], skills = [], skillRouting = true, maxConcurrentPerOperator = Infinity } = {}) {
+export function selectCandidates(event, { operatorIds = [], skills = [], skillRouting = true, maxConcurrentPerOperator = Infinity, respectSchedules = false } = {}) {
   // Sólo disponibles: los operarios en `paused`/`offline` quedan EXCLUIDOS (§1).
   let pool = availableOperators();
+
+  // Turnos (Reguard "Off-duty"): si está activo, se descartan los operarios fuera
+  // de su turno horario. Si esto deja a nadie, los caminos "sin candidatos" del
+  // motor hacen broadcast (no se pierde el evento).
+  if (respectSchedules) {
+    pool = pool.filter((op) => isOperatorOnShift(op.id));
+  }
 
   const hasFixed = Array.isArray(operatorIds) && operatorIds.length > 0;
   if (hasFixed) {
@@ -482,6 +508,7 @@ export default {
   operatorStats,
   operatorLoad,
   operatorHasActiveSite,
+  isOperatorOnShift,
   registerSocket,
   removeSocket,
   socketsOf,

@@ -71,6 +71,7 @@ const DISPATCH_OVERRIDE_KEYS = [
   "sequentialStrategy", "ackTimeoutSeconds", "reassignOnTimeout",
   "maxConcurrentPerOperator", "skillRouting",
   "siteAffinity", "siteAffinityWindowMinutes",
+  "escalationGroupId",
 ];
 function effectiveDispatch(event, dispatch) {
   const ov = event._rule?.actions?.dispatch;
@@ -105,6 +106,7 @@ function candidateOpts(event, dispatch) {
     skills: [...new Set(skills)],
     skillRouting: dispatch.skillRouting !== false,
     maxConcurrentPerOperator: dispatch.maxConcurrentPerOperator ?? Infinity,
+    respectSchedules: dispatch.respectSchedules === true, // turnos (Batch D)
   };
 }
 
@@ -201,6 +203,10 @@ function onAckTimeout(io, eventId, operatorId, dispatch, tried) {
   if (next) {
     log.info(`Reasignando ${eventId}: ${operatorId} → ${next.id} (ack timeout)`);
     assignTo(io, ev, next.id, dispatch, nextTried);
+  } else if (dispatch.escalationGroupId) {
+    // Candidatos agotados y hay grupo de supervisión → escalar dirigido (Batch C).
+    log.info(`Sin más candidatos para ${eventId} — escalando a supervisión`);
+    escalateToSupervisors(io, ev, dispatch, "sin candidatos tras timeout");
   } else {
     // Candidatos agotados → caer a broadcast
     log.info(`Sin más candidatos para ${eventId} — broadcast (fallback)`);
@@ -216,6 +222,48 @@ function onAckTimeout(io, eventId, operatorId, dispatch, tried) {
       emitQueue(io);
     }
   }
+}
+
+// ── Escalado dirigido a supervisor (Reguard "Auto-forwarding → Supervisor") ──
+//
+// Marca el evento `escalated` y lo DIRIGE a los supervisores online del grupo
+// `dispatch.escalationGroupId` (en vez del broadcast plano anterior). Si el grupo
+// no existe o no tiene supervisores conectados, cae a broadcast (no se pierde).
+// Se usa desde el barrido SLA (plazo vencido) y desde onAckTimeout (sin candidatos).
+export function escalateToSupervisors(io, event, dispatch, reason = "") {
+  const gid = dispatch && dispatch.escalationGroupId;
+  let members = [];
+  if (gid) {
+    let groups = [];
+    try { groups = listConfig("groups"); } catch { /* store */ }
+    const g = groups.find((x) => x.id === gid);
+    if (g) members = [...new Set(g.operatorIds || [])];
+  }
+  const updated = updateEvent(event.id, {
+    status: "escalated",
+    logEntry: { operatorId: null, operatorName: null, action: "escalate", note: reason ? `→ supervisión (${reason})` : "→ supervisión" },
+  });
+  if (!updated) return;
+  updated._rule = event._rule;
+  updated.escalatedAt = new Date().toISOString(); // marca "Overtime" para la consola
+  bus.save(updated);
+
+  // Supervisores online del grupo (con al menos un socket).
+  const onlineSupervisors = members.filter((id) => socketsOf(id).length > 0);
+  if (onlineSupervisors.length > 0) {
+    for (const id of onlineSupervisors) {
+      emitTo(io, id, "event:new", { event: updated });
+      emitTo(io, id, "event:escalated", { event: updated, reason });
+    }
+    // El resto de la consola ve el cambio de estado.
+    emitAll(io, "event:update", { event: updated });
+    log.info(`Escalado ${event.id} → ${onlineSupervisors.length} supervisor(es) del grupo ${gid}`);
+  } else {
+    // Sin supervisores conectados (o sin grupo) → broadcast para no perderlo.
+    emitAll(io, "event:update", { event: updated });
+    emitAll(io, "event:escalated", { event: updated, reason });
+  }
+  emitQueue(io);
 }
 
 // ── API pública ──────────────────────────────────────────────────────────────
@@ -358,4 +406,4 @@ export function redispatchOnBoot() {
   return n;
 }
 
-export default { routeNewEvent, onOperatorAction, redispatchOrphans, releaseOperatorEvents, redispatchOnBoot };
+export default { routeNewEvent, onOperatorAction, redispatchOrphans, releaseOperatorEvents, redispatchOnBoot, escalateToSupervisors };

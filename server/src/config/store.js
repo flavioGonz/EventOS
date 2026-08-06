@@ -210,6 +210,8 @@ function seedDispatch() {
     skillRouting: true,
     siteAffinity: false, // Reguard "Site-specific": misma alarma de sitio → mismo operario
     siteAffinityWindowMinutes: 0, // 0 = sin límite temporal; N = solo eventos del sitio de los últimos N min
+    escalationGroupId: null, // Reguard "Auto-forwarding→Supervisor": grupo al que escalar (SLA/timeout). null = broadcast
+    respectSchedules: false, // Reguard "Off-duty": si true, excluye del reparto a operarios fuera de su turno
   };
 }
 

@@ -171,6 +171,8 @@ router.put("/dispatch", (req, res) => {
   if (body.skillRouting !== undefined) patch.skillRouting = !!body.skillRouting;
   if (body.siteAffinity !== undefined) patch.siteAffinity = !!body.siteAffinity;
   if (body.siteAffinityWindowMinutes !== undefined) patch.siteAffinityWindowMinutes = Math.max(0, Number(body.siteAffinityWindowMinutes) || 0);
+  if (body.escalationGroupId !== undefined) patch.escalationGroupId = body.escalationGroupId ? String(body.escalationGroupId) : null;
+  if (body.respectSchedules !== undefined) patch.respectSchedules = !!body.respectSchedules;
 
   const updated = store.setDispatch(patch);
   log.info(`admin: dispatch actualizado (mode=${updated.mode})`);

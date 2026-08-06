@@ -12,6 +12,11 @@ const ROLES = [
   { value: 'supervisor', label: 'Supervisor — consola + panel + videowall' },
   { value: 'admin', label: 'Admin — acceso total' },
 ]
+// Días para el turno horario (Reguard "Off-duty"): mostrados Lun→Dom, valor 0=Dom.
+const SHIFT_DAYS = [
+  { v: 1, l: 'L' }, { v: 2, l: 'M' }, { v: 3, l: 'M' }, { v: 4, l: 'J' },
+  { v: 5, l: 'V' }, { v: 6, l: 'S' }, { v: 0, l: 'D' },
+]
 
 export default function OperatorEdit() {
   const { id } = useParams()
@@ -24,6 +29,17 @@ export default function OperatorEdit() {
   const [pin, setPin] = useState('')        // PIN nuevo (write-only)
   const [removePin, setRemovePin] = useState(false)
   const hasPin = !!form.pinHash
+
+  // ── Turno horario (Reguard "Off-duty") ──
+  const sched = form.schedule && form.schedule.mode === 'window' ? form.schedule : null
+  const hasShift = !!sched
+  const setShift = (on) => setForm((f) => ({ ...f, schedule: on ? { mode: 'window', days: [1, 2, 3, 4, 5], from: '08:00', to: '20:00' } : null }))
+  const toggleDay = (v) => setForm((f) => {
+    const s = f.schedule && f.schedule.mode === 'window' ? f.schedule : { mode: 'window', days: [], from: '08:00', to: '20:00' }
+    const days = s.days.includes(v) ? s.days.filter((d) => d !== v) : [...s.days, v]
+    return { ...f, schedule: { ...s, days } }
+  })
+  const setShiftField = (k, val) => setForm((f) => ({ ...f, schedule: { mode: 'window', days: [1, 2, 3, 4, 5], from: '08:00', to: '20:00', ...(f.schedule || {}), [k]: val } }))
 
   useEffect(() => {
     if (isNew) return
@@ -84,6 +100,36 @@ export default function OperatorEdit() {
         <Field label={<><Icon name="online" size={14} /> Estado</>}>
           <Switch checked={form.active} onChange={(active) => setForm((f) => ({ ...f, active }))} label={form.active ? 'Activo' : 'Inactivo'} />
         </Field>
+
+        <Field label={<><Icon name="clock" size={14} /> Turno horario</>}
+          hint="Si está activo y el balanceo respeta turnos (Admin › Balanceo), fuera de este horario no se le asignan eventos automáticamente. Igual puede tomarlos a mano.">
+          <Switch checked={hasShift} onChange={setShift} label={hasShift ? 'Con turno horario' : 'Siempre disponible'} />
+        </Field>
+        {hasShift && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              {SHIFT_DAYS.map((d) => {
+                const on = sched.days.includes(d.v)
+                return (
+                  <button key={d.v} type="button" onClick={() => toggleDay(d.v)}
+                    style={{ minWidth: 36, padding: '7px 0', borderRadius: 8, cursor: 'pointer',
+                      border: '1px solid var(--border, #3a3a3a)', fontWeight: 600,
+                      background: on ? 'var(--accent, #3b82f6)' : 'transparent',
+                      color: on ? '#fff' : 'inherit' }}>{d.l}</button>
+                )
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <Field label="Desde">
+                <TextInput type="time" value={sched.from || '08:00'} onChange={(e) => setShiftField('from', e.target.value)} />
+              </Field>
+              <Field label="Hasta">
+                <TextInput type="time" value={sched.to || '20:00'} onChange={(e) => setShiftField('to', e.target.value)} />
+              </Field>
+            </div>
+            <span className="muted" style={{ fontSize: 12 }}>La ventana puede cruzar medianoche (ej. 20:00 → 08:00). Sin días marcados = todos los días.</span>
+          </div>
+        )}
       </div>
     </EditPage>
   )
