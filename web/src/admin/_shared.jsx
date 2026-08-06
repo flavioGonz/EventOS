@@ -158,7 +158,7 @@ export function CollectionView({
 }
 
 /* ---------- Página de edición (entidad como página dedicada, no modal) ---------- */
-export function EditPage({ title, subtitle, onCancel, onSave, saving, tabs, children }) {
+export function EditPage({ title, subtitle, onCancel, onSave, saving, saveDisabled, saveLabel, tabs, children }) {
   const hasActions = onCancel || onSave
   return (
     <div className="anim-rise">
@@ -173,8 +173,8 @@ export function EditPage({ title, subtitle, onCancel, onSave, saving, tabs, chil
             {hasActions && (
               <div className="admin-head__actions">
                 {onCancel && <Button variant="ghost" onClick={onCancel}>Cancelar</Button>}
-                {onSave && <Button variant="primary" icon={saving ? undefined : 'check'} disabled={saving} onClick={onSave}>
-                  {saving ? <Spinner size={15} /> : 'Guardar'}
+                {onSave && <Button variant="primary" icon={saving ? undefined : 'check'} disabled={saving || saveDisabled} onClick={onSave} title={saveDisabled && saveLabel ? saveLabel : undefined}>
+                  {saving ? <Spinner size={15} /> : (saveDisabled && saveLabel ? saveLabel : 'Guardar')}
                 </Button>}
               </div>
             )}

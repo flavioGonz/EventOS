@@ -26,7 +26,7 @@ function streamForChannel(streams, ch) {
   return same.find((s) => String(s.id).endsWith('01')) || same[0] || null
 }
 
-export default function DeviceProbe({ device, onClose, onImport, toast }) {
+export default function DeviceProbe({ device, onClose, onImport, onProbed, toast }) {
   const navigate = useNavigate()
   const [stage, setStage] = useState(0)
   const [result, setResult] = useState(null)
@@ -47,7 +47,7 @@ export default function DeviceProbe({ device, onClose, onImport, toast }) {
       protocol: 'hikvision', host: device.ip, port: device.isapiPort || undefined,
       user: device.username, pass: device.password, https: !!device.https,
     })
-      .then((r) => { clearInterval(ivRef.current); setResult(r); setStage(STAGES.length - 1) })
+      .then((r) => { clearInterval(ivRef.current); setResult(r); setStage(STAGES.length - 1); if (r && r.device) onProbed?.(r) })
       .catch((e) => { clearInterval(ivRef.current); setError(e.message || 'No se pudo conectar con el equipo') })
       .finally(() => setRunning(false))
   }

@@ -1385,6 +1385,9 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 
 /* ---------- Asistente de dispositivo: más ancho, tarjetas que llenan el espacio ---------- */
 .wizpage { max-width: 940px; margin-left: auto; margin-right: auto; }
+/* El editor de reglas (wizpage--wide) aprovecha mucho más el ancho disponible */
+.wizpage.wizpage--wide { max-width: 1240px; }
+.wizpage.wizpage--wide .wiz__body { padding: 24px 28px; }
 .wiz__body { padding: 24px 24px; min-height: 0; }
 /* Grilla de tipos: 5 tarjetas que se reparten el ancho (auto-fit) y envuelven en pantallas chicas */
 .wiz__typegrid { grid-template-columns: repeat(auto-fit, minmax(156px, 1fr)); gap: 12px; }
@@ -1476,3 +1479,49 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
   .editpage-tabs { flex: 1; }
   .editpage-tabs .subtabs { width: 100%; justify-content: space-between; }
 }
+
+/* ---------- Flujo de alta: paso de conexión obligatorio ---------- */
+.dev-cta--req { border-color: color-mix(in srgb, var(--accent) 45%, var(--separator));
+  background: linear-gradient(115deg, color-mix(in srgb, var(--accent) 13%, var(--bg-elev)), var(--bg-elev) 60%); }
+.dev-conn .help-block { margin-top: 6px; }
+.dev-aside__hd { display: flex; align-items: center; gap: 11px; margin-bottom: 2px; }
+
+/* ---------- Panel de alarma (armar / pánico / relés / eventos) ---------- */
+.alarmpanel { display: flex; flex-direction: column; gap: 16px; }
+.alarmpanel__stage { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 22px 16px; border-radius: var(--r);
+  background: radial-gradient(120% 120% at 50% 0%, color-mix(in srgb, var(--accent) 8%, var(--bg-elev)), var(--bg-elev) 70%);
+  border: 1px solid var(--separator); }
+.alarmpanel__dial { position: relative; width: 134px; height: 134px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center; background: transparent; }
+.alarmpanel__ring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid var(--separator); transition: all .3s var(--ease-out, ease); }
+.alarmpanel__stage.is-armed .alarmpanel__ring { border-color: var(--crit, #e5484d);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--crit, #e5484d) 14%, transparent), 0 0 26px color-mix(in srgb, var(--crit, #e5484d) 40%, transparent); }
+.alarmpanel__stage.is-disarmed .alarmpanel__ring { border-color: color-mix(in srgb, var(--ok, #1a9d5a) 60%, var(--separator)); }
+.alarmpanel__ic { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; color: var(--text-dim); z-index: 1; }
+.alarmpanel__stage.is-armed .alarmpanel__ic { color: var(--crit, #e5484d); }
+.alarmpanel__stage.is-disarmed .alarmpanel__ic { color: var(--ok, #1a9d5a); }
+.alarmpanel__state { position: absolute; bottom: 24px; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--text-dim); }
+.alarmpanel__arm { display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center; }
+.alarmpanel__arm .help-block { margin: 0; }
+.alarmpanel__block { display: flex; flex-direction: column; gap: 8px; }
+.alarmpanel__block .section-label { margin: 0; }
+.alarmpanel__relays { display: flex; flex-direction: column; gap: 8px; }
+.relaytile { display: flex; align-items: center; gap: 11px; padding: 10px 12px; border: 1px solid var(--separator); border-radius: 12px;
+  background: var(--bg-elev); cursor: pointer; text-align: left; width: 100%; transition: transform .12s, border-color .12s, box-shadow .12s; }
+.relaytile:hover:not(:disabled) { transform: translateY(-1px); border-color: color-mix(in srgb, var(--accent) 40%, var(--separator)); box-shadow: var(--shadow-1); }
+.relaytile:disabled { opacity: .55; cursor: not-allowed; }
+.relaytile__sw { width: 38px; height: 22px; border-radius: 999px; background: color-mix(in srgb, var(--text) 14%, transparent); position: relative; flex: none; transition: background .18s; }
+.relaytile:hover:not(:disabled) .relaytile__sw { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+.relaytile__knob { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.3); transition: left .18s; }
+.relaytile:hover:not(:disabled) .relaytile__knob { left: 19px; }
+.relaytile__meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.relaytile__meta b { font-size: 13px; font-weight: 600; }
+.relaytile__meta span { font-size: 11.5px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
+.relaytile__go { color: var(--text-faint); flex: none; }
+.alarmpanel__log { display: flex; flex-direction: column; gap: 4px; }
+.alarmlog { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 10px; background: var(--bg-2); }
+.alarmlog__dot { width: 8px; height: 8px; border-radius: 50%; flex: none; background: var(--p5); }
+.alarmlog__dot.p1 { background: var(--p1); } .alarmlog__dot.p2 { background: var(--p2); } .alarmlog__dot.p3 { background: var(--p3); }
+.alarmlog__dot.p4 { background: var(--p4); } .alarmlog__dot.p5 { background: var(--p5); }
+.alarmlog__t { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.alarmlog__t b { font-size: 12.5px; font-weight: 600; }
+.alarmlog__t span { font-size: 11px; color: var(--text-faint); }

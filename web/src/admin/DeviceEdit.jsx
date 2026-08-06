@@ -9,6 +9,7 @@ import { Go2RtcView, AnalyticsLegend, useCameraAnalytics } from '../components/C
 import { EventTypeGrid } from './EventTypeGrid.jsx'
 import DeviceHealth from './DeviceHealth.jsx'
 import DeviceProbe from './DeviceProbe.jsx'
+import AlarmPanel from './AlarmPanel.jsx'
 
 // Encabezado de sección con chip de icono de color, título, subtítulo y tooltip.
 function SecHead({ icon, tone, title, sub, hint, action }) {
@@ -28,7 +29,7 @@ const EMPTY = {
   name: '', type: 'hikvision', vendor: '', ip: '', channel: 1,
   username: '', password: '', isapiPort: '', rtspPort: '', camIp: '',
   siteId: '', zone: '', streamUrl: '', snapshotUrl: '', rtspUrl: '',
-  enabled: true, defaultPriority: null, tags: [], alerts: null,
+  enabled: true, defaultPriority: null, tags: [], alerts: null, armed: false, relays: [],
 }
 const VENDOR_BY_TYPE = { hikvision: 'Hikvision', akuvox: 'Akuvox', nvr: 'NVR', alarm: 'Alarma', generic: '' }
 
@@ -185,12 +186,13 @@ export default function DeviceEdit() {
   const [previewAspect, setPreviewAspect] = useState('16 / 9')
   const [tab, setTab] = useState('datos') // datos | alertas | medios | salud
   const [probing, setProbing] = useState(false)
+  const [probed, setProbed] = useState(false) // conexión verificada al menos una vez
   const isAlarm = form.type === 'alarm'
   const isNvr = form.type === 'nvr'
   // Vista previa del canal: solo para cámaras ya guardadas (necesita id + credenciales).
   const canPreview = !isNew && !isNvr && !isAlarm
   // Aside a la derecha: video (cámara guardada) o ficha contextual (alarma/NVR guardados).
-  const hasAside = canPreview || (!isNew && (isAlarm || isNvr))
+  const hasAside = canPreview || isAlarm || (!isNew && isNvr)
   const ana = useCameraAnalytics(id, canPreview)
 
   useEffect(() => {
@@ -225,6 +227,16 @@ export default function DeviceEdit() {
   const back = () => navigate('/admin/devices')
   const applyImport = (patch) => setForm((f) => ({ ...f, ...patch }))
   const canProbe = !isAlarm && !!(form.ip || '').trim() && !!(form.username || '').trim()
+  // En alta de cámara/NVR exigimos verificar la conexión antes de mostrar/guardar el resto.
+  const gated = isNew && !isAlarm && !probed
+  const onProbed = (r) => {
+    setProbed(true)
+    setForm((f) => ({
+      ...f,
+      vendor: f.vendor || r.device?.model || f.vendor,
+      name: (f.name && f.name.trim()) ? f.name : (r.device?.name || f.name),
+    }))
+  }
   const addRelay = () => setForm((f) => ({ ...f, relays: [...(f.relays || []), { name: '', output: '1' }] }))
   const updRelay = (i, patch) => setForm((f) => ({ ...f, relays: (f.relays || []).map((r, j) => (j === i ? { ...r, ...patch } : r)) }))
   const delRelay = (i) => setForm((f) => ({ ...f, relays: (f.relays || []).filter((_, j) => j !== i) }))
@@ -267,7 +279,7 @@ export default function DeviceEdit() {
 
   const tabsEl = (
     <div className="subtabs dev-tabs">
-      {TABS.filter((t) => !t.hide).map((t) => (
+      {TABS.filter((t) => !t.hide && (!gated || t.k === 'datos')).map((t) => (
         <button type="button" key={t.k} className={`subtab${tab === t.k ? ' is-on' : ''}`} onClick={() => setTab(t.k)}>
           <Icon name={t.icon} size={15} /> {t.label}
         </button>
@@ -277,11 +289,12 @@ export default function DeviceEdit() {
 
   return (
     <EditPage title={isNew ? 'Nuevo dispositivo' : 'Editar dispositivo'}
-      subtitle="Cámara, NVR o central que genera eventos hacia EventOS." onCancel={back} onSave={save} saving={saving} tabs={tabsEl}>
+      subtitle="Cámara, NVR o central que genera eventos hacia EventOS." onCancel={back} onSave={save} saving={saving}
+      saveDisabled={gated} saveLabel="Probá la conexión primero" tabs={tabsEl}>
 
       {/* ===== Pestaña DATOS ===== */}
       {tab === 'datos' && (
-        <div key="datos" className={`dev-premium anim-rise ${hasAside ? 'dev-premium--aside' : ''}`}>
+        <div key="datos" className={`dev-premium anim-rise ${!gated && hasAside ? 'dev-premium--aside' : ''}`}>
           <div className="dev-form">
             {isNew && (
               <div className="dev-card span-all">
@@ -300,18 +313,51 @@ export default function DeviceEdit() {
             )}
 
             {!isAlarm && (
-              <div className="dev-card dev-cta span-all">
+              <div className={`dev-card dev-cta span-all${gated ? ' dev-cta--req' : ''}`}>
                 <div className="dev-cta__body">
-                  <span className="dev-chip t-media"><Icon name="search" size={17} /></span>
+                  <span className={`dev-chip ${probed ? 't-group' : 't-media'}`}><Icon name={probed ? 'check' : 'search'} size={17} /></span>
                   <div className="dev-cta__txt">
-                    <b>Test de conectividad e importación de recursos</b>
-                    <p>Sondeá el equipo con estas credenciales y traé sus canales, analíticas y relés — con un paso a paso animado. {isNvr ? 'En un NVR podés crear un dispositivo por cada cámara.' : ''}</p>
+                    <b>{probed ? 'Conexión verificada' : gated ? 'Paso 1 · Verificá la conexión (obligatorio)' : 'Test de conectividad e importación de recursos'}</b>
+                    <p>{probed
+                      ? 'El equipo respondió. Completá la ficha y guardá. Podés volver a probar o importar recursos cuando quieras.'
+                      : gated
+                        ? 'Antes de dar de alta el equipo, comprobá que responde por ISAPI con estas credenciales. Al verificar, se habilita el resto de la ficha y se importan sus canales y relés.'
+                        : `Sondeá el equipo con estas credenciales y traé sus canales, analíticas y relés — con un paso a paso animado. ${isNvr ? 'En un NVR podés crear un dispositivo por cada cámara.' : ''}`}</p>
                   </div>
                 </div>
-                <Button variant="primary" icon="search" disabled={!canProbe} onClick={() => setProbing(true)}>Probar e importar</Button>
+                <Button variant="primary" icon="search" disabled={!canProbe} onClick={() => setProbing(true)}>
+                  {probed ? 'Volver a probar' : gated ? 'Probar conexión' : 'Probar e importar'}
+                </Button>
               </div>
             )}
 
+            {gated && (
+              <div className="dev-card span-all dev-conn">
+                <SecHead icon="globe" tone="cred" title="Conexión al equipo"
+                  sub="Datos mínimos para verificar el equipo. El resto de la ficha se habilita al probar la conexión."
+                  hint={<>Cargá IP, usuario/clave del equipo y puertos, y presioná <b>Probar conexión</b>. EventOS comprueba que el equipo responde por ISAPI (device info, canales, analíticas y relés) antes de permitir el alta — así no quedan dispositivos «fantasma» que no reportan.<span className="tt__eg">Ej.: 192.168.99.96 · admin · ISAPI 80 · RTSP 554.</span></>} />
+                <div className="dev-grid dev-grid--4">
+                  <Field label={<><Icon name="globe" size={14} /> IP</>} className="span-2">
+                    <TextInput autoFocus value={form.ip} onChange={set('ip')} placeholder="192.168.99.96" />
+                  </Field>
+                  <Field label={<><Icon name="hash" size={14} /> Puerto ISAPI/HTTP</>} hint="80 por defecto.">
+                    <TextInput type="number" value={form.isapiPort ?? ''} onChange={set('isapiPort')} placeholder="80" />
+                  </Field>
+                  <Field label={<><Icon name="hash" size={14} /> Puerto RTSP</>} hint="554 por defecto.">
+                    <TextInput type="number" value={form.rtspPort ?? ''} onChange={set('rtspPort')} placeholder="554" />
+                  </Field>
+                  <Field label={<><Icon name="user" size={14} /> Usuario</>} className="span-2">
+                    <TextInput value={form.username || ''} onChange={set('username')} placeholder="admin" autoComplete="off" />
+                  </Field>
+                  <Field label={<><Icon name="shield" size={14} /> Contraseña</>} className="span-2">
+                    <TextInput type="password" value={form.password || ''} onChange={set('password')} placeholder="••••••••" autoComplete="new-password" />
+                  </Field>
+                </div>
+                {!canProbe && <p className="help-block">Completá IP y usuario para habilitar la prueba.</p>}
+              </div>
+            )}
+
+            {!gated && (<>
             <div className="dev-card span-all">
               <SecHead icon="device" tone="id" title="Identificación"
                 sub="Cómo se identifica el equipo dentro de EventOS."
@@ -414,10 +460,11 @@ export default function DeviceEdit() {
                 <Button variant="ghost" icon="plus" onClick={addRelay}>Agregar relé / puerta</Button>
               </div>
             </div>
+            </>)}
           </div>
 
           {/* Aside derecho: video (cámara) o ficha contextual (alarma / NVR) */}
-          {canPreview && (
+          {!gated && canPreview && (
             <aside className="dev-aside">
               <SecHead icon="video" tone="media" title="Canal en vivo" sub={`Canal #${form.channel ?? '—'} + analíticas`} />
               <div className="device-preview__stage" style={{ aspectRatio: previewAspect }}>
@@ -429,21 +476,25 @@ export default function DeviceEdit() {
               <p className="help-block">Vista en vivo del canal #{form.channel ?? '—'}. Las líneas de cruce y zonas de intrusión se dibujan sobre el video.</p>
             </aside>
           )}
-          {!canPreview && hasAside && (
+          {isAlarm && (
+            <aside className="dev-aside">
+              <div className="dev-aside__hd"><span className="dev-chip t-relay"><Icon name="siren" size={16} /></span>
+                <div className="dev-sec__t"><span className="dev-sec__title">Central de alarma</span><span className="dev-sec__sub">Armado, pánico, relés y actividad.</span></div>
+              </div>
+              <AlarmPanel device={form} id={id} isNew={isNew} armed={form.armed} onArmed={(v) => setForm((f) => ({ ...f, armed: v }))} toast={toast} />
+            </aside>
+          )}
+          {!gated && !canPreview && isNvr && !isNew && (
             <aside className="dev-aside dev-sidecard">
-              <span className="dev-sidecard__ic"><Icon name={isAlarm ? 'siren' : 'device'} size={26} /></span>
-              <p className="dev-sidecard__title">{isAlarm ? 'Central de alarma' : 'NVR / DVR'}</p>
-              {isAlarm ? (
-                <p className="dev-sidecard__txt">Este dispositivo no tiene canal de video. Reporta eventos por IP/HTTP (intrusión, pánico, sabotaje). Configurá qué eventos alertan y su prioridad en la pestaña <b>Alertas</b>, y las salidas físicas en <b>Relés</b>.</p>
-              ) : (
-                <p className="dev-sidecard__txt">Las alertas se configuran <b>por cámara</b>, no en el NVR: cada evento se atribuye a la cámara que lo generó. Usá <b>Probar e importar</b> para crear un dispositivo por canal, y mirá su estado en <b>Salud</b>.</p>
-              )}
+              <span className="dev-sidecard__ic"><Icon name="device" size={26} /></span>
+              <p className="dev-sidecard__title">NVR / DVR</p>
+              <p className="dev-sidecard__txt">Las alertas se configuran <b>por cámara</b>, no en el NVR: cada evento se atribuye a la cámara que lo generó. Usá <b>Probar e importar</b> para crear un dispositivo por canal, y mirá su estado en <b>Salud</b>.</p>
             </aside>
           )}
         </div>
       )}
 
-      {probing && <DeviceProbe device={form} onClose={() => setProbing(false)} onImport={applyImport} toast={toast} />}
+      {probing && <DeviceProbe device={form} onClose={() => setProbing(false)} onImport={applyImport} onProbed={onProbed} toast={toast} />}
 
       {/* ===== Pestaña ALERTAS ===== */}
       {tab === 'alertas' && (
