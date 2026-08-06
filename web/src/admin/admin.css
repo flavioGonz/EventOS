@@ -1382,3 +1382,14 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
   .recep-live__row--head { grid-template-columns: 70px minmax(0,1.4fr) 110px 64px; }
   .recep-live__row--head > span:nth-child(3), .recep-live__row--head > span:nth-child(5) { display: none; }
 }
+
+/* ---------- Asistente de dispositivo: más ancho, tarjetas que llenan el espacio ---------- */
+.wizpage { max-width: 940px; margin-left: auto; margin-right: auto; }
+.wiz__body { padding: 24px 24px; min-height: 0; }
+/* Grilla de tipos: 5 tarjetas que se reparten el ancho (auto-fit) y envuelven en pantallas chicas */
+.wiz__typegrid { grid-template-columns: repeat(auto-fit, minmax(156px, 1fr)); gap: 12px; }
+.wiz__typegrid .etcard { min-height: 112px; padding: 14px 13px; gap: 8px; }
+.wiz__typegrid .etcard__desc { font-size: 11px; color: var(--text-dim); line-height: 1.4; }
+/* En el paso de conexión, el formulario aprovecha el panel ancho sin estirarse feo */
+.wiz .form-grid--2 { max-width: 100%; }
+@media (max-width: 640px) { .wiz__typegrid { grid-template-columns: repeat(2, 1fr); } }

@@ -16,6 +16,14 @@ const STEPS = [
   { key: 'review', label: 'Revisar' },
 ]
 const VENDOR_BY_TYPE = { hikvision: 'Hikvision', akuvox: 'Akuvox', nvr: 'NVR', alarm: 'Alarma', generic: '' }
+// Descripción corta por tipo — llena mejor la tarjeta y orienta al usuario.
+const TYPE_DESC = {
+  hikvision: 'Cámara IP Hikvision · ISAPI + RTSP, eventos en vivo.',
+  akuvox: 'Portero / intercom IP · eventos por webhook.',
+  nvr: 'Grabador con varias cámaras · RTSP por canal.',
+  alarm: 'Central de alarma · reporta por IP/HTTP, sin video.',
+  generic: 'Cámara ONVIF u otro equipo · RTSP estándar.',
+}
 
 export default function DeviceWizard() {
   const navigate = useNavigate()
@@ -72,12 +80,13 @@ export default function DeviceWizard() {
           {step === 0 && (
             <>
               <p className="wiz__q">¿Qué tipo de equipo es?</p>
-              <div className="etgrid etgrid--sm wiz__types">
+              <div className="etgrid wiz__typegrid">
                 {DEVICE_TYPES.map((t) => (
                   <button type="button" key={t.value} className={`etcard${f.type === t.value ? ' is-on' : ''}`}
                     onClick={() => setF((p) => ({ ...p, type: t.value }))}>
                     <span className="etcard__ic"><Icon name={DEVICE_TYPE_ICON[t.value] || 'device'} size={22} /></span>
                     <span className="etcard__lbl">{deviceTypeLabel(t.value)}</span>
+                    <span className="etcard__desc">{TYPE_DESC[t.value]}</span>
                     {f.type === t.value && <span className="etcard__check"><Icon name="check" size={13} /></span>}
                   </button>
                 ))}
