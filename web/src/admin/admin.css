@@ -1319,3 +1319,66 @@
 /* Banner solo-lectura del popup en supervisión */
 .evpopup__superbanner { display:inline-flex; align-items:center; gap:7px; margin:2px 0 6px; padding:6px 11px; border-radius:999px;
   background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-size:12px; font-weight:650; }
+
+/* ---------- Ficha de dispositivo: tarjetas, 1 columna y sidecard contextual ---------- */
+.device-modal__main { gap: 14px; }
+.device-modal--1col { grid-template-columns: minmax(0, 1fr); max-width: 860px; }
+.dev-card {
+  padding: 16px 18px; border: 1px solid var(--separator); border-radius: var(--r);
+  background: var(--bg-elev); box-shadow: var(--shadow-1);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.dev-card > .section-label:first-child { margin-top: 0; }
+.dev-card .help-block { margin-top: -2px; }
+.dev-card .form-grid { margin-top: 2px; }
+/* Sidecard contextual (alarma / NVR) en lugar del bloque de video */
+.dev-sidecard {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+  padding: 24px 20px; border-radius: var(--r); background: var(--bg-elev);
+  border: 1px dashed var(--separator); align-self: start;
+}
+.dev-sidecard__ic {
+  width: 52px; height: 52px; display: grid; place-items: center; border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent);
+}
+.dev-sidecard__title { font-weight: 650; font-size: 15px; color: var(--text); }
+.dev-sidecard__txt { font-size: 12.5px; color: var(--text-dim); line-height: 1.55; max-width: 34ch; }
+/* La sidecard no lleva el borde-izquierdo/padding de device-modal__side */
+.device-modal__side.dev-sidecard { border-left: 1px solid var(--separator); padding-left: 20px; }
+@media (max-width: 980px) { .device-modal__side.dev-sidecard { border-left: none; } }
+
+/* ---------- Recepción en vivo ---------- */
+.recep-live__conn { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+.recep-live__conn--connected { color: var(--ok, #1a9d5a); }
+.recep-live__kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 14px 0 16px; }
+@media (max-width: 900px) { .recep-live__kpis { grid-template-columns: repeat(2, 1fr); } }
+.recep-live__table { display: flex; flex-direction: column; gap: 6px; }
+.recep-live__row {
+  display: grid; grid-template-columns: 96px minmax(0,1.5fr) minmax(0,1.3fr) 132px minmax(0,1fr) 74px;
+  align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 11px 14px; border: 1px solid var(--separator); border-radius: var(--r);
+  background: var(--bg-elev); box-shadow: var(--shadow-1); cursor: pointer;
+  font-size: 13px; color: var(--text); transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--shadow-2); border-color: color-mix(in srgb, var(--accent) 40%, var(--separator)); }
+.recep-live__row--head {
+  background: transparent; border: none; box-shadow: none; cursor: default; padding: 2px 14px;
+  font-size: 11px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; color: var(--text-faint);
+}
+.recep-live__row--head:hover { transform: none; box-shadow: none; }
+.recep-live__row.is-breached { border-color: color-mix(in srgb, var(--crit, #e5484d) 55%, var(--separator)); }
+.recep-live__prio { display: inline-flex; align-items: center; gap: 7px; font-weight: 600; }
+.recep-live__ev { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.recep-live__ev b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recep-live__clock { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-faint); }
+.recep-live__site { color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recep-live__op { color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recep-live__age { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.recep-live__age.is-breached { color: var(--crit, #e5484d); font-weight: 600; }
+.ta-r { text-align: right; }
+@media (max-width: 720px) {
+  .recep-live__row { grid-template-columns: 70px minmax(0,1.4fr) 110px 64px; }
+  .recep-live__row > .recep-live__site, .recep-live__row > .recep-live__op { display: none; }
+  .recep-live__row--head { grid-template-columns: 70px minmax(0,1.4fr) 110px 64px; }
+  .recep-live__row--head > span:nth-child(3), .recep-live__row--head > span:nth-child(5) { display: none; }
+}

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { Panel, Button, Icon, Segmented, Field, TextInput, Spinner } from '../ui/primitives.jsx'
 import { PageHead, useToast } from './_shared.jsx'
 import { getVideoCfg, putVideoCfg } from '../lib/adminApi.js'
+import IngestEndpoints from './IngestEndpoints.jsx'
 
 const MODE_OPTS = [
   { value: 'mjpeg', label: 'MJPEG (snapshots)' },
@@ -104,6 +105,8 @@ export default function Settings() {
       <PageHead title="Configuración" subtitle="Ajustes del sistema EventOS." />
 
       <VideoSettings />
+
+      <IngestEndpoints />
 
       <Panel className="u-mt-16" title={<span className="ptitle"><Icon name="search" size={16} /> Descubrir equipo</span>}
         subtitle="El descubrimiento de NVR/cámaras Hikvision (ISAPI) vive dentro de Dispositivos.">

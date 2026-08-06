@@ -1,144 +1,96 @@
-// Recepción — cómo cada dispositivo envía sus eventos a EventOS:
-// token de ingesta + URL EXACTA (lista para pegar) por dispositivo + guías por tipo.
+// Recepción en vivo — eventos entrando en tiempo real, manejables desde el admin.
+// Reusa el socket de consola (solo lectura de la cola) + EventPopup en modo
+// supervisión (ver detalle, resolver, reasignar) sin impersonar a un operario.
 import { useEffect, useMemo, useState } from 'react'
-import { Panel, Icon, Badge, TextInput } from '../ui/primitives.jsx'
-import { getReception } from '../lib/adminApi.js'
-import { deviceTypeLabel, DEVICE_TYPE_ICON } from '../lib/labels.js'
-import { PageHead, Loading, ErrorState, EmptyState, SectionHelp, useToast } from './_shared.jsx'
+import { useConsole } from '../lib/socket.js'
+import { Icon, PriorityDot, StatusDot, Badge, EmptyState } from '../ui/primitives.jsx'
+import { PageHead, SectionHelp } from './_shared.jsx'
+import { eventTypeLabel, statusLabel, priorityLabel } from '../lib/labels.js'
+import EventPopup from '../components/EventPopup.jsx'
 
-async function copyText(text, toast) {
-  try {
-    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text)
-    else {
-      const ta = document.createElement('textarea')
-      ta.value = text; document.body.appendChild(ta); ta.select()
-      document.execCommand('copy'); document.body.removeChild(ta)
-    }
-    toast('Copiado al portapapeles')
-  } catch { toast('No se pudo copiar', 'error') }
-}
+const isActive = (e) => e.status !== 'resolved' && e.status !== 'discarded'
+const fmtAge = (ms) => { const s = Math.max(0, Math.floor(ms / 1000)); if (s < 60) return `${s}s`; const m = Math.floor(s / 60); if (m < 60) return `${m}m`; return `${Math.floor(m / 60)}h ${m % 60}m` }
+const fmtClock = (ts) => { try { return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) } catch { return '—' } }
+const STATUS_TONE = { new: 'warn', assigned: 'info', ack: 'info', in_progress: 'info', escalated: 'crit' }
 
-// Campo de URL/código copiable (la pieza central: clara y de un clic).
-function CopyField({ value, mono = true }) {
-  const toast = useToast()
+function Kpi({ icon, label, value, tone }) {
   return (
-    <button type="button" className={`copyfield${mono ? ' copyfield--mono' : ''}`} onClick={() => copyText(value, toast)} title="Copiar">
-      <span className="copyfield__val">{value}</span>
-      <span className="copyfield__ic"><Icon name="copy" size={15} /></span>
-    </button>
+    <div className={`sup-kpi${tone ? ` sup-kpi--${tone}` : ''}`}>
+      <span className="sup-kpi__icon"><Icon name={icon} size={18} /></span>
+      <div className="sup-kpi__body">
+        <strong className="sup-kpi__val tnum">{value}</strong>
+        <span className="sup-kpi__lbl">{label}</span>
+      </div>
+    </div>
   )
 }
 
-// Cómo apuntar cada tipo de dispositivo a EventOS (breve, accionable).
-const GUIDES = {
-  hikvision: { icon: 'camera', label: 'Cámara Hikvision', steps: 'En la cámara/NVR: Configuración → Red → Notificación de alarma (Alarm Server / HTTP Listening) → pegá la URL. O usá el alertStream ISAPI (ya conectado para Cesimco).' },
-  nvr: { icon: 'device', label: 'NVR / DVR', steps: 'En el grabador: Configuración → Red → Plataforma / Centro de notificación → pegá la URL del endpoint NVR.' },
-  akuvox: { icon: 'bell', label: 'Portero Akuvox', steps: 'En el portero: Ajustes → Acción / HTTP URL → pegá la URL en el evento de llamada o de puerta.' },
-  alarm: { icon: 'siren', label: 'Central de alarma', steps: 'En la central / receptor: configurá el reporte por IP (HTTP) hacia la URL del endpoint de alarma.' },
-  generic: { icon: 'globe', label: 'Genérico', steps: 'Enviá un POST con JSON del evento a la URL del endpoint genérico.' },
-}
-
 export default function Reception() {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [q, setQ] = useState('')
-  const toast = useToast()
+  const { events, operators, status, actions } = useConsole(null)
+  const [now, setNow] = useState(Date.now())
+  const [openId, setOpenId] = useState(null)
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t) }, [])
 
-  const load = () => {
-    setLoading(true); setError(null)
-    getReception().then((d) => setData(d)).catch(setError).finally(() => setLoading(false))
-  }
-  useEffect(load, [])
-
-  const devices = useMemo(() => (data?.devices || []), [data])
-  const filtered = useMemo(() => {
-    const t = q.trim().toLowerCase()
-    if (!t) return devices
-    return devices.filter((d) => `${d.name} ${deviceTypeLabel(d.type)}`.toLowerCase().includes(t))
-  }, [devices, q])
-
-  // Tipos presentes (para mostrar solo las guías relevantes).
-  const presentTypes = useMemo(() => [...new Set(devices.map((d) => (GUIDES[d.type] ? d.type : 'generic')))], [devices])
-
-  if (loading) return <><PageHead title="Recepción" /><Loading /></>
-  if (error) return <><PageHead title="Recepción" /><ErrorState error={error} onRetry={load} /></>
-
-  const token = data?.ingestToken
-  const base = data?.base
+  const opName = useMemo(() => Object.fromEntries((operators || []).map((o) => [o.id, o.name])), [operators])
+  const byId = useMemo(() => Object.fromEntries((events || []).map((e) => [e.id, e])), [events])
+  const active = useMemo(() => (events || []).filter(isActive), [events])
+  const sorted = useMemo(() => [...active].sort((a, b) => (a.priority ?? 5) - (b.priority ?? 5) || (Date.parse(b.ts) - Date.parse(a.ts))), [active])
+  const unattended = active.filter((e) => !e.assignedTo && e.status === 'new')
+  const slaRisk = active.filter((e) => e.slaDeadline && Date.parse(e.slaDeadline) - now > 0 && Date.parse(e.slaDeadline) - now < 120000)
+  const slaBreached = active.filter((e) => e.slaDeadline && now > Date.parse(e.slaDeadline) && e.status !== 'resolved')
+  const online = (operators || []).filter((o) => o.online)
+  const openEvent = openId ? byId[openId] || null : null
 
   return (
-    <div className="anim-rise recep">
-      <PageHead title="Recepción" subtitle="Cómo cada dispositivo envía sus eventos a EventOS." />
+    <div className="anim-rise recep-live">
+      <PageHead title="Recepción en vivo" subtitle="Alarmas entrando en tiempo real. Abrí una para ver el detalle, resolver o reasignar."
+        actions={
+          <span className={`recep-live__conn recep-live__conn--${status}`}>
+            <StatusDot tone={status === 'connected' ? 'ok' : 'warn'} label={status === 'connected' ? 'En vivo' : 'Reconectando'} />
+            {status === 'connected' ? 'En vivo' : 'Reconectando…'}
+          </span>
+        } />
 
-      <SectionHelp id="reception" icon="link" title="Conectar un dispositivo a EventOS">
-        Cada dispositivo manda sus eventos a una URL (webhook) que incluye el token de ingesta. Copiá la URL del equipo que querés conectar y pegala en su configuración de red. Abajo tenés la URL exacta lista para pegar por dispositivo.
+      <SectionHelp id="recep-live" icon="reception" title="Recepción de alarmas en vivo">
+        Esta vista muestra la cola de eventos tal como la ven los operadores, en tiempo real. Priorizada (1 = crítico arriba), con su estado, a quién está asignada y hace cuánto llegó. Hacé clic en cualquier evento para abrir su ficha: ver la evidencia y la bitácora, <b>resolverlo</b> o <b>reasignarlo</b> a un grupo — todo desde el admin, sin tener que tomar el evento como operario.
       </SectionHelp>
 
-      {/* Token de ingesta — prominente */}
-      <div className="recep-token-card">
-        <div className="recep-token-card__head">
-          <span className="recep-token-card__ic"><Icon name="shield" size={18} /></span>
-          <div>
-            <p className="recep-token-card__title">Token de ingesta</p>
-            <p className="recep-token-card__sub">Va en todas las URLs. No lo compartas fuera de la red del cliente.</p>
-          </div>
-        </div>
-        {token
-          ? <CopyField value={token} />
-          : <EmptyState icon="reception" title="Sin token (modo abierto)">La ingesta no exige token (solo dev).</EmptyState>}
+      <div className="recep-live__kpis">
+        <Kpi icon="bell" label="Activos" value={active.length} />
+        <Kpi icon="clock" label="Sin atender" value={unattended.length} tone={unattended.length ? 'warn' : undefined} />
+        <Kpi icon="alert" label="SLA en riesgo" value={slaRisk.length} tone={slaRisk.length ? 'warn' : undefined} />
+        <Kpi icon="alert" label="SLA vencido" value={slaBreached.length} tone={slaBreached.length ? 'crit' : undefined} />
+        <Kpi icon="users" label="Operarios online" value={online.length} />
       </div>
 
-      {/* Guías de conexión por tipo presente */}
-      {presentTypes.length > 0 && (
-        <div className="recep-guides">
-          {presentTypes.map((t) => {
-            const g = GUIDES[t] || GUIDES.generic
+      {sorted.length === 0 ? (
+        <EmptyState icon="reception" title="Sin eventos activos">Cuando entre una alarma aparece acá al instante.</EmptyState>
+      ) : (
+        <div className="recep-live__table" role="table" aria-label="Eventos activos">
+          <div className="recep-live__row recep-live__row--head" role="row">
+            <span>Prioridad</span><span>Evento</span><span>Sitio / zona</span><span>Estado</span><span>Asignado a</span><span className="ta-r">Edad</span>
+          </div>
+          {sorted.map((e) => {
+            const age = fmtAge(now - Date.parse(e.ts))
+            const breached = e.slaDeadline && now > Date.parse(e.slaDeadline) && e.status !== 'resolved'
             return (
-              <div className="recep-guide" key={t}>
-                <span className="recep-guide__ic"><Icon name={g.icon} size={18} /></span>
-                <div className="recep-guide__body">
-                  <p className="recep-guide__label">{g.label}</p>
-                  <p className="recep-guide__steps">{g.steps}</p>
-                  {base && <CopyField value={`${base}/api/ingest/${t}?token=${token || ''}`} />}
-                </div>
-              </div>
+              <button type="button" role="row" key={e.id} className={`recep-live__row${breached ? ' is-breached' : ''}`} onClick={() => setOpenId(e.id)}>
+                <span className="recep-live__prio"><PriorityDot p={e.priority ?? 5} /> <span className="tnum">P{e.priority ?? 5}</span></span>
+                <span className="recep-live__ev">
+                  <b>{eventTypeLabel(e.type)}</b>
+                  <span className="recep-live__clock"><Icon name="clock" size={11} /> {fmtClock(e.ts)}</span>
+                </span>
+                <span className="recep-live__site">{(e.source && e.source.site) || '—'}{e.source && e.source.zone ? ` · ${e.source.zone}` : ''}</span>
+                <span><Badge tone={STATUS_TONE[e.status] || 'neutral'}>{statusLabel(e.status)}</Badge></span>
+                <span className="recep-live__op">{e.assignedTo ? (opName[e.assignedTo] || e.assignedTo) : <span className="muted">— sin asignar</span>}</span>
+                <span className={`recep-live__age ta-r tnum${breached ? ' is-breached' : ''}`}>{age}</span>
+              </button>
             )
           })}
         </div>
       )}
 
-      {/* Webhook por dispositivo */}
-      <Panel title={<span className="ptitle"><Icon name="device" size={16} /> URL por dispositivo</span>}
-        subtitle="La dirección exacta a pegar en cada equipo (incluye el token)."
-        actions={devices.length > 6 ? (
-          <div className="admin-search recep-search">
-            <Icon name="search" size={15} />
-            <TextInput placeholder="Buscar dispositivo…" value={q} onChange={(e) => setQ(e.target.value)} />
-          </div>
-        ) : null}>
-        {devices.length === 0
-          ? <EmptyState icon="device" title="Sin dispositivos">Registrá dispositivos para ver su URL de ingesta.</EmptyState>
-          : filtered.length === 0
-            ? <EmptyState icon="search" title="Sin resultados" />
-            : (
-              <div className="recep-devs">
-                {filtered.map((d) => (
-                  <div className={`recep-dev${d.enabled === false ? ' is-off' : ''}`} key={d.id}>
-                    <span className="recep-dev__ic"><Icon name={DEVICE_TYPE_ICON[d.type] || 'device'} size={18} /></span>
-                    <div className="recep-dev__id">
-                      <span className="recep-dev__name">{d.name}</span>
-                      <span className="recep-dev__tags">
-                        <Badge tone="accent">{deviceTypeLabel(d.type)}</Badge>
-                        {d.enabled === false && <Badge tone="neutral">Deshabilitado</Badge>}
-                      </span>
-                    </div>
-                    <CopyField value={d.urlWithToken || d.url} />
-                  </div>
-                ))}
-              </div>
-            )}
-      </Panel>
+      {openEvent && <EventPopup event={openEvent} operator={null} actions={actions} supervise onClose={() => setOpenId(null)} />}
     </div>
   )
 }

@@ -96,6 +96,26 @@ export function Field({ label, hint, error, className, children }) {
     </label>
   )
 }
+// Tooltip: burbuja flotante con contenido rico (texto/JSX). Se muestra al pasar
+// el mouse o al enfocar por teclado. `content` puede ser un nodo con ejemplos.
+export function Tooltip({ content, children, side = 'top', className }) {
+  if (content == null) return children
+  return (
+    <span className={cx('tt', `tt--${side}`, className)} tabIndex={0}
+          onClick={(e) => e.preventDefault()}>
+      {children}
+      <span className="tt__bubble" role="tooltip">{content}</span>
+    </span>
+  )
+}
+// InfoHint: iconito (ⓘ) que despliega una explicación extensa con ejemplo.
+export function InfoHint({ content, side = 'top', size = 14, className }) {
+  return (
+    <Tooltip content={content} side={side} className={cx('tt--info', className)}>
+      <Icon name="info" size={size} />
+    </Tooltip>
+  )
+}
 export function TextInput({ className, ...rest })  { return <input className={cx('input', className)} {...rest} /> }
 export function Textarea({ className, ...rest })   { return <textarea className={cx('input', 'input--area', className)} {...rest} /> }
 export function Select({ className, children, ...rest }) {

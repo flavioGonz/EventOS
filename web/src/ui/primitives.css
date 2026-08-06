@@ -222,3 +222,32 @@
 /* Modal y panel: esquinas coherentes */
 .modal{ border-radius:var(--r-lg); }
 
+
+/* ---------- Tooltip / InfoHint ---------- */
+.tt { position: relative; display: inline-flex; align-items: center; outline: none; }
+.tt--info { cursor: help; color: var(--text-dim); vertical-align: middle; transition: color .15s ease; }
+.tt--info:hover, .tt--info:focus { color: var(--accent); }
+.tt__bubble {
+  position: absolute; z-index: 80; width: max-content; max-width: 300px;
+  padding: 9px 11px; border-radius: var(--r-sm);
+  background: var(--bg-elev); color: var(--text-dim);
+  border: 1px solid var(--separator); box-shadow: var(--shadow-2);
+  font-size: 12px; font-weight: 400; line-height: 1.5; text-transform: none; letter-spacing: 0;
+  opacity: 0; pointer-events: none; transition: opacity .14s ease, transform .14s ease;
+  white-space: normal; text-align: left;
+}
+.tt__bubble b, .tt__bubble strong { color: var(--text); font-weight: 600; }
+.tt__bubble code { font-family: var(--mono, ui-monospace, monospace); font-size: 11.5px;
+  background: color-mix(in srgb, var(--text) 8%, transparent); padding: 1px 5px; border-radius: 5px; color: var(--text); }
+.tt__bubble .tt__eg { display: block; margin-top: 5px; color: var(--text-faint); font-style: italic; }
+.tt:hover .tt__bubble, .tt:focus .tt__bubble, .tt:focus-within .tt__bubble { opacity: 1; }
+/* Posiciones */
+.tt--top .tt__bubble    { bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(4px); }
+.tt--top:hover .tt__bubble, .tt--top:focus .tt__bubble, .tt--top:focus-within .tt__bubble { transform: translateX(-50%) translateY(0); }
+.tt--bottom .tt__bubble { top: calc(100% + 8px); left: 50%; transform: translateX(-50%) translateY(-4px); }
+.tt--bottom:hover .tt__bubble, .tt--bottom:focus .tt__bubble, .tt--bottom:focus-within .tt__bubble { transform: translateX(-50%) translateY(0); }
+.tt--right .tt__bubble  { left: calc(100% + 8px); top: 50%; transform: translateY(-50%) translateX(-4px); }
+.tt--right:hover .tt__bubble, .tt--right:focus .tt__bubble, .tt--right:focus-within .tt__bubble { transform: translateY(-50%) translateX(0); }
+.tt--left .tt__bubble   { right: calc(100% + 8px); top: 50%; transform: translateY(-50%) translateX(4px); }
+.tt--left:hover .tt__bubble, .tt--left:focus .tt__bubble, .tt--left:focus-within .tt__bubble { transform: translateY(-50%) translateX(0); }
+@media (max-width: 560px) { .tt__bubble { max-width: 220px; } }

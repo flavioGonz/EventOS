@@ -33,6 +33,7 @@ const GLYPHS = {
   trash:      <><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></>,
   search:     <><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" /></>,
   alert:      <><path d="M12 3l9 16H3z" /><path d="M12 9v5M12 17h.01" /></>,
+  info:       <><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></>,
   bolt:       <path d="M13 2L4 14h6l-1 8 9-12h-6z" />,
   link:       <><path d="M9 15l6-6" /><path d="M11 6l1-1a4 4 0 0 1 6 6l-1 1M13 18l-1 1a4 4 0 0 1-6-6l1-1" /></>,
   copy:       <><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h8" /></>,
