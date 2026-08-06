@@ -375,12 +375,27 @@ export function get(name, id) {
 // Operarios: el campo `pin` (texto plano del admin) se convierte a `pinHash`
 // (scrypt) y NUNCA se guarda en claro. `pin: ''` o `pin: null` borra el PIN.
 function applyOperatorPin(data) {
-  if (!data || !Object.prototype.hasOwnProperty.call(data, "pin")) return data;
-  const { pin, ...rest } = data;
-  if (pin === "" || pin === null) { rest.pinHash = null; return rest; }
-  const h = hashPin(pin);
-  if (h) rest.pinHash = h;
-  return rest;
+  if (!data) return data;
+  let out = data;
+  // PIN numérico (compat) → pinHash
+  if (Object.prototype.hasOwnProperty.call(out, "pin")) {
+    const { pin, ...rest } = out;
+    if (pin === "" || pin === null) { rest.pinHash = null; }
+    else { const h = hashPin(pin); if (h) rest.pinHash = h; }
+    out = rest;
+  }
+  // Contraseña de login (usuario+clave) → passwordHash. Nunca se guarda en claro.
+  if (Object.prototype.hasOwnProperty.call(out, "password")) {
+    const { password, ...rest } = out;
+    if (password === "" || password === null) { rest.passwordHash = null; }
+    else { const h = hashPin(password); if (h) rest.passwordHash = h; }
+    out = rest;
+  }
+  // Normaliza username (minúsculas, sin espacios) si viene.
+  if (Object.prototype.hasOwnProperty.call(out, "username") && typeof out.username === "string") {
+    out = { ...out, username: out.username.trim().toLowerCase() };
+  }
+  return out;
 }
 
 export function create(name, data = {}) {

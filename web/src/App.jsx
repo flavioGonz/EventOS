@@ -5,6 +5,7 @@ import LiveBoard from './components/LiveBoard.jsx'
 import OperativeMap from './components/OperativeMap.jsx'
 import EventPopup from './components/EventPopup.jsx'
 import OperatorIdentity from './components/OperatorIdentity.jsx'
+import Login from './components/Login.jsx'
 import AdminApp from './admin/AdminApp.jsx'
 import Videowall from './components/Videowall.jsx'
 import AlarmCenter from './components/AlarmCenter.jsx'
@@ -100,7 +101,22 @@ export default function App() {
   const location = useLocation()
 
   const confirmIdentity = useCallback((op) => { saveOperator(op); setOperator(op) }, [])
-  const changeOperator = useCallback(() => { setOperator(null) }, [])
+  const changeOperator = useCallback(() => {
+    fetch('/api/auth/logout', { method: 'POST' }).catch(() => {})
+    saveOperator(null); setOperator(null)
+  }, [])
+
+  // Al cargar: valida que la cookie de sesión siga viva. Si el localStorage tiene
+  // un operario pero el server ya no reconoce la sesión (expiró / restart), vuelve
+  // al login en vez de mostrar una consola muerta (socket y video darían 401).
+  useEffect(() => {
+    if (!operator) return
+    let alive = true
+    fetch('/api/auth/me')
+      .then((r) => { if (alive && r.status === 401) { saveOperator(null); setOperator(null) } })
+      .catch(() => {})
+    return () => { alive = false }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // primer segmento como clave de transición: anima al cambiar Consola⟷Admin
   const routeKey = '/' + (location.pathname.split('/')[1] || '')
@@ -111,6 +127,19 @@ export default function App() {
   // supervisor y el videowall; el agente solo la consola.
   const role = (operator && operator.role) || 'agente'
   const canSupervise = role === 'supervisor' || role === 'admin'
+  const isAdminUser = role === 'admin'
+
+  // Toda la consola vive detrás del login (instancia pública). Sin sesión →
+  // pantalla de ingreso, cualquiera sea la ruta (salvo el instalador inicial).
+  if (!operator && location.pathname !== '/instalar') {
+    return (
+      <div className="shell">
+        <div className="route"><div className="route__page anim-rise">
+          <Login onConfirm={confirmIdentity} />
+        </div></div>
+      </div>
+    )
+  }
 
   return (
     <div className="shell">
@@ -130,7 +159,8 @@ export default function App() {
                            onChangeOperator={changeOperator} console={console_}
                            autoPopup={autoPopup} onToggleAutoPopup={toggleAutoPopup} />
             } />
-            <Route path="/admin/*" element={<AdminApp />} />
+            {/* El panel de administración es sólo para rol admin. */}
+            <Route path="/admin/*" element={isAdminUser ? <AdminApp /> : <Navigate to="/" replace />} />
             <Route path="/wall" element={canSupervise ? <Videowall /> : <Navigate to="/" replace />} />
             <Route path="/supervisor" element={canSupervise ? <SupervisorStandalone /> : <Navigate to="/" replace />} />
           </Routes>

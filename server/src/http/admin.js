@@ -14,17 +14,23 @@ import { discover as discoverHik } from "../discovery/hikvision.js";
 import { discover as discoverOnvif } from "../discovery/onvif.js";
 import { digestGetBuffer } from "../util/digestFetch.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
+import { sessionFromReq } from "../auth/session.js";
 
 const router = Router();
 
 // ── Auth ─────────────────────────────────────────────────────────────────
+// Acepta dos vías: (a) una SESIÓN de operario con rol admin (cookie, el camino
+// normal desde el panel logueado), o (b) el X-Admin-Token (integraciones /
+// scripts). Sin adminToken configurado y sin sesión admin → sólo dev.
 function requireAdmin(req, res, next) {
-  if (!config.adminToken) return next(); // modo dev: abierto
-  const token = req.get("X-Admin-Token");
-  if (!tokensEqual(token, config.adminToken)) {
-    return res.status(401).json({ error: "unauthorized", message: "X-Admin-Token inválido" });
+  const s = sessionFromReq(req);
+  if (s && s.role === "admin") { req.operator = { id: s.operatorId, name: s.name, role: s.role }; return next(); }
+  if (config.adminToken) {
+    if (tokensEqual(req.get("X-Admin-Token"), config.adminToken)) return next();
+    return res.status(401).json({ error: "unauthorized", message: "Se requiere sesión de administrador" });
   }
-  next();
+  // Sin token configurado y sin sesión admin: modo dev (abierto).
+  return next();
 }
 router.use(requireAdmin);
 

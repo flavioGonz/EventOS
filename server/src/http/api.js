@@ -12,6 +12,7 @@ import { searchSegment, openDownload, compactToMs, deviceTimeOffsetMs } from "..
 import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
 import { openDoor, listOutputs, outputStatus } from "../ingest/doors.js";
 import { verifyPin } from "../auth/pin.js";
+import { createSession, destroySession, sessionFromReq, cookieOptions, SESSION_COOKIE } from "../auth/session.js";
 import { config } from "../config.js";
 
 // Rol normalizado del operario (escalonado): agente | supervisor | admin.
@@ -26,6 +27,30 @@ const router = Router();
 const startedAt = Date.now();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE_DIR = path.resolve(__dirname, "..", "..", "data", "evidence");
+
+// ── Guardia de sesión de operario ───────────────────────────────────────────
+// La instancia es pública (internet) con login: las ACCIONES FÍSICAS y el VIDEO
+// exigen una sesión de operario (cookie eventos_sid emitida en /auth/login).
+// El resto de /api (roster, login, health, groups, sites, ingest lo maneja su
+// propio token) sigue accesible. El video se consume como src de <img>/<video>,
+// por eso la sesión va por cookie (viaja sola) y no por header.
+const PROTECTED = [
+  /^\/device\/[^/]+\/relay$/,
+  /^\/device\/[^/]+\/outputs/,
+  /^\/live(\/|$|-direct)/,
+  /^\/playback/,
+  /^\/snapshot/,
+  /^\/mjpeg/,
+  /^\/cameras$/,
+  /^\/camera\/[^/]+\/(snapshot|mjpeg|live)/,
+];
+router.use((req, res, next) => {
+  if (!PROTECTED.some((rx) => rx.test(req.path))) return next();
+  const s = sessionFromReq(req);
+  if (!s) return res.status(401).json({ error: "auth_required" });
+  req.operator = { id: s.operatorId, name: s.name, role: s.role };
+  next();
+});
 
 // ── Puertas y relés ────────────────────────────────────────────────────────
 // ACCIÓN FÍSICA. La lógica vive en ingest/doors.js, que exige `confirmed` y
@@ -905,27 +930,55 @@ router.get("/roster", (req, res) => {
   });
 });
 
-// Login con PIN (escalonado). Verifica el PIN contra el hash del operario y
-// devuelve su perfil + rol. Para rol ADMIN, entrega además el X-Admin-Token
-// (que el front guarda) para que la sección de configuración funcione sin pedir
-// el token aparte. Sin PIN configurado → entra sin PIN (compatibilidad).
+// Login con USUARIO + CONTRASEÑA. Verifica la contraseña (scrypt) contra el
+// hash del operario, emite la sesión (cookie HttpOnly) que autoriza TODA la
+// consola, video, acciones físicas y socket, y devuelve perfil + rol. El rol
+// define el panel: agente → consola; supervisor → +videowall/supervisor;
+// admin → +administración. Sin passwordHash configurado NO se puede entrar
+// (una instancia pública no acepta operarios sin credencial).
 router.post("/auth/login", (req, res) => {
   const body = req.body || {};
-  const operatorId = String(body.operatorId || "");
-  const pin = body.pin == null ? "" : String(body.pin);
+  const username = String(body.username || "").trim().toLowerCase();
+  const password = body.password == null ? "" : String(body.password);
+  if (!username || !password) return res.status(400).json({ ok: false, error: "missing_credentials" });
   let ops = [];
   try { ops = listConfig("operators"); } catch { /* store */ }
-  const op = ops.find((o) => o.id === operatorId && o.active !== false);
-  if (!op) return res.status(404).json({ ok: false, error: "no_operator" });
-  if (op.pinHash) {
-    if (!verifyPin(pin, op.pinHash)) return res.status(401).json({ ok: false, error: "bad_pin" });
+  const op = ops.find((o) => (o.username || "").toLowerCase() === username && o.active !== false);
+  // Respuesta uniforme (no revela si el usuario existe) y verificación constante.
+  if (!op || !op.passwordHash || !verifyPin(password, op.passwordHash)) {
+    return res.status(401).json({ ok: false, error: "bad_credentials" });
   }
   const role = opRole(op);
+  const sid = createSession({ operatorId: op.id, name: op.name || "Operario", role });
+  res.cookie(SESSION_COOKIE, sid, cookieOptions(req));
   res.json({
     ok: true,
-    operator: { operatorId: op.id, name: op.name || "Operario", skills: Array.isArray(op.skills) ? op.skills : [], role },
+    operator: { operatorId: op.id, name: op.name || "Operario", username: op.username, skills: Array.isArray(op.skills) ? op.skills : [], role },
     adminToken: role === "admin" ? (config.adminToken || null) : null,
   });
+});
+
+// Sesión actual (para rehidratar el login al recargar). 401 si no hay sesión.
+router.get("/auth/me", (req, res) => {
+  const s = sessionFromReq(req);
+  if (!s) return res.status(401).json({ ok: false, error: "no_session" });
+  res.json({ ok: true, operator: { operatorId: s.operatorId, name: s.name, role: s.role } });
+});
+
+// Cierre de sesión: destruye la sesión y limpia la cookie.
+router.post("/auth/logout", (req, res) => {
+  // Recuperamos el token crudo de la cookie para destruir la sesión puntual.
+  const raw = req.headers && req.headers.cookie;
+  if (raw) {
+    for (const part of raw.split(";")) {
+      const i = part.indexOf("=");
+      if (i !== -1 && part.slice(0, i).trim() === SESSION_COOKIE) {
+        destroySession(decodeURIComponent(part.slice(i + 1).trim()));
+      }
+    }
+  }
+  res.clearCookie(SESSION_COOKIE, { path: "/" });
+  res.json({ ok: true });
 });
 
 // Grupos (solo lectura, público) — para el selector "Transferir a grupo" del popup.

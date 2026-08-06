@@ -1289,12 +1289,47 @@
 /* ============================================================
    OperatorIdentity — tarjeta de primer arranque
    ============================================================ */
-.identity-wrap {
+.identity-wrap,
+.login-wrap {
   min-height: calc(100vh - 90px);
   display: grid;
   place-items: center;
   padding: 24px 16px;
 }
+/* Login (usuario+contraseña) — reusa el lenguaje visual de identity. */
+.login {
+  width: 100%;
+  max-width: 380px;
+  padding: 32px 30px 26px;
+  border-radius: var(--r-xl);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.login__brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  margin-bottom: 4px;
+}
+.login__logo {
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(140deg, var(--accent), var(--accent-2));
+  box-shadow: 0 6px 20px var(--accent-weak);
+  margin-bottom: 6px;
+}
+.login__brand h1 { margin: 0; font-size: 25px; font-weight: 740; letter-spacing: -.03em; }
+.login__brand p { margin: 0; font-size: 12.5px; color: var(--text-faint); }
+.login .input--lg { padding: 12px 14px; font-size: 15px; border-radius: var(--r-sm); }
+.login__go { justify-content: center; width: 100%; margin-top: 4px; }
+.login__hint { margin: 2px 0 0; text-align: center; font-size: 11.5px; color: var(--text-faint); }
 .identity {
   width: 100%;
   max-width: 420px;

@@ -24,6 +24,7 @@ import {
 } from "../dispatch/store.js";
 import { routeNewEvent, onOperatorAction } from "../dispatch/engine.js";
 import { list as listConfig } from "../config/store.js";
+import { sessionFromHandshake } from "../auth/session.js";
 
 const QUEUE_TOP = 20;
 const SNAPSHOT_LIMIT = 100;
@@ -37,6 +38,18 @@ function queuePayload() {
 // Adjunta el namespace /console al servidor Socket.io
 export function attachConsole(io) {
   const nsp = io.of("/console");
+
+  // Guardia de sesión: sólo operarios logueados (cookie eventos_sid) entran al
+  // namespace. Sin sesión no hay snapshot ni acciones — evita que cualquiera en
+  // internet escuche alarmas o resuelva eventos ajenos. La identidad la fija la
+  // sesión, no el cliente. Se puede desactivar con EVENTOS_SOCKET_OPEN=1.
+  nsp.use((socket, next) => {
+    if (process.env.EVENTOS_SOCKET_OPEN === "1") { socket.data.session = null; return next(); }
+    const s = sessionFromHandshake(socket.handshake);
+    if (!s) return next(new Error("auth_required"));
+    socket.data.session = s;
+    next();
+  });
 
   // El bus alimenta los eventos nuevos: el enrutamiento (broadcast vs dirigido) lo
   // decide el motor de dispatch, que aquí dispone de `io` para emisión dirigida.
@@ -82,6 +95,8 @@ export function attachConsole(io) {
 
   nsp.on("connection", (socket) => {
     log.info(`Socket conectado: ${socket.id}`);
+    // La identidad la fija la sesión (no el cliente). En modo abierto queda null.
+    const session = socket.data.session || null;
     let operatorId = null;
 
     // Snapshot inicial del estado actual
@@ -122,7 +137,11 @@ export function attachConsole(io) {
     // ── Cliente → Servidor ──────────────────────────────────────────────
 
     socket.on("operator:hello", (payload = {}) => {
-      const { operatorId: id, name, skills } = payload;
+      // La identidad autoritativa es la de la sesión; el cliente sólo aporta
+      // skills/nombre de display. En modo abierto se cae al id del payload.
+      const id = (session && session.operatorId) || payload.operatorId;
+      const name = (session && session.name) || payload.name;
+      const skills = payload.skills;
       if (!id) return;
       operatorId = id;
       registerOperator({ operatorId: id, name, skills });

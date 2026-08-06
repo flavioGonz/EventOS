@@ -132,9 +132,8 @@ export default function OperatorIdentity({ onConfirm }) {
                 </button>
               ))}
             </div>
-            <Button variant="ghost" size="sm" className="identity__go" onClick={() => setManual(true)}>
-              Entrar con otro nombre
-            </Button>
+            {/* Login libre por nombre deshabilitado: instancia pública con login,
+                sólo operarios del roster (con sesión real) pueden entrar. */}
           </>
         ) : (
           <>
