@@ -158,18 +158,29 @@ export function CollectionView({
 }
 
 /* ---------- Página de edición (entidad como página dedicada, no modal) ---------- */
-export function EditPage({ title, subtitle, onCancel, onSave, saving, children }) {
+export function EditPage({ title, subtitle, onCancel, onSave, saving, tabs, children }) {
+  const hasActions = onCancel || onSave
   return (
     <div className="anim-rise">
-      <PageHead title={title} subtitle={subtitle}
-        actions={(onCancel || onSave) ? (
-          <>
-            {onCancel && <Button variant="ghost" onClick={onCancel}>Cancelar</Button>}
-            {onSave && <Button variant="primary" icon={saving ? undefined : 'check'} disabled={saving} onClick={onSave}>
-              {saving ? <Spinner size={15} /> : 'Guardar'}
-            </Button>}
-          </>
-        ) : null} />
+      <div className="admin-head editpage-head">
+        <div className="admin-head__titles">
+          <h1>{title}</h1>
+          {subtitle && <p>{subtitle}</p>}
+        </div>
+        {(tabs || hasActions) && (
+          <div className="editpage-head__right">
+            {tabs && <div className="editpage-tabs">{tabs}</div>}
+            {hasActions && (
+              <div className="admin-head__actions">
+                {onCancel && <Button variant="ghost" onClick={onCancel}>Cancelar</Button>}
+                {onSave && <Button variant="primary" icon={saving ? undefined : 'check'} disabled={saving} onClick={onSave}>
+                  {saving ? <Spinner size={15} /> : 'Guardar'}
+                </Button>}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <Glass className="panel"><div className="panel__body">{children}</div></Glass>
     </div>
   )

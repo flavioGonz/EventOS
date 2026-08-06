@@ -1464,3 +1464,15 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 .probe-result__counts { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; align-items: center; }
 .probe-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 4px 9px; border-radius: 999px;
   background: color-mix(in srgb, var(--text) 6%, transparent); color: var(--text-dim); white-space: nowrap; }
+
+/* Ficha: pestañas en la MISMA fila que Cancelar/Guardar */
+.editpage-head { align-items: center; }
+.editpage-head__right { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: flex-end; }
+.editpage-tabs .subtabs { margin: 0; }
+.editpage-tabs .dev-tabs { max-width: none; }
+@media (max-width: 760px) {
+  .editpage-head { align-items: stretch; }
+  .editpage-head__right { width: 100%; justify-content: space-between; }
+  .editpage-tabs { flex: 1; }
+  .editpage-tabs .subtabs { width: 100%; justify-content: space-between; }
+}

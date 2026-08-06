@@ -265,16 +265,19 @@ export default function DeviceEdit() {
     { k: 'salud', icon: 'gauge', label: 'Salud' },
   ]
 
+  const tabsEl = (
+    <div className="subtabs dev-tabs">
+      {TABS.filter((t) => !t.hide).map((t) => (
+        <button type="button" key={t.k} className={`subtab${tab === t.k ? ' is-on' : ''}`} onClick={() => setTab(t.k)}>
+          <Icon name={t.icon} size={15} /> {t.label}
+        </button>
+      ))}
+    </div>
+  )
+
   return (
     <EditPage title={isNew ? 'Nuevo dispositivo' : 'Editar dispositivo'}
-      subtitle="Cámara, NVR o central que genera eventos hacia EventOS." onCancel={back} onSave={save} saving={saving}>
-      <div className="subtabs dev-tabs">
-        {TABS.filter((t) => !t.hide).map((t) => (
-          <button type="button" key={t.k} className={`subtab${tab === t.k ? ' is-on' : ''}`} onClick={() => setTab(t.k)}>
-            <Icon name={t.icon} size={15} /> {t.label}
-          </button>
-        ))}
-      </div>
+      subtitle="Cámara, NVR o central que genera eventos hacia EventOS." onCancel={back} onSave={save} saving={saving} tabs={tabsEl}>
 
       {/* ===== Pestaña DATOS ===== */}
       {tab === 'datos' && (
