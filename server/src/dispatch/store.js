@@ -159,6 +159,27 @@ export function operatorLoad(operatorId) {
   return n;
 }
 
+// Afinidad por sitio (Reguard "Site-specific distribution"): ¿el operario ya está
+// atendiendo un evento ACTIVO del mismo sitio? Solo cuentan estados "en manos"
+// del operario (assigned/ack/in_progress), no los `new` sin dueño ni escalados.
+// windowMs>0 acota la afinidad a eventos recientes (desde ev.ts).
+const HANDLING_STATUSES = ["assigned", "ack", "in_progress"];
+export function operatorHasActiveSite(operatorId, site, windowMs = 0) {
+  if (!operatorId || !site) return false;
+  const now = Date.now();
+  for (const e of active.values()) {
+    if (e.assignedTo !== operatorId) continue;
+    if (!HANDLING_STATUSES.includes(e.status)) continue;
+    if (!e.source || e.source.site !== site) continue;
+    if (windowMs > 0) {
+      const t = new Date(e.ts).getTime();
+      if (!Number.isNaN(t) && (now - t) > windowMs) continue;
+    }
+    return true;
+  }
+  return false;
+}
+
 // ── Presencia / pausa / tiempo contabilizado (CONTRACT-V3 §1) ───────────────
 //
 // Cada operario online acumula tiempo en `available` y `paused`. El acumulador
@@ -460,6 +481,7 @@ export default {
   getOperator,
   operatorStats,
   operatorLoad,
+  operatorHasActiveSite,
   registerSocket,
   removeSocket,
   socketsOf,

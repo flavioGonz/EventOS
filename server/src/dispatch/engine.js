@@ -21,6 +21,7 @@ import {
   availableOperators,
   queueState,
   listActiveEvents,
+  operatorHasActiveSite,
 } from "./store.js";
 import { bus } from "../bus/redisBus.js";
 
@@ -69,6 +70,7 @@ function effectiveMode(event, dispatch) {
 const DISPATCH_OVERRIDE_KEYS = [
   "sequentialStrategy", "ackTimeoutSeconds", "reassignOnTimeout",
   "maxConcurrentPerOperator", "skillRouting",
+  "siteAffinity", "siteAffinityWindowMinutes",
 ];
 function effectiveDispatch(event, dispatch) {
   const ov = event._rule?.actions?.dispatch;
@@ -119,6 +121,23 @@ function pickOne(candidates, strategy) {
   }
   // least_loaded (default): el primero (menor carga)
   return candidates[0];
+}
+
+// Afinidad por sitio (Reguard "Site-specific distribution"): entre los candidatos
+// (ya ordenados por carga asc), devuelve el primero que ya está atendiendo un
+// evento activo del MISMO sitio, o null si ninguno. Así las alarmas del mismo
+// sitio caen en el mismo operario mientras las tenga en mano.
+function pickAffine(candidates, site, windowMs) {
+  if (!site) return null;
+  for (const op of candidates) {
+    if (operatorHasActiveSite(op.id, site, windowMs)) return op;
+  }
+  return null;
+}
+
+// ms de la ventana de afinidad (0 = sin límite temporal).
+function affinityWindowMs(dispatch) {
+  return Math.max(0, Number(dispatch.siteAffinityWindowMinutes) || 0) * 60000;
 }
 
 // Asigna el evento a `operatorId`, notifica y arma el timer de ACK.
@@ -172,7 +191,12 @@ function onAckTimeout(io, eventId, operatorId, dispatch, tried) {
   const opts = candidateOpts(ev, dispatch);
   const candidates = selectCandidates(ev, opts).filter((op) => !nextTried.has(op.id));
   const strategy = dispatch.sequentialStrategy || "least_loaded";
-  const next = pickOne(candidates, strategy);
+  // Afinidad por sitio también al reasignar: preferí a quien ya atiende ese sitio.
+  let next = null;
+  if (dispatch.siteAffinity && ev.source && ev.source.site) {
+    next = pickAffine(candidates, ev.source.site, affinityWindowMs(dispatch));
+  }
+  if (!next) next = pickOne(candidates, strategy);
 
   if (next) {
     log.info(`Reasignando ${eventId}: ${operatorId} → ${next.id} (ack timeout)`);
@@ -212,6 +236,18 @@ export function routeNewEvent(event, io) {
     emitAll(io, "event:new", { event });
     emitQueue(io);
     return;
+  }
+
+  // Afinidad por sitio (Reguard modo 4): si está activa y algún candidato ya está
+  // atendiendo el MISMO sitio, se le dirige el evento — override por encima del
+  // modo global (funciona incluso en "simultaneous"). Si no hay afín, sigue el
+  // reparto normal del modo configurado.
+  if (dispatch.siteAffinity && event.source && event.source.site && candidates.length > 0) {
+    const affine = pickAffine(candidates, event.source.site, affinityWindowMs(dispatch));
+    if (affine) {
+      assignTo(io, event, affine.id, dispatch, new Set());
+      return;
+    }
   }
 
   if (mode === "sequential") {

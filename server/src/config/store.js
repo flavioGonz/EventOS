@@ -208,6 +208,8 @@ function seedDispatch() {
     reassignOnTimeout: true,
     maxConcurrentPerOperator: 5,
     skillRouting: true,
+    siteAffinity: false, // Reguard "Site-specific": misma alarma de sitio → mismo operario
+    siteAffinityWindowMinutes: 0, // 0 = sin límite temporal; N = solo eventos del sitio de los últimos N min
   };
 }
 

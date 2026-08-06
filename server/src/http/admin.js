@@ -169,6 +169,8 @@ router.put("/dispatch", (req, res) => {
   if (body.reassignOnTimeout !== undefined) patch.reassignOnTimeout = !!body.reassignOnTimeout;
   if (body.maxConcurrentPerOperator !== undefined) patch.maxConcurrentPerOperator = Math.max(1, Number(body.maxConcurrentPerOperator) || 1);
   if (body.skillRouting !== undefined) patch.skillRouting = !!body.skillRouting;
+  if (body.siteAffinity !== undefined) patch.siteAffinity = !!body.siteAffinity;
+  if (body.siteAffinityWindowMinutes !== undefined) patch.siteAffinityWindowMinutes = Math.max(0, Number(body.siteAffinityWindowMinutes) || 0);
 
   const updated = store.setDispatch(patch);
   log.info(`admin: dispatch actualizado (mode=${updated.mode})`);

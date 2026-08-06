@@ -19,6 +19,7 @@ const MODES = [
 const DEFAULT = {
   mode: 'simultaneous', sequentialStrategy: 'least_loaded', ackTimeoutSeconds: 30,
   reassignOnTimeout: true, maxConcurrentPerOperator: 5, skillRouting: true,
+  siteAffinity: false, siteAffinityWindowMinutes: 0,
 }
 
 export default function Dispatch() {
@@ -47,6 +48,7 @@ export default function Dispatch() {
         ...policy,
         ackTimeoutSeconds: Number(policy.ackTimeoutSeconds) || 0,
         maxConcurrentPerOperator: Number(policy.maxConcurrentPerOperator) || 0,
+        siteAffinityWindowMinutes: Number(policy.siteAffinityWindowMinutes) || 0,
       }
       const r = await putDispatch(payload)
       setPolicy({ ...DEFAULT, ...(r || payload) })
@@ -139,6 +141,28 @@ export default function Dispatch() {
               <Switch checked={policy.skillRouting} onChange={(v) => set('skillRouting', v)} />
             </div>
           </div>
+          <div className="setting-row">
+            <div className="setting-row__info">
+              <b><Icon name="pin" size={14} /> Afinidad por sitio</b>
+              <span>Las alarmas de un sitio que ya está atendiendo un operario se le dirigen a él (mismo sitio → mismo operario), incluso en modo simultáneo.</span>
+            </div>
+            <div className="setting-row__ctrl">
+              <Switch checked={policy.siteAffinity} onChange={(v) => set('siteAffinity', v)} />
+            </div>
+          </div>
+          {policy.siteAffinity && (
+            <div className="setting-row">
+              <div className="setting-row__info">
+                <b><Icon name="clock" size={14} /> Ventana de afinidad</b>
+                <span>Minutos desde la última alarma del sitio en que se mantiene la afinidad. 0 = sin límite (mientras el operario tenga el evento en mano).</span>
+              </div>
+              <div className="setting-row__ctrl">
+                <TextInput type="number" min="0" className="tnum"
+                  value={policy.siteAffinityWindowMinutes} onChange={(e) => set('siteAffinityWindowMinutes', e.target.value)} />
+                <span className="muted">min</span>
+              </div>
+            </div>
+          )}
         </div>
       </Panel>
     </div>
