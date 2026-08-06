@@ -133,6 +133,21 @@ export function queueState(top = 20) {
   return { counts, top: sorted.slice(0, top) };
 }
 
+// Todos los eventos ACTIVOS (sin resolver), como array nuevo (seguro para iterar
+// mientras se mutan estados). Usado por el re-despacho de huérfanos.
+export function listActiveEvents() {
+  return [...active.values()];
+}
+
+// Snapshot para la consola: TODOS los activos (sin capar) + los resueltos
+// recientes acotados. Ordenado por ts desc. A diferencia de listEvents(), nunca
+// deja caer un activo por el límite (era la causa del "topbar N / board 1").
+export function listSnapshot({ resolvedLimit = 100 } = {}) {
+  const all = [...active.values(), ...resolved.slice(0, resolvedLimit)];
+  all.sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0));
+  return all;
+}
+
 // ── Operarios ────────────────────────────────────────────────────────────
 
 // Carga de un operario = nº de eventos activos asignados a él
@@ -432,6 +447,8 @@ export default {
   getEvent,
   updateEvent,
   listEvents,
+  listActiveEvents,
+  listSnapshot,
   queueState,
   registerOperator,
   heartbeat,

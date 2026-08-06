@@ -20,6 +20,7 @@ import {
   socketsOf,
   availableOperators,
   queueState,
+  listActiveEvents,
 } from "./store.js";
 import { bus } from "../bus/redisBus.js";
 
@@ -249,4 +250,76 @@ export function onOperatorAction(eventId) {
   clearAckTimer(eventId);
 }
 
-export default { routeNewEvent, onOperatorAction };
+// ── No perder alertas: re-despacho de huérfanos (CONTRACT-V2 §3 — fix) ───────
+//
+// Un evento puede quedar "colgado" y no volver a enrutarse en tres situaciones:
+//   (a) llegó sin operarios disponibles → quedó `new` sin dueño;
+//   (b) el operario asignado se cayó → quedó `assigned/ack/in_progress` a un fantasma;
+//   (c) se reinició el servicio → los activos se rehidrataron pero sus timers de
+//       ACK (que viven en memoria) se perdieron y nadie los volvió a mover.
+// Estas funciones cierran las tres fugas re-enrutando por el camino normal.
+
+// Estados "apropiados" por un operario (candidatos a liberar si ese operario cae).
+// `escalated` se deja intacto (lo maneja la supervisión); `new` ya está libre.
+const OWNED_STATUSES = ["assigned", "ack", "in_progress"];
+
+// (a) Re-enruta los eventos activos que quedaron `new` sin dueño. Se llama cuando
+// un operario se conecta (`operator:hello`): sus alarmas huérfanas ahora tienen
+// a quién ir. Idempotente: routeNewEvent asigna/broadcastea según modo y candidatos.
+export function redispatchOrphans(io) {
+  let n = 0;
+  for (const ev of listActiveEvents()) {
+    if (ev.status === "new" && !ev.assignedTo) {
+      try { routeNewEvent(ev, io); n++; } catch (e) { log.warn(`redispatchOrphans ${ev.id}: ${e.message}`); }
+    }
+  }
+  if (n) log.info(`Re-despacho de huérfanos: ${n} evento(s) new re-enrutado(s)`);
+  return n;
+}
+
+// (b) El operario `operatorId` se quedó sin sockets (offline). Sus eventos aún
+// apropiados se devuelven a `new` y se re-enrutan a quien esté disponible. Si no
+// hay nadie, quedan `new` (preservados) y los tomará el próximo que se conecte.
+export function releaseOperatorEvents(io, operatorId) {
+  if (!operatorId) return 0;
+  let n = 0;
+  for (const ev of listActiveEvents()) {
+    if (ev.assignedTo === operatorId && OWNED_STATUSES.includes(ev.status)) {
+      clearAckTimer(ev.id);
+      const updated = updateEvent(ev.id, {
+        status: "new",
+        assignedTo: null,
+        logEntry: { operatorId: null, operatorName: null, action: "reassign", note: `liberado (operario ${operatorId} offline)` },
+      });
+      if (!updated) continue;
+      updated._rule = ev._rule; // preservar la regla interna para el ruteo
+      bus.save(updated);
+      try { routeNewEvent(updated, io); } catch (e) { log.warn(`releaseOperatorEvents ${ev.id}: ${e.message}`); }
+      n++;
+    }
+  }
+  if (n) log.info(`Operario ${operatorId} offline → ${n} evento(s) liberado(s) y re-enrutado(s)`);
+  return n;
+}
+
+// (c) Al arrancar no hay sockets conectados: cualquier activo rehidratado en
+// estado apropiado apunta a un operario que ya no existe. Se devuelven a `new`
+// (sin re-enrutar todavía: no hay a quién). Se re-enrutan solos cuando el primer
+// operario haga `operator:hello` (→ redispatchOrphans).
+export function redispatchOnBoot() {
+  let n = 0;
+  for (const ev of listActiveEvents()) {
+    if (OWNED_STATUSES.includes(ev.status)) {
+      const updated = updateEvent(ev.id, {
+        status: "new",
+        assignedTo: null,
+        logEntry: { operatorId: null, operatorName: null, action: "reassign", note: "rehidratado tras reinicio — devuelto a la cola" },
+      });
+      if (updated) { updated._rule = ev._rule; bus.save(updated); n++; }
+    }
+  }
+  if (n) log.info(`Arranque: ${n} evento(s) apropiado(s) devuelto(s) a la cola para re-despacho`);
+  return n;
+}
+
+export default { routeNewEvent, onOperatorAction, redispatchOrphans, releaseOperatorEvents, redispatchOnBoot };

@@ -9,6 +9,7 @@ import {
   updateEvent,
   getEvent,
   listEvents,
+  listSnapshot,
   queueState,
   registerOperator,
   heartbeat,
@@ -22,7 +23,13 @@ import {
   removeSocket,
   socketsOf,
 } from "../dispatch/store.js";
-import { routeNewEvent, onOperatorAction } from "../dispatch/engine.js";
+import {
+  routeNewEvent,
+  onOperatorAction,
+  redispatchOrphans,
+  releaseOperatorEvents,
+  redispatchOnBoot,
+} from "../dispatch/engine.js";
 import { list as listConfig } from "../config/store.js";
 import { sessionFromHandshake } from "../auth/session.js";
 
@@ -50,6 +57,11 @@ export function attachConsole(io) {
     socket.data.session = s;
     next();
   });
+
+  // No perder alertas (c): al arrancar, los activos rehidratados que estaban
+  // apropiados por operarios (ya sin socket) se devuelven a la cola. Se
+  // re-enrutan solos cuando el primer operario haga hello (redispatchOrphans).
+  try { redispatchOnBoot(); } catch (e) { log.warn(`redispatchOnBoot: ${e.message}`); }
 
   // El bus alimenta los eventos nuevos: el enrutamiento (broadcast vs dirigido) lo
   // decide el motor de dispatch, que aquí dispone de `io` para emisión dirigida.
@@ -101,7 +113,7 @@ export function attachConsole(io) {
 
     // Snapshot inicial del estado actual
     socket.emit("snapshot", {
-      events: listEvents({ limit: SNAPSHOT_LIMIT }),
+      events: listSnapshot(),
       operators: listOperators(),
     });
 
@@ -148,11 +160,15 @@ export function attachConsole(io) {
       registerSocket(id, socket.id); // mapeo para emisión dirigida
       // Reenvía snapshot al recién identificado
       socket.emit("snapshot", {
-        events: listEvents({ limit: SNAPSHOT_LIMIT }),
+        events: listSnapshot(),
         operators: listOperators(),
       });
       broadcastOperators();
       emitSelf(id); // contador propio inicial
+      // No perder alertas (a): ahora que hay un operario disponible, re-enrutar
+      // las alarmas que habían quedado `new` sin dueño (llegaron con la consola
+      // vacía, o fueron liberadas por caídas / reinicios anteriores).
+      try { redispatchOrphans(io); } catch (e) { log.warn(`redispatchOrphans (hello ${id}): ${e.message}`); }
     });
 
     // ── Presencia: pausa / reanudar (CONTRACT-V3 §1) ─────────────────────
@@ -302,7 +318,12 @@ export function attachConsole(io) {
       if (operatorId) {
         // Sólo marcar offline si fue el último socket del operario
         const last = removeSocket(operatorId, socket.id);
-        if (last) disconnectOperator(operatorId);
+        if (last) {
+          disconnectOperator(operatorId);
+          // No perder alertas (b): sus eventos apropiados vuelven a la cola y se
+          // re-enrutan a quien quede disponible (o esperan al próximo operario).
+          try { releaseOperatorEvents(io, operatorId); } catch (e) { log.warn(`releaseOperatorEvents (${operatorId}): ${e.message}`); }
+        }
         broadcastOperators();
       }
     });

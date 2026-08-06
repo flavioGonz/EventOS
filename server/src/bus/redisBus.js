@@ -57,11 +57,16 @@ async function initRedis() {
   }
 
   // No reintentar de forma indefinida: si falla, caemos a memoria.
+  // Reconexión INDEFINIDA con backoff (antes abandonaba a los 3 intentos y los
+  // eventos nuevos dejaban de llegar en silencio). Como los suscriptores están
+  // SIEMPRE colgados del emitter local (ver subscribe), mientras Redis está caído
+  // publish() cae a memoria y los eventos siguen llegando; al reconectar, ioredis
+  // re-suscribe el canal automáticamente y volvemos a "connected".
   const opts = {
     lazyConnect: true,
-    maxRetriesPerRequest: 2,
-    retryStrategy: (times) => (times > 3 ? null : Math.min(times * 200, 1000)),
-    reconnectOnError: () => false,
+    maxRetriesPerRequest: null, // no hacer fallar comandos por reintentos durante un corte
+    retryStrategy: (times) => Math.min(times * 200, 5000), // backoff hasta 5s, sin rendirse
+    reconnectOnError: () => true, // reconectar también ante errores de conexión
   };
 
   try {
@@ -71,6 +76,15 @@ async function initRedis() {
     // Manejo de errores: no tirar el proceso
     pub.on("error", (e) => log.warn(`Redis pub error: ${e.message}`));
     sub.on("error", (e) => log.warn(`Redis sub error: ${e.message}`));
+
+    // Reflejar el estado real de la conexión en `redisReady`/`mode`. `ready`
+    // dispara en cada (re)conexión exitosa; `end` sólo si se cierra sin reintentos.
+    const markUp = (who) => { if (!redisReady) log.info(`Bus Redis ${who}: reconectado`); redisReady = true; mode = "connected"; };
+    const markDown = (who) => { if (redisReady) log.warn(`Bus Redis ${who}: conexión caída — fallback en memoria hasta reconectar`); redisReady = false; mode = "memory"; };
+    pub.on("ready", () => markUp("pub"));
+    sub.on("ready", () => markUp("sub"));
+    pub.on("end", () => markDown("pub"));
+    sub.on("end", () => markDown("sub"));
 
     await pub.connect();
     await sub.connect();
@@ -126,10 +140,15 @@ export async function publish(event) {
 // vía el canal pub/sub; en memoria, vía EventEmitter local.
 export function subscribe(fn) {
   subscribers.add(fn);
-  if (!redisReady) emitter.on("event", fn);
+  // Colgar SIEMPRE del emitter local (no sólo si arrancó en memoria): si Redis
+  // cae después, publish() cae a memPublish → emitter.emit y el suscriptor sigue
+  // recibiendo. En modo Redis los eventos llegan por el canal pub/sub (sub.on
+  // "message" recorre `subscribers`), y memPublish no se ejecuta, así que no hay
+  // doble entrega.
+  emitter.on("event", fn);
   return () => {
     subscribers.delete(fn);
-    if (!redisReady) emitter.off("event", fn);
+    emitter.off("event", fn);
   };
 }
 
