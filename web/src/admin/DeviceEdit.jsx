@@ -33,6 +33,13 @@ const EMPTY = {
   enabled: true, defaultPriority: null, tags: [], alerts: null, armed: false, relays: [],
 }
 const VENDORS = ['Hikvision', 'Dahua', 'Tiandy', 'Akuvox', 'Uniview', 'ONVIF', 'Otro']
+const TYPE_DESC = {
+  camera: 'RTSP + eventos (ISAPI / ONVIF).',
+  nvr: 'Grabador · varias cámaras por canal.',
+  alarm: 'Central · reporta por IP/HTTP, sin video.',
+  intercom: 'Portero IP · video, audio y relé.',
+  access: 'Puertas / relés y eventos de acceso.',
+}
 
 // Catálogo de fabricantes: al elegir uno se preconfiguran tipo, puertos y se
 // muestran los endpoints/APIs correctos. (Se irán sumando más.)
@@ -191,6 +198,7 @@ export default function DeviceEdit() {
   const [tab, setTab] = useState('datos') // datos | alertas | medios | salud
   const [probing, setProbing] = useState(false)
   const [probed, setProbed] = useState(false) // conexión verificada al menos una vez
+  const [newStep, setNewStep] = useState(0) // alta: 0=Marca 1=Tipo 2=Conexión
   const isAlarm = form.type === 'alarm'
   const isNvr = form.type === 'nvr'
   const isAccess = form.type === 'access'
@@ -253,8 +261,11 @@ export default function DeviceEdit() {
   const back = () => navigate('/admin/devices')
   const applyImport = (patch) => setForm((f) => ({ ...f, ...patch }))
   const canProbe = !isAlarm && !!(form.ip || '').trim() && !!(form.username || '').trim()
-  // En alta de cámara/NVR exigimos verificar la conexión antes de mostrar/guardar el resto.
-  const gated = isNew && (isCamera || isNvr) && !probed
+  // Alta paso a paso: Marca (0) → Tipo (1) → Conexión (2). Cámara/NVR exigen probar
+  // la conexión; alarma/portero/acceso pasan directo a la ficha al elegir el tipo.
+  const needsProbe = isCamera || isNvr
+  const fichaReady = !isNew || (newStep >= 2 && (!needsProbe || probed))
+  const gated = !fichaReady
   const onProbed = (r) => {
     setProbed(true)
     setForm((f) => ({
@@ -346,69 +357,98 @@ export default function DeviceEdit() {
       {tab === 'datos' && (
         <div key="datos" className={`dev-premium anim-rise ${!gated && hasAside ? 'dev-premium--aside' : ''}`}>
           <div className="dev-form">
-            {isNew && (
-              <div className="dev-card span-all">
-                <SecHead icon="shield" tone="id" title="¿Qué fabricante?"
-                  sub="Preconfigura el tipo, los puertos y los endpoints/APIs correctos." />
-                <div className="mfr-grid">
-                  {MANUFACTURERS.map((m) => (
-                    <button type="button" key={m.id} className={`mfr-card${form.vendor === m.id ? ' is-on' : ''}`} onClick={() => pickMfr(m)}>
-                      {VENDOR_BRANDS[m.id]
-                        ? <span className="mfr-card__logo"><VendorLogo id={m.id} size={18} /></span>
-                        : <><span className="mfr-card__ic"><Icon name={m.icon} size={20} /></span><span className="mfr-card__lbl">{m.label}</span></>}
+            {gated && (
+              <div className="dev-setup span-all">
+                <div className="dev-steps">
+                  {['Marca', 'Tipo', 'Conexión'].map((lbl, i) => (
+                    <button type="button" key={lbl} disabled={i > newStep}
+                      className={`dev-step${newStep === i ? ' is-cur' : ''}${newStep > i ? ' is-done' : ''}`}
+                      onClick={() => newStep > i && setNewStep(i)}>
+                      <span className="dev-step__n">{newStep > i ? <Icon name="check" size={13} /> : i + 1}</span>
+                      <span className="dev-step__lbl">{lbl}</span>
                     </button>
                   ))}
                 </div>
-                {curMfr && <div className="mfr-hint"><Icon name="bell" size={14} /> <span>{curMfr.hint}</span></div>}
-              </div>
-            )}
 
-            {!isAlarm && (
-              <div className={`dev-card dev-cta span-all${gated ? ' dev-cta--req' : ''}`}>
-                <div className="dev-cta__body">
-                  <span className={`dev-chip ${probed ? 't-group' : 't-media'}`}><Icon name={probed ? 'check' : 'search'} size={17} /></span>
-                  <div className="dev-cta__txt">
-                    <b>{probed ? 'Conexión verificada' : gated ? 'Paso 1 · Verificá la conexión (obligatorio)' : 'Test de conectividad e importación de recursos'}</b>
-                    <p>{probed
-                      ? 'El equipo respondió. Completá la ficha y guardá. Podés volver a probar o importar recursos cuando quieras.'
-                      : gated
-                        ? 'Antes de dar de alta el equipo, comprobá que responde por ISAPI con estas credenciales. Al verificar, se habilita el resto de la ficha y se importan sus canales y relés.'
-                        : `Sondeá el equipo con estas credenciales y traé sus canales, analíticas y relés — con un paso a paso animado. ${isNvr ? 'En un NVR podés crear un dispositivo por cada cámara.' : ''}`}</p>
+                {newStep === 0 && (
+                  <div className="dev-setup__body anim-rise">
+                    <p className="dev-setup__q">¿Qué marca es el equipo?</p>
+                    <div className="brandgrid">
+                      {MANUFACTURERS.map((m) => (
+                        <button type="button" key={m.id} className={`brandcard${form.vendor === m.id ? ' is-on' : ''}`}
+                          onClick={() => { pickMfr(m); setNewStep(1) }}>
+                          <span className="brandcard__logo">
+                            {VENDOR_BRANDS[m.id] ? <VendorLogo id={m.id} size={22} /> : <Icon name={m.icon} size={26} />}
+                          </span>
+                          {!VENDOR_BRANDS[m.id] && <span className="brandcard__sub">{m.label}</span>}
+                        </button>
+                      ))}
+                    </div>
+                    {curMfr && <div className="mfr-hint"><Icon name="bell" size={14} /> <span>{curMfr.hint}</span></div>}
                   </div>
-                </div>
-                <Button variant="primary" icon="search" disabled={!canProbe} onClick={() => setProbing(true)}>
-                  {probed ? 'Volver a probar' : gated ? 'Probar conexión' : 'Probar e importar'}
-                </Button>
-              </div>
-            )}
+                )}
 
-            {gated && (
-              <div className="dev-card span-all dev-conn">
-                <SecHead icon="globe" tone="cred" title="Conexión al equipo"
-                  sub="Datos mínimos para verificar el equipo. El resto de la ficha se habilita al probar la conexión."
-                  hint={<>Cargá IP, usuario/clave del equipo y puertos, y presioná <b>Probar conexión</b>. EventOS comprueba que el equipo responde por ISAPI (device info, canales, analíticas y relés) antes de permitir el alta — así no quedan dispositivos «fantasma» que no reportan.<span className="tt__eg">Ej.: 192.168.99.96 · admin · ISAPI 80 · RTSP 554.</span></>} />
-                <div className="dev-grid dev-grid--4">
-                  <Field label={<><Icon name="globe" size={14} /> IP</>} className="span-2">
-                    <TextInput autoFocus value={form.ip} onChange={set('ip')} placeholder="192.168.99.96" />
-                  </Field>
-                  <Field label={<><Icon name="hash" size={14} /> Puerto ISAPI/HTTP</>} hint="80 por defecto.">
-                    <TextInput type="number" value={form.isapiPort ?? ''} onChange={set('isapiPort')} placeholder="80" />
-                  </Field>
-                  <Field label={<><Icon name="hash" size={14} /> Puerto RTSP</>} hint="554 por defecto.">
-                    <TextInput type="number" value={form.rtspPort ?? ''} onChange={set('rtspPort')} placeholder="554" />
-                  </Field>
-                  <Field label={<><Icon name="user" size={14} /> Usuario</>} className="span-2">
-                    <TextInput value={form.username || ''} onChange={set('username')} placeholder="admin" autoComplete="off" />
-                  </Field>
-                  <Field label={<><Icon name="shield" size={14} /> Contraseña</>} className="span-2">
-                    <TextInput type="password" value={form.password || ''} onChange={set('password')} placeholder="••••••••" autoComplete="new-password" />
-                  </Field>
-                </div>
-                {!canProbe && <p className="help-block">Completá IP y usuario para habilitar la prueba.</p>}
+                {newStep === 1 && (
+                  <div className="dev-setup__body anim-rise">
+                    <p className="dev-setup__q">¿Qué tipo de dispositivo es? <span className="dev-setup__ctx"><VendorLogo id={form.vendor} size={14} /></span></p>
+                    <div className="typegrid2">
+                      {DEVICE_TYPES.map((t) => (
+                        <button type="button" key={t.value} className={`typecard${form.type === t.value ? ' is-on' : ''}`}
+                          onClick={() => { setForm((f) => ({ ...f, type: t.value })); setNewStep(2) }}>
+                          <span className="typecard__ic"><Icon name={DEVICE_TYPE_ICON[t.value] || 'device'} size={22} /></span>
+                          <span className="typecard__lbl">{deviceTypeLabel(t.value)}</span>
+                          <span className="typecard__desc">{TYPE_DESC[t.value]}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <button type="button" className="dev-setup__back" onClick={() => setNewStep(0)}>← Cambiar marca</button>
+                  </div>
+                )}
+
+                {newStep === 2 && needsProbe && (
+                  <div className="dev-setup__body anim-rise">
+                    <p className="dev-setup__q">Conectá el equipo
+                      <span className="dev-setup__ctx"><VendorLogo id={form.vendor} size={14} /> · {deviceTypeLabel(form.type)}</span></p>
+                    <div className="dev-grid dev-grid--4 dev-conn2">
+                      <Field label={<><Icon name="globe" size={14} /> IP</>} className="span-2">
+                        <TextInput autoFocus value={form.ip} onChange={set('ip')} placeholder="192.168.99.96" />
+                      </Field>
+                      <Field label={<><Icon name="hash" size={14} /> Puerto ISAPI</>} hint="80 por defecto.">
+                        <TextInput type="number" value={form.isapiPort ?? ''} onChange={set('isapiPort')} placeholder="80" />
+                      </Field>
+                      <Field label={<><Icon name="hash" size={14} /> Puerto RTSP</>} hint="554 por defecto.">
+                        <TextInput type="number" value={form.rtspPort ?? ''} onChange={set('rtspPort')} placeholder="554" />
+                      </Field>
+                      <Field label={<><Icon name="user" size={14} /> Usuario</>} className="span-2">
+                        <TextInput value={form.username || ''} onChange={set('username')} placeholder="admin" autoComplete="off" />
+                      </Field>
+                      <Field label={<><Icon name="shield" size={14} /> Contraseña</>} className="span-2">
+                        <TextInput type="password" value={form.password || ''} onChange={set('password')} placeholder="••••••••" autoComplete="new-password" />
+                      </Field>
+                    </div>
+                    <div className="dev-setup__cta">
+                      <p className="help-block">{canProbe ? 'Verificá que el equipo responde antes de darlo de alta. Al probar, se importan sus canales y relés.' : 'Completá IP y usuario para habilitar la prueba.'}</p>
+                      <Button variant="primary" icon="search" disabled={!canProbe} onClick={() => setProbing(true)}>Probar conexión</Button>
+                    </div>
+                    <button type="button" className="dev-setup__back" onClick={() => setNewStep(1)}>← Cambiar tipo</button>
+                  </div>
+                )}
               </div>
             )}
 
             {!gated && (<>
+            {isNew && !isAlarm && (
+              <div className="dev-card dev-cta span-all">
+                <div className="dev-cta__body">
+                  <span className="dev-chip t-group"><Icon name="check" size={17} /></span>
+                  <div className="dev-cta__txt">
+                    <b>Conexión verificada</b>
+                    <p>El equipo respondió. Completá la ficha y guardá. Podés volver a probar o importar recursos cuando quieras.</p>
+                  </div>
+                </div>
+                <Button variant="secondary" icon="search" disabled={!canProbe} onClick={() => setProbing(true)}>Volver a probar</Button>
+              </div>
+            )}
             <div className="dev-card span-all">
               <SecHead icon="device" tone="id" title="Identificación"
                 sub="Cómo se identifica el equipo dentro de EventOS."

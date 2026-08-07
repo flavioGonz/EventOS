@@ -1553,3 +1553,44 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
   background: var(--ok, #1a9d5a); box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
 .nvrch__dot.is-off { background: var(--text-faint); }
 .nvrch__name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---------- Alta paso a paso (Marca → Tipo → Conexión), premium ---------- */
+.dev-setup { display: flex; flex-direction: column; gap: 20px; max-width: 940px; }
+.dev-steps { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dev-step { display: inline-flex; align-items: center; gap: 9px; padding: 7px 15px 7px 7px; border-radius: 999px;
+  border: 1px solid var(--separator); background: var(--bg-elev); color: var(--text-faint); font-size: 13px; font-weight: 600; cursor: default; }
+.dev-step:not(:disabled) { cursor: pointer; }
+.dev-step__n { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text-dim); font-size: 12px; font-weight: 700; }
+.dev-step.is-cur { color: var(--accent); border-color: var(--accent); background: var(--accent-weak); }
+.dev-step.is-cur .dev-step__n { background: var(--accent); color: var(--on-accent); }
+.dev-step.is-done .dev-step__n { background: color-mix(in srgb, var(--ok, #1a9d5a) 20%, transparent); color: var(--ok, #1a9d5a); }
+.dev-setup__body { display: flex; flex-direction: column; gap: 14px; }
+.dev-setup__q { margin: 0; font-size: 16px; font-weight: 680; color: var(--text); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dev-setup__ctx { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-dim); }
+.dev-setup__back { align-self: flex-start; background: none; border: 0; color: var(--accent); font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px 0; }
+.dev-setup__cta { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; margin-top: 2px;
+  padding: 14px 16px; border-radius: var(--r); border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--separator));
+  background: linear-gradient(115deg, color-mix(in srgb, var(--accent) 10%, var(--bg-elev)), var(--bg-elev) 62%); }
+.dev-setup__cta .help-block { margin: 0; flex: 1; min-width: 220px; }
+.dev-conn2 { max-width: 720px; }
+
+.brandgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 12px; }
+.brandcard { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; min-height: 92px;
+  padding: 18px 12px; border: 1px solid var(--separator); border-radius: 14px; background: var(--bg-elev); cursor: pointer;
+  transition: transform .12s, border-color .12s, box-shadow .12s; }
+.brandcard:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 45%, var(--separator)); box-shadow: var(--shadow-2); }
+.brandcard.is-on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-weak); }
+.brandcard__logo { display: grid; place-items: center; min-height: 30px; }
+.brandcard__logo .vlogo__txt { font-size: 15px; }
+.brandcard__sub { font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+
+.typegrid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(178px, 1fr)); gap: 12px; }
+.typecard { display: flex; flex-direction: column; align-items: flex-start; gap: 7px; padding: 16px 15px; border: 1px solid var(--separator);
+  border-radius: 14px; background: var(--bg-elev); cursor: pointer; text-align: left; transition: transform .12s, border-color .12s, box-shadow .12s; }
+.typecard:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 45%, var(--separator)); box-shadow: var(--shadow-2); }
+.typecard.is-on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); background: var(--accent-weak); }
+.typecard__ic { width: 38px; height: 38px; border-radius: 11px; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 13%, transparent); color: var(--accent); }
+.typecard__lbl { font-size: 14px; font-weight: 650; color: var(--text); }
+.typecard__desc { font-size: 11.5px; color: var(--text-dim); line-height: 1.4; }
