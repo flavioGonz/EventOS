@@ -32,6 +32,7 @@ const EMPTY = {
   siteId: '', zone: '', streamUrl: '', snapshotUrl: '', rtspUrl: '',
   enabled: true, defaultPriority: null, tags: [], alerts: null, armed: false, relays: [],
 }
+const VENDORS = ['Hikvision', 'Dahua', 'Tiandy', 'Akuvox', 'Uniview', 'ONVIF', 'Otro']
 
 // Catálogo de fabricantes: al elegir uno se preconfiguran tipo, puertos y se
 // muestran los endpoints/APIs correctos. (Se irán sumando más.)
@@ -183,6 +184,7 @@ export default function DeviceEdit() {
   const toast = useToast()
   const [form, setForm] = useState({ ...EMPTY, ...(location.state?.prefill || {}) })
   const [sites, setSites] = useState([])
+  const [allDevices, setAllDevices] = useState([])
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [previewAspect, setPreviewAspect] = useState('16 / 9')
@@ -202,7 +204,13 @@ export default function DeviceEdit() {
 
   useEffect(() => {
     collectionApi('sites').list().then((d) => setSites(unwrap(d, 'sites'))).catch(() => {})
+    collectionApi('devices').list().then((d) => setAllDevices(unwrap(d, 'devices'))).catch(() => {})
   }, [])
+  // Canales asociados a este NVR = dispositivos con la misma IP y un nº de canal.
+  const nvrChannels = isNvr && form.ip
+    ? allDevices.filter((x) => x.id !== id && x.ip === form.ip && x.channel != null && x.type !== 'nvr' && x.type !== 'alarm')
+        .sort((a, b) => (Number(a.channel) || 0) - (Number(b.channel) || 0))
+    : []
   useEffect(() => {
     if (isNew) return
     let alive = true
@@ -400,7 +408,11 @@ export default function DeviceEdit() {
                   </Select>
                 </Field>
                 <Field label={<><Icon name="shield" size={14} /> Fabricante</>}>
-                  <TextInput value={form.vendor} onChange={set('vendor')} placeholder="Hikvision" />
+                  <Select value={form.vendor || ''} onChange={set('vendor')}>
+                    <option value="">— Elegir —</option>
+                    {VENDORS.map((v) => <option key={v} value={v}>{v}</option>)}
+                    {form.vendor && !VENDORS.includes(form.vendor) && <option value={form.vendor}>{form.vendor}</option>}
+                  </Select>
                 </Field>
                 <Field label={<><Icon name="globe" size={14} /> IP</>} className={isAlarm ? 'span-2' : ''}>
                   <TextInput value={form.ip} onChange={set('ip')} placeholder="192.168.99.50" />
@@ -495,10 +507,28 @@ export default function DeviceEdit() {
             </aside>
           )}
           {!gated && !canPreview && isNvr && !isNew && (
-            <aside className="dev-aside dev-sidecard">
-              <span className="dev-sidecard__ic"><Icon name="device" size={26} /></span>
-              <p className="dev-sidecard__title">NVR / DVR</p>
-              <p className="dev-sidecard__txt">Las alertas se configuran <b>por cámara</b>, no en el NVR: cada evento se atribuye a la cámara que lo generó. Usá <b>Probar e importar</b> para crear un dispositivo por canal, y mirá su estado en <b>Salud</b>.</p>
+            <aside className="dev-aside">
+              <div className="dev-aside__hd"><span className="dev-chip t-media"><Icon name="device" size={16} /></span>
+                <div className="dev-sec__t"><span className="dev-sec__title">Cámaras del NVR</span>
+                  <span className="dev-sec__sub">{nvrChannels.length ? `${nvrChannels.length} canal(es) asociado(s)` : 'Sin canales cargados aún'}</span></div>
+              </div>
+              {nvrChannels.length > 0 ? (
+                <div className="nvrgrid">
+                  {nvrChannels.map((c) => (
+                    <button type="button" key={c.id} className="nvrch" onClick={() => navigate(`/admin/devices/${c.id}`)} title={c.name}>
+                      <span className="nvrch__thumb">
+                        <img src={`/api/camera/${c.id}/snapshot`} alt="" onError={(e) => { e.currentTarget.style.opacity = 0 }} />
+                        <span className="nvrch__ch">CH {c.channel}</span>
+                        <span className={`nvrch__dot${c.enabled === false ? ' is-off' : ''}`} />
+                      </span>
+                      <span className="nvrch__name">{c.name}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="dev-sidecard__txt">Las alertas se configuran <b>por cámara</b>, no en el NVR. Usá <b>Probar e importar</b> para crear un dispositivo por canal (o cargalos con su RTSP) y aparecerán acá.</p>
+              )}
+              <p className="help-block u-mt-8">Tocá una cámara para abrir su ficha. Estado en vivo en <b>Salud</b>.</p>
             </aside>
           )}
         </div>

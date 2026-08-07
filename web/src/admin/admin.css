@@ -1538,3 +1538,18 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 .wizpage.wizpage--full { max-width: none; }
 .wizpage--full .wiz__typegrid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
 .wizpage--full .wiz .form-grid--2 { max-width: 100%; }
+
+/* ---------- Grilla de cámaras del NVR (en el aside de la ficha NVR) ---------- */
+.nvrgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.nvrch { display: flex; flex-direction: column; gap: 6px; padding: 0; border: 0; background: transparent; cursor: pointer; text-align: left; }
+.nvrch__thumb { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #0b0b0f;
+  border: 1px solid var(--separator); display: block; transition: border-color .15s; }
+.nvrch__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s var(--ease-out, ease); }
+.nvrch:hover .nvrch__thumb { border-color: color-mix(in srgb, var(--accent) 55%, var(--separator)); box-shadow: var(--shadow-1); }
+.nvrch:hover .nvrch__thumb img { transform: scale(1.06); }
+.nvrch__ch { position: absolute; left: 6px; bottom: 6px; font-size: 10px; font-weight: 700; letter-spacing: .04em;
+  padding: 2px 6px; border-radius: 6px; background: rgba(0,0,0,.62); color: #fff; }
+.nvrch__dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ok, #1a9d5a); box-shadow: 0 0 0 2px rgba(0,0,0,.35); }
+.nvrch__dot.is-off { background: var(--text-faint); }
+.nvrch__name { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
