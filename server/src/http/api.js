@@ -1,5 +1,6 @@
 // api.js — /api/health, /api/events, /api/events/:id, /api/operators (CONTRACT §3)
 import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -346,6 +347,33 @@ async function registerGo2rtc(name, src) {
   if (!r.ok) throw new Error(`go2rtc ${r.status}`);
   return name;
 }
+// Frame JPEG del vivo vía go2rtc (snapshot de equipos SIN ISAPI, p. ej. Tiandy).
+async function fetchGo2rtcFrame(dev) {
+  const rtsp = deviceLiveRtsp(dev, "sub") || deviceLiveRtsp(dev, "main");
+  if (!rtsp) return null;
+  const url = `http://127.0.0.1:1984/api/frame.jpeg?src=${encodeURIComponent(`ffmpeg:${rtsp}#video=h264`)}`;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 9000);
+  try {
+    const r = await fetch(url, { signal: ctrl.signal });
+    if (!r.ok) return null;
+    const buf = Buffer.from(await r.arrayBuffer());
+    return buf.length > 200 ? buf : null;
+  } catch { return null; } finally { clearTimeout(t); }
+}
+// ¿Responde el puerto TCP? (reachability para equipos sin ISAPI → online/offline).
+function tcpReachable(host, port, timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    const sock = new net.Socket();
+    let done = false;
+    const finish = (ok) => { if (done) return; done = true; try { sock.destroy(); } catch { /* noop */ } resolve(ok); };
+    sock.setTimeout(timeoutMs);
+    sock.once("connect", () => finish(true));
+    sock.once("timeout", () => finish(false));
+    sock.once("error", () => finish(false));
+    try { sock.connect(port, host); } catch { finish(false); }
+  });
+}
 router.post("/live-stream", async (req, res) => {
   const body = req.body || {};
   const deviceId = String(body.deviceId || "");
@@ -509,12 +537,21 @@ router.get("/camera/:id/snapshot", async (req, res) => {
   let devices = [];
   try { devices = listConfig("devices"); } catch { /* store */ }
   const dev = devices.find((d) => d.id === id);
-  if (!dev || !dev.ip || !dev.isapiPort || !dev.username) return res.status(404).end();
+  if (!dev) return res.status(404).end();
   const cached = SNAP_CACHE.get(id);
   if (cached && Date.now() - cached.ts < SNAP_TTL) {
     res.set("Content-Type", "image/jpeg"); res.set("Cache-Control", "no-store");
     return res.end(cached.buf);
   }
+  // Equipos SIN ISAPI (Tiandy/ONVIF/Dahua): snapshot desde el frame de go2rtc.
+  if (rtspTemplateFor(dev.vendor)) {
+    const buf = await fetchGo2rtcFrame(dev);
+    if (!buf) return res.status(502).end();
+    SNAP_CACHE.set(id, { ts: Date.now(), buf });
+    res.set("Content-Type", "image/jpeg"); res.set("Cache-Control", "no-store");
+    return res.end(buf);
+  }
+  if (!dev.ip || !dev.isapiPort || !dev.username) return res.status(404).end();
   const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
   try {
     const r = await digestGetBuffer({
@@ -667,6 +704,12 @@ router.get("/camera/:id/info", async (req, res) => {
       out.bitrate = Number(xtagInfo(cfg, "vbrUpperCap") || xtagInfo(cfg, "constantBitRate")) || null;
       out.codec = xtagInfo(cfg, "videoCodecType");
     }
+  }
+  // Sin ISAPI (Tiandy/ONVIF/Dahua u otro): online si el puerto RTSP responde.
+  if (!out.online) {
+    const rhost = dev.camIp || dev.ip;
+    const rport = Number(dev.rtspPort) || 554;
+    if (rhost) out.online = await tcpReachable(rhost, rport, 3000);
   }
   res.json(out);
 });
