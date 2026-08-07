@@ -1649,3 +1649,18 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 @keyframes scansweep { to { transform: rotate(360deg); } }
 
 @media (max-width: 760px) { .wizx__conn { grid-template-columns: 1fr; } }
+
+/* ---------- Puertas del sitio (relés → puertas) ---------- */
+.doors { display: flex; flex-direction: column; gap: 14px; }
+.doors__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.doors__head .section-label { margin: 0; }
+.doors__head .help-block { margin: 4px 0 0; max-width: 640px; }
+.doors__actions { display: flex; gap: 8px; flex-wrap: wrap; flex: none; }
+.doors__empty { display: flex; align-items: center; gap: 9px; padding: 16px 18px; border-radius: var(--r);
+  border: 1px dashed var(--separator); background: var(--bg-elev); color: var(--text-dim); font-size: 13px; }
+.doorlist { display: flex; flex-direction: column; gap: 10px; }
+.doorrow { display: grid; grid-template-columns: minmax(160px, 1.4fr) minmax(180px, 1.6fr) minmax(120px, .9fr) auto;
+  gap: 12px; align-items: end; padding: 12px 14px; border: 1px solid var(--separator); border-radius: 14px; background: var(--bg-elev); }
+.doorrow .field { margin: 0; }
+.doorrow__ctl { display: flex; gap: 6px; align-items: center; padding-bottom: 1px; }
+@media (max-width: 720px) { .doorrow { grid-template-columns: 1fr 1fr; } .doorrow__ctl { grid-column: 1 / -1; } }

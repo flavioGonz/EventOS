@@ -6,6 +6,7 @@ import { collectionApi } from '../lib/adminApi.js'
 import { PageHead, Loading, useToast } from './_shared.jsx'
 import SiteMap from '../components/SiteMap.jsx'
 import SiteDevices from './SiteDevices.jsx'
+import SiteDoors from './SiteDoors.jsx'
 import EvidenceSearch from './EvidenceSearch.jsx'
 import SiteHealth from './SiteHealth.jsx'
 
@@ -118,6 +119,9 @@ export default function SiteEdit() {
           <button type="button" className={`subtab${tab === 'dispositivos' ? ' is-on' : ''}`} onClick={() => setTab('dispositivos')}>
             <Icon name="camera" size={15} /> Dispositivos
           </button>
+          <button type="button" className={`subtab${tab === 'puertas' ? ' is-on' : ''}`} onClick={() => setTab('puertas')}>
+            <Icon name="route" size={15} /> Puertas
+          </button>
           <button type="button" className={`subtab${tab === 'salud' ? ' is-on' : ''}`} onClick={() => setTab('salud')}>
             <Icon name="gauge" size={15} /> Salud
           </button>
@@ -133,6 +137,8 @@ export default function SiteEdit() {
         <EvidenceSearch site={form.name} embedded />
       ) : tab === 'dispositivos' && !isNew ? (
         <SiteDevices siteId={id} />
+      ) : tab === 'puertas' && !isNew ? (
+        <SiteDoors siteId={id} />
       ) : (
       <Glass className="panel"><div className="panel__body">
       <div className="site-modal">
