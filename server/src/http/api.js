@@ -431,6 +431,26 @@ router.post("/playback-hls", async (req, res) => {
   try { devices = listConfig("devices"); } catch { /* store */ }
   const dev = devices.find((d) => d.id === deviceId);
   if (!dev) return res.status(404).json({ error: "no_device" });
+  // Playback de equipos SIN ISAPI (Tiandy/ONVIF): el NVR reproduce por RTSP con
+  // rango ?begin&end en HORA LOCAL del equipo. startHls re-encoda a H264 → el H265
+  // de Tiandy reproduce en el navegador. Devuelve {id,url} como el playback Hik.
+  if (rtspTemplateFor(dev.vendor)) {
+    const base = deviceLiveRtsp(dev, "main");
+    if (!base) return res.status(400).json({ error: "sin_rtsp" });
+    const tzMin = Number.isFinite(Number(process.env.EVENTOS_NVR_TZ_OFFSET_MIN)) ? Number(process.env.EVENTOS_NVR_TZ_OFFSET_MIN) : -180;
+    const toLocal = (h) => {
+      const d = new Date(Date.UTC(+h.slice(0, 4), +h.slice(4, 6) - 1, +h.slice(6, 8), +h.slice(9, 11), +h.slice(11, 13), +h.slice(13, 15)) + tzMin * 60000);
+      const p = (n) => String(n).padStart(2, "0");
+      return `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}`;
+    };
+    const rtsp = `${base}?begin=${toLocal(start)}&end=${toLocal(end)}`;
+    try {
+      const s = startHls(rtsp, { key: `pb:${deviceId}:${start}`, transport: "tcp" });
+      return res.json({ id: s.id, url: s.url, segStartUtcMs: compactToMs(start) });
+    } catch (e) {
+      return res.status(500).json({ error: "playback_failed", message: e.message });
+    }
+  }
   if (!dev.ip || !dev.isapiPort || !dev.username) return res.status(400).json({ error: "sin_isapi" });
   const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
   const startMs = compactToMs(start), endMs = compactToMs(end);
