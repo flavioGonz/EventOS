@@ -13,6 +13,7 @@ import { readJsonl } from "../util/jsonl.js";
 import { listOperators } from "../dispatch/store.js";
 import { discover as discoverHik } from "../discovery/hikvision.js";
 import { discover as discoverOnvif } from "../discovery/onvif.js";
+import { discover as discoverRtsp } from "../discovery/rtsp.js";
 import { digestGetBuffer } from "../util/digestFetch.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
 import { sessionFromReq } from "../auth/session.js";
@@ -44,12 +45,16 @@ router.post("/ping", (req, res) => {
 // Admin-only. Sondea un NVR/cámara (host+credenciales) y devuelve info, canales,
 // analíticas y streams. El SSRF queda mitigado por el gate de admin.
 router.post("/discover", async (req, res) => {
-  const { host, port, user, pass, https, protocol } = req.body || {};
+  const { host, port, user, pass, https, protocol, vendor, rtspPort } = req.body || {};
   if (!host || !user) return res.status(400).json({ error: "bad_request", message: "host y usuario son requeridos" });
-  const proto = protocol === "onvif" ? "onvif" : "hikvision";
-  const discover = proto === "onvif" ? discoverOnvif : discoverHik;
+  // Protocolo por fabricante: hikvision (ISAPI) · onvif · rtsp (Tiandy y equipos
+  // que no exponen ISAPI/ONVIF: se enumeran los canales por RTSP con ffprobe).
+  const proto = ["onvif", "rtsp"].includes(protocol) ? protocol : "hikvision";
   try {
-    const result = await discover({ host, port, user, pass, https });
+    let result;
+    if (proto === "rtsp") result = await discoverRtsp({ host, port, user, pass, vendor, rtspPort });
+    else if (proto === "onvif") result = await discoverOnvif({ host, port, user, pass, https });
+    else result = await discoverHik({ host, port, user, pass, https });
     log.info(`discover[${proto}]: ${host} → ${result.channels.length} canales, ${result.analytics.length} analíticas`);
     res.json(result);
   } catch (e) {

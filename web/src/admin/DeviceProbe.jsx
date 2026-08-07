@@ -43,16 +43,27 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, toast
       setStage(cur)
       if (cur >= HOLD) clearInterval(ivRef.current)
     }, 640)
-    // Protocolo según fabricante: Hikvision usa ISAPI; el resto (Tiandy, Dahua,
-    // ONVIF, Uniview…) usa ONVIF. Si el preferido no responde, se prueba el otro.
-    const preferred = /hik/i.test(device.vendor || '') ? 'hikvision' : 'onvif'
-    const alt = preferred === 'hikvision' ? 'onvif' : 'hikvision'
+    // Descubridor por fabricante (cadena de protocolos, primero el que aplica):
+    //  Hikvision → ISAPI (con ONVIF/RTSP de respaldo).
+    //  Tiandy    → RTSP (no expone ISAPI ni ONVIF): enumera canales por ffprobe.
+    //  Dahua/Uniview/Siera/Intelbras/ONVIF/genérico → ONVIF, con RTSP de respaldo.
+    const V = (device.vendor || '').toLowerCase()
+    const chain = /hik/.test(V) ? ['hikvision', 'onvif', 'rtsp']
+      : /tiandy/.test(V) ? ['rtsp']
+        : ['onvif', 'rtsp']
     const attempt = (protocol) => api.post('/discover', {
       protocol, host: device.ip, port: device.isapiPort || undefined,
       user: device.username, pass: device.password, https: !!device.https,
+      vendor: device.vendor || undefined, rtspPort: device.rtspPort || undefined,
     })
-    attempt(preferred)
-      .then((r) => (r && r.device) ? r : attempt(alt).then((r2) => (r2 && r2.device) ? r2 : (r2 || r)))
+    const tryChain = async () => {
+      let last = null
+      for (const p of chain) {
+        try { const r = await attempt(p); if (r && r.device) return r; last = r || last } catch { /* sigue con el próximo */ }
+      }
+      return last
+    }
+    tryChain()
       .then((r) => {
         clearInterval(ivRef.current); setResult(r)
         if (r && r.device) { setStage(STAGES.length - 1); onProbed?.(r) }
@@ -96,9 +107,11 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, toast
     const st = streamForChannel(streams, c.id)
     navigate('/admin/devices/new', {
       state: { prefill: {
-        name: c.name || `${d?.name || 'Cámara'} ${c.id}`, type: 'hikvision', vendor: 'Hikvision',
+        name: c.name || `${d?.name || 'Cámara'} ${c.id}`, type: 'camera',
+        vendor: device.vendor || d?.model || '',
         ip: c.ip || device.ip, channel: c.id || 1, rtspUrl: st?.rtsp || '',
-        username: device.username, isapiPort: device.isapiPort || '', rtspPort: device.rtspPort || '',
+        username: device.username, password: device.password || '',
+        isapiPort: device.isapiPort || '', rtspPort: device.rtspPort || '',
       } },
     })
   }
@@ -150,10 +163,10 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, toast
         <>
           <div className="probe-error">
             <Icon name="alert" size={16} />
-            <span>No se obtuvo respuesta por ISAPI/ONVIF. {result.errors?.length ? result.errors.join(' · ') : 'Revisá IP, puerto, usuario/clave y red.'}</span>
+            <span>No se pudo descubrir el equipo. {result.errors?.length ? result.errors.join(' · ') : 'Revisá IP, puerto, usuario/clave y red.'}</span>
           </div>
           <p className="help-block u-mt-12">
-            Algunos equipos (p. ej. <b>Tiandy</b>) no exponen ISAPI ni ONVIF por defecto: el descubrimiento automático no aplica. Podés <b>cargar los canales manualmente</b> con su RTSP (Tiandy: <code>rtsp://usuario:clave@ip:554/&lt;canal&gt;/1</code>), o habilitar ONVIF en el equipo y reintentar.
+            Se probó según el fabricante ({device.vendor || 'genérico'}): ISAPI, ONVIF y/o RTSP. Verificá <b>usuario/clave</b>, el <b>puerto RTSP</b> (554) y que la <b>plantilla RTSP</b> del fabricante sea correcta (en <b>Configuración › Plantillas RTSP</b>). También podés cargar el canal manualmente con su RTSP.
           </p>
         </>
       )}
