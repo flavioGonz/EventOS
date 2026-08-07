@@ -43,12 +43,22 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, toast
       setStage(cur)
       if (cur >= HOLD) clearInterval(ivRef.current)
     }, 640)
-    api.post('/discover', {
-      protocol: 'hikvision', host: device.ip, port: device.isapiPort || undefined,
+    // Protocolo según fabricante: Hikvision usa ISAPI; el resto (Tiandy, Dahua,
+    // ONVIF, Uniview…) usa ONVIF. Si el preferido no responde, se prueba el otro.
+    const preferred = /hik/i.test(device.vendor || '') ? 'hikvision' : 'onvif'
+    const alt = preferred === 'hikvision' ? 'onvif' : 'hikvision'
+    const attempt = (protocol) => api.post('/discover', {
+      protocol, host: device.ip, port: device.isapiPort || undefined,
       user: device.username, pass: device.password, https: !!device.https,
     })
-      .then((r) => { clearInterval(ivRef.current); setResult(r); setStage(STAGES.length - 1); if (r && r.device) onProbed?.(r) })
-      .catch((e) => { clearInterval(ivRef.current); setError(e.message || 'No se pudo conectar con el equipo') })
+    attempt(preferred)
+      .then((r) => (r && r.device) ? r : attempt(alt).then((r2) => (r2 && r2.device) ? r2 : (r2 || r)))
+      .then((r) => {
+        clearInterval(ivRef.current); setResult(r)
+        if (r && r.device) { setStage(STAGES.length - 1); onProbed?.(r) }
+        else setStage(0) // fallo → el primer paso queda en error
+      })
+      .catch((e) => { clearInterval(ivRef.current); setError(e.message || 'No se pudo conectar con el equipo'); setStage(0) })
       .finally(() => setRunning(false))
   }
 
@@ -113,9 +123,10 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, toast
 
       <div className="probe-steps">
         {STAGES.map((s, i) => {
-          const done = (result && i < STAGES.length - 1) || (result && !failed && i === STAGES.length - 1) || i < stage
-          const active = !result && !error && i === stage
-          const stalled = error && i === stage
+          const isFail = !!error || failed
+          const done = !isFail && ((result && i < STAGES.length - 1) || (result && i === STAGES.length - 1) || i < stage)
+          const active = !result && !error && !isFail && i === stage
+          const stalled = isFail && i === stage
           return (
             <div key={s.key} className={`probe-step${active ? ' is-active' : ''}${done ? ' is-done' : ''}${stalled ? ' is-error' : ''}`}>
               <span className="probe-step__ic">
@@ -136,10 +147,15 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, toast
       )}
 
       {failed && (
-        <div className="probe-error">
-          <Icon name="alert" size={16} />
-          <span>No se obtuvo respuesta del equipo. {result.errors?.length ? result.errors.join(' · ') : 'Revisá IP, puerto, usuario/clave y red.'}</span>
-        </div>
+        <>
+          <div className="probe-error">
+            <Icon name="alert" size={16} />
+            <span>No se obtuvo respuesta por ISAPI/ONVIF. {result.errors?.length ? result.errors.join(' · ') : 'Revisá IP, puerto, usuario/clave y red.'}</span>
+          </div>
+          <p className="help-block u-mt-12">
+            Algunos equipos (p. ej. <b>Tiandy</b>) no exponen ISAPI ni ONVIF por defecto: el descubrimiento automático no aplica. Podés <b>cargar los canales manualmente</b> con su RTSP (Tiandy: <code>rtsp://usuario:clave@ip:554/&lt;canal&gt;/1</code>), o habilitar ONVIF en el equipo y reintentar.
+          </p>
+        </>
       )}
 
       {result && !failed && (
