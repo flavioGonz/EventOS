@@ -140,33 +140,28 @@ function HlsLiveView(props) {
 function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAspect }) {
   const elRef = useRef(null)
   const [state, setState] = useState('connecting')
+  // Vivo por fMP4 progresivo (HTTP GET) — robusto detrás de proxy TLS: no depende
+  // del WebSocket de go2rtc (que algunos reverse-proxies no reenvían). El stream ya
+  // está registrado en go2rtc por /live-direct; acá sólo lo consumimos.
   useEffect(() => {
     const el = elRef.current
     if (!el || !streamName) return
-    el.background = false
-    el.mode = 'mse'
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    el.src = `${proto}://${window.location.host}/go2rtc/api/ws?src=${encodeURIComponent(streamName)}`
     setState('connecting')
-    let v = null
-    const onMeta = () => { if (onAspect && v && v.videoWidth && v.videoHeight) onAspect(`${v.videoWidth} / ${v.videoHeight}`) }
-    const onPlay = () => { setState('playing'); if (v) { try { v.controls = false } catch { /* noop */ } } onMeta() } // vivo: sin barra de progreso nativa; el aspecto REAL es el del video
-    const onErr = () => setState((s) => (s === 'playing' ? s : 'error'))
-    let tries = 0
-    const t = setInterval(() => {
-      if (el.video) {
-        v = el.video
-        try { v.controls = false } catch { /* noop */ } // vivo: quitar barra de progreso nativa
-        v.addEventListener('playing', onPlay); v.addEventListener('loadeddata', onPlay)
-        v.addEventListener('loadedmetadata', onMeta); v.addEventListener('error', onErr)
-        if (v.videoWidth) onMeta()
-        clearInterval(t)
-      } else if (++tries > 60) clearInterval(t)
-    }, 100)
+    const url = `/go2rtc/api/stream.mp4?src=${encodeURIComponent(streamName)}`
+    let retry
+    const arm = () => { try { el.src = url; el.load && el.load(); const p = el.play && el.play(); if (p && p.catch) p.catch(() => {}) } catch { /* noop */ } }
+    const onMeta = () => { if (onAspect && el.videoWidth && el.videoHeight) onAspect(`${el.videoWidth} / ${el.videoHeight}`) }
+    const onPlay = () => { setState('playing'); onMeta() }
+    const onErr = () => { setState((s) => (s === 'playing' ? s : 'error')); clearTimeout(retry); retry = setTimeout(arm, 2500) }
+    el.addEventListener('playing', onPlay); el.addEventListener('loadeddata', onPlay)
+    el.addEventListener('loadedmetadata', onMeta)
+    el.addEventListener('error', onErr); el.addEventListener('ended', onErr)
+    arm()
     return () => {
-      clearInterval(t)
-      if (v) { v.removeEventListener('playing', onPlay); v.removeEventListener('loadeddata', onPlay); v.removeEventListener('loadedmetadata', onMeta); v.removeEventListener('error', onErr) }
-      try { el.src = '' } catch { /* noop */ }
+      clearTimeout(retry)
+      el.removeEventListener('playing', onPlay); el.removeEventListener('loadeddata', onPlay)
+      el.removeEventListener('loadedmetadata', onMeta); el.removeEventListener('error', onErr); el.removeEventListener('ended', onErr)
+      try { el.src = ''; el.removeAttribute('src'); el.load && el.load() } catch { /* noop */ }
     }
   }, [streamName])
   const [snapT, setSnapT] = useState(0)
@@ -184,7 +179,7 @@ function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAsp
       {!playing && deviceId && (
         <img className="go2view__snap" alt="" src={`/api/camera/${deviceId}/snapshot${snapT ? `?t=${snapT}` : ''}`} />
       )}
-      <video-stream ref={elRef}></video-stream>
+      <video ref={elRef} className="go2view__video" autoPlay muted playsInline />
       {rules && rules.length > 0 && <AnalyticsOverlay rules={rules} space={space} highlightId={highlightId} />}
       {!playing && (
         <div className={`go2view__badge${state === 'error' ? ' is-err' : ''}`}>
@@ -316,35 +311,28 @@ function Go2RtcMseView({ src, rules, space, highlightId, onAspect }) {
   useEffect(() => {
     const el = elRef.current
     if (!el || !src) return
-    el.background = false
-    el.mode = 'mse'
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws'
-    el.src = `${proto}://${window.location.host}/go2rtc/api/ws?src=${encodeURIComponent(src)}`
     setState('connecting')
-    let v = null
-    const onMeta = () => { if (onAspect && v && v.videoWidth && v.videoHeight) onAspect(`${v.videoWidth} / ${v.videoHeight}`) }
-    const onPlay = () => { setState('playing'); onMeta() } // el aspecto REAL es el del video, no el del póster
-    const onErr = () => setState((s) => (s === 'playing' ? s : 'error'))
-    let tries = 0
-    const t = setInterval(() => {
-      if (el.video) {
-        v = el.video
-        v.addEventListener('playing', onPlay); v.addEventListener('loadeddata', onPlay)
-        v.addEventListener('loadedmetadata', onMeta); v.addEventListener('error', onErr)
-        if (v.videoWidth) onMeta()
-        clearInterval(t)
-      } else if (++tries > 60) clearInterval(t)
-    }, 100)
+    const url = `/go2rtc/api/stream.mp4?src=${encodeURIComponent(src)}`
+    let retry
+    const arm = () => { try { el.src = url; el.load && el.load(); const p = el.play && el.play(); if (p && p.catch) p.catch(() => {}) } catch { /* noop */ } }
+    const onMeta = () => { if (onAspect && el.videoWidth && el.videoHeight) onAspect(`${el.videoWidth} / ${el.videoHeight}`) }
+    const onPlay = () => { setState('playing'); onMeta() }
+    const onErr = () => { setState((s) => (s === 'playing' ? s : 'error')); clearTimeout(retry); retry = setTimeout(arm, 2500) }
+    el.addEventListener('playing', onPlay); el.addEventListener('loadeddata', onPlay)
+    el.addEventListener('loadedmetadata', onMeta)
+    el.addEventListener('error', onErr); el.addEventListener('ended', onErr)
+    arm()
     return () => {
-      clearInterval(t)
-      if (v) { v.removeEventListener('playing', onPlay); v.removeEventListener('loadeddata', onPlay); v.removeEventListener('loadedmetadata', onMeta); v.removeEventListener('error', onErr) }
-      try { el.src = '' } catch { /* noop */ }
+      clearTimeout(retry)
+      el.removeEventListener('playing', onPlay); el.removeEventListener('loadeddata', onPlay)
+      el.removeEventListener('loadedmetadata', onMeta); el.removeEventListener('error', onErr); el.removeEventListener('ended', onErr)
+      try { el.src = ''; el.removeAttribute('src'); el.load && el.load() } catch { /* noop */ }
     }
   }, [src])
   const playing = state === 'playing'
   return (
     <div className={`go2view${playing ? ' go2view--playing' : ''}`}>
-      <video-stream ref={elRef}></video-stream>
+      <video ref={elRef} className="go2view__video" autoPlay muted playsInline />
       {rules && rules.length > 0 && <AnalyticsOverlay rules={rules} space={space} highlightId={highlightId} />}
       {!playing && (
         <div className={`go2view__badge${state === 'error' ? ' is-err' : ''}`}>

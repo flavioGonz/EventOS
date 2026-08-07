@@ -4,6 +4,7 @@
 // las rutas quedan abiertas (modo dev). 401 si hay token configurado y no coincide.
 // Toda mutación persiste en el store (config/store.js) y aplica en vivo: el motor de
 // reglas y el de dispatch leen siempre del store.
+import net from "node:net";
 import { Router } from "express";
 import { config, tokensEqual } from "../config.js";
 import { log } from "../logger.js";
@@ -212,7 +213,26 @@ async function nvrHealth(dev) {
       capacity: Number(xtag(m[1], "capacity")) || 0, free: Number(xtag(m[1], "freeSpace")) || 0,
     }));
   }
+  // NVR sin ISAPI (Tiandy/ONVIF): online si responde el puerto RTSP. Salud limitada.
+  if (!out.online) {
+    out.online = await tcpReachable(dev.camIp || dev.ip, Number(dev.rtspPort) || 554, 3000);
+    if (out.online) out.limited = true;
+  }
   return out;
+}
+// ¿Responde el puerto TCP? (reachability para NVR sin ISAPI).
+function tcpReachable(host, port, timeoutMs = 3000) {
+  return new Promise((resolve) => {
+    if (!host) return resolve(false);
+    const sock = new net.Socket();
+    let done = false;
+    const finish = (ok) => { if (done) return; done = true; try { sock.destroy(); } catch { /* noop */ } resolve(ok); };
+    sock.setTimeout(timeoutMs);
+    sock.once("connect", () => finish(true));
+    sock.once("timeout", () => finish(false));
+    sock.once("error", () => finish(false));
+    try { sock.connect(port, host); } catch { finish(false); }
+  });
 }
 router.get("/nvr-health", async (req, res) => {
   let devices = [];
