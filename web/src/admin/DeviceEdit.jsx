@@ -240,6 +240,30 @@ export default function DeviceEdit() {
       name: (f.name && f.name.trim()) ? f.name : (r.device?.name || f.name),
     }))
   }
+  // Tarjeta de relés/puertas — reutilizable: va en el formulario (NVR/alarma sin
+  // preview) o debajo del "Canal en vivo" en cámaras con vista previa.
+  const renderRelays = (spanAll) => (
+    <div className={`dev-card${spanAll ? ' span-all' : ''}`}>
+      <SecHead icon="route" tone="relay" title="Relés / Puertas" sub="Salidas físicas del equipo."
+        hint={<>Salidas de relé del equipo para abrir puertas o accionar dispositivos. Definí un nombre y el número de salida; el botón «Abrir» acciona el relé físico (pide confirmación). Se puede disparar desde la consola del operador durante un evento.<span className="tt__eg">Ej.: «Portón principal» → salida 1.</span></>}
+        action={!isAlarm && canProbe && <Button variant="ghost" size="sm" icon="search" onClick={() => setProbing(true)}>Detectar del equipo</Button>} />
+      <p className="help-block">Definí nombre y nº de salida; «Abrir» acciona el relé y pide confirmación. {isNew && <b>Guardá el dispositivo primero.</b>}</p>
+      <div className="relaylist">
+        {(form.relays || []).length === 0 && (
+          <div className="relay-empty"><Icon name="route" size={16} /> Sin relés. Agregá uno manualmente o usá «Detectar del equipo».</div>
+        )}
+        {(form.relays || []).map((r, i) => (
+          <div className="relayrow" key={i}>
+            <TextInput value={r.name || ''} placeholder="Puerta principal" onChange={(e) => updRelay(i, { name: e.target.value })} />
+            <TextInput type="number" min="1" className="relayrow__out" value={r.output ?? '1'} placeholder="1" onChange={(e) => updRelay(i, { output: e.target.value })} />
+            <Button variant="secondary" icon="route" disabled={isNew} onClick={() => triggerRelay(r)}>Abrir</Button>
+            <Button variant="ghost" onClick={() => delRelay(i)}>Quitar</Button>
+          </div>
+        ))}
+        <Button variant="ghost" icon="plus" onClick={addRelay}>Agregar relé / puerta</Button>
+      </div>
+    </div>
+  )
   const addRelay = () => setForm((f) => ({ ...f, relays: [...(f.relays || []), { name: '', output: '1' }] }))
   const updRelay = (i, patch) => setForm((f) => ({ ...f, relays: (f.relays || []).map((r, j) => (j === i ? { ...r, ...patch } : r)) }))
   const delRelay = (i) => setForm((f) => ({ ...f, relays: (f.relays || []).filter((_, j) => j !== i) }))
@@ -444,26 +468,7 @@ export default function DeviceEdit() {
               </div>
             </div>
 
-            <div className="dev-card span-all">
-              <SecHead icon="route" tone="relay" title="Relés / Puertas" sub="Salidas físicas del equipo."
-                hint={<>Salidas de relé del equipo para abrir puertas o accionar dispositivos. Definí un nombre y el número de salida; el botón «Abrir» acciona el relé físico (pide confirmación). Se puede disparar desde la consola del operador durante un evento.<span className="tt__eg">Ej.: «Portón principal» → salida 1.</span></>}
-                action={!isAlarm && canProbe && <Button variant="ghost" size="sm" icon="search" onClick={() => setProbing(true)}>Detectar del equipo</Button>} />
-              <p className="help-block">Definí nombre y nº de salida; «Abrir» acciona el relé y pide confirmación. {isNew && <b>Guardá el dispositivo primero.</b>}</p>
-              <div className="relaylist">
-                {(form.relays || []).length === 0 && (
-                  <div className="relay-empty"><Icon name="route" size={16} /> Sin relés. Agregá uno manualmente o usá «Detectar del equipo».</div>
-                )}
-                {(form.relays || []).map((r, i) => (
-                  <div className="relayrow" key={i}>
-                    <TextInput value={r.name || ''} placeholder="Puerta principal" onChange={(e) => updRelay(i, { name: e.target.value })} />
-                    <TextInput type="number" min="1" className="relayrow__out" value={r.output ?? '1'} placeholder="1" onChange={(e) => updRelay(i, { output: e.target.value })} />
-                    <Button variant="secondary" icon="route" disabled={isNew} onClick={() => triggerRelay(r)}>Abrir</Button>
-                    <Button variant="ghost" onClick={() => delRelay(i)}>Quitar</Button>
-                  </div>
-                ))}
-                <Button variant="ghost" icon="plus" onClick={addRelay}>Agregar relé / puerta</Button>
-              </div>
-            </div>
+            {!canPreview && renderRelays(true)}
             </>)}
           </div>
 
@@ -478,6 +483,7 @@ export default function DeviceEdit() {
                 ? <div className="device-preview__legend"><AnalyticsLegend rules={ana.rules} /></div>
                 : <p className="help-block">Sin analíticas dibujadas en esta cámara (líneas/zonas).</p>}
               <p className="help-block">Vista en vivo del canal #{form.channel ?? '—'}. Las líneas de cruce y zonas de intrusión se dibujan sobre el video.</p>
+              {renderRelays(false)}
             </aside>
           )}
           {isAlarm && (
