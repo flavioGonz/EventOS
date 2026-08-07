@@ -861,24 +861,52 @@ const ANALYTICS_TYPES = [
   ["regionEntrance", "entrance"], ["regionExiting", "exiting"],
 ];
 const ANALYTICS_CACHE = new Map(); // deviceId → { ts, data }
-async function getDeviceAnalytics(dev) {
-  if (!dev || !dev.ip || !dev.isapiPort || !dev.username) return null;
-  const cached = ANALYTICS_CACHE.get(dev.id);
-  if (cached && Date.now() - cached.ts < 30000) return cached.data;
+// ¿La cámara-canal está detrás de un NVR? (comparte IP con un dispositivo type=nvr).
+// En un NVR Hik el recurso Smart por canal usa el id canal*100+1 (101, 301…),
+// mientras que una cámara IP directa lo expone en el canal simple. Probamos el
+// formato correcto primero según el caso, con el otro como respaldo.
+function analyticsChannelIds(dev, devices) {
   const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
+  const behindNvr = (devices || []).some((n) => n.type === "nvr" && n.id !== dev.id && n.ip && n.ip === dev.ip);
+  const ids = behindNvr ? [ch * 100 + 1, ch] : [ch, ch * 100 + 1];
+  return [...new Set(ids)];
+}
+// Trae las reglas dibujadas (líneas/zonas) para un id de canal ISAPI concreto.
+// `ok` indica si el canal respondió 200 (aunque no tenga reglas) → canal válido.
+async function fetchAnalyticsForChannel(dev, host, port, chId) {
   const rules = [];
+  let ok = false;
   for (const [pathName, kind] of ANALYTICS_TYPES) {
     try {
       const r = await digestGetBuffer({
-        host: dev.ip, port: Number(dev.isapiPort), https: !!dev.isapiHttps,
-        path: `/ISAPI/Smart/${pathName}/${ch}`, user: dev.username, pass: dev.password || "", timeoutMs: 6000,
+        host, port, https: !!dev.isapiHttps,
+        path: `/ISAPI/Smart/${pathName}/${chId}`, user: dev.username, pass: dev.password || "", timeoutMs: 6000,
       });
       if (r.status === 200) {
+        ok = true;
         const xml = r.buffer.toString("utf8");
         if (kind === "line") rules.push(...parseLineRules(xml));
         else rules.push(...parseRegionRules(xml, kind));
       }
     } catch { /* sigue con el resto */ }
+  }
+  return { ok, rules };
+}
+async function getDeviceAnalytics(dev) {
+  if (!dev || !dev.ip || !dev.isapiPort || !dev.username) return null;
+  const cached = ANALYTICS_CACHE.get(dev.id);
+  if (cached && Date.now() - cached.ts < 30000) return cached.data;
+  let devices = [];
+  try { devices = listConfig("devices"); } catch { /* store */ }
+  const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
+  const host = dev.ip, port = Number(dev.isapiPort);
+  let rules = [];
+  // Prueba el/los id(s) de canal; se queda con el primero que traiga reglas, o
+  // con el primero que responda 200 (canal válido aunque no tenga analíticas).
+  for (const chId of analyticsChannelIds(dev, devices)) {
+    const r = await fetchAnalyticsForChannel(dev, host, port, chId);
+    if (r.rules.length) { rules = r.rules; break; }
+    if (r.ok) { rules = r.rules; break; }
   }
   const data = { channel: ch, space: 1000, rules };
   ANALYTICS_CACHE.set(dev.id, { ts: Date.now(), data });

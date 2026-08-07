@@ -339,11 +339,36 @@ const DEFAULT_VIDEO = {
     { vendor: "Hikvision", main: "/Streaming/channels/{ch}01", sub: "/Streaming/channels/{ch}02" },
     { vendor: "Dahua",     main: "/cam/realmonitor?channel={ch}&subtype=0", sub: "/cam/realmonitor?channel={ch}&subtype=1" },
     { vendor: "Tiandy",    main: "/{ch}/1", sub: "/{ch}/2" },
+    { vendor: "Uniview",   main: "/unicast/c{ch}/s0/live", sub: "/unicast/c{ch}/s1/live" },
+    { vendor: "Siera",     main: "/cam/realmonitor?channel={ch}&subtype=0", sub: "/cam/realmonitor?channel={ch}&subtype=1" },
+    { vendor: "Intelbras", main: "/cam/realmonitor?channel={ch}&subtype=0", sub: "/cam/realmonitor?channel={ch}&subtype=1" },
+    { vendor: "Akuvox",    main: "/live/ch00_0", sub: "/live/ch00_1" },
     { vendor: "ONVIF",     main: "/onvif/profile1/media.smp", sub: "/onvif/profile2/media.smp" },
   ],
 };
+// Unión de plantillas RTSP: lo guardado por el usuario GANA por vendor, y se
+// completan las marcas del default que falten. Así un fabricante nuevo aparece
+// sin depender de re-guardar la config, y las ediciones del usuario se respetan.
+function mergeRtspTemplates(saved) {
+  const out = [];
+  const seen = new Set();
+  for (const t of Array.isArray(saved) ? saved : []) {
+    const k = String(t && t.vendor || "").trim().toLowerCase();
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
+  }
+  for (const d of DEFAULT_VIDEO.rtspTemplates) {
+    const k = d.vendor.toLowerCase();
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push({ ...d });
+  }
+  return out;
+}
 export function getVideo() {
-  return { ...DEFAULT_VIDEO, ...(db().video || {}) };
+  const v = db().video || {};
+  return { ...DEFAULT_VIDEO, ...v, rtspTemplates: mergeRtspTemplates(v.rtspTemplates) };
 }
 export function setVideo(patch = {}) {
   const d = db();
