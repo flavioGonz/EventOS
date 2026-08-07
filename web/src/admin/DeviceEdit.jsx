@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Field, TextInput, Select, Combobox, Switch, Button, Icon, InfoHint } from '../ui/primitives.jsx'
-import { collectionApi, unwrap, DEVICE_TYPES, webhookHint, testDeviceAlert } from '../lib/adminApi.js'
+import { collectionApi, unwrap, DEVICE_TYPES, webhookHint, testDeviceAlert, normalizeDeviceType } from '../lib/adminApi.js'
 import { deviceTypeLabel, priorityLabel, DEVICE_TYPE_ICON } from '../lib/labels.js'
 import { EditPage, Loading, useToast } from './_shared.jsx'
 import { Go2RtcView, AnalyticsLegend, useCameraAnalytics } from '../components/CameraLive.jsx'
@@ -27,12 +27,11 @@ function SecHead({ icon, tone, title, sub, hint, action }) {
 }
 
 const EMPTY = {
-  name: '', type: 'hikvision', vendor: '', ip: '', channel: 1,
+  name: '', type: 'camera', vendor: '', ip: '', channel: 1,
   username: '', password: '', isapiPort: '', rtspPort: '', camIp: '',
   siteId: '', zone: '', streamUrl: '', snapshotUrl: '', rtspUrl: '',
   enabled: true, defaultPriority: null, tags: [], alerts: null, armed: false, relays: [],
 }
-const VENDOR_BY_TYPE = { hikvision: 'Hikvision', akuvox: 'Akuvox', nvr: 'NVR', alarm: 'Alarma', generic: '' }
 
 // Catálogo de fabricantes: al elegir uno se preconfiguran tipo, puertos y se
 // muestran los endpoints/APIs correctos. (Se irán sumando más.)
@@ -192,8 +191,11 @@ export default function DeviceEdit() {
   const [probed, setProbed] = useState(false) // conexión verificada al menos una vez
   const isAlarm = form.type === 'alarm'
   const isNvr = form.type === 'nvr'
-  // Vista previa del canal: solo para cámaras ya guardadas (necesita id + credenciales).
-  const canPreview = !isNew && !isNvr && !isAlarm
+  const isAccess = form.type === 'access'
+  const isIntercom = form.type === 'intercom'
+  const isCamera = form.type === 'camera'
+  // Vista previa del canal: cámara/portero ya guardados (necesita id + credenciales).
+  const canPreview = !isNew && (isCamera || isIntercom)
   // Aside a la derecha: video (cámara guardada) o ficha contextual (alarma/NVR guardados).
   const hasAside = canPreview || isAlarm || (!isNew && isNvr)
   const ana = useCameraAnalytics(id, canPreview)
@@ -205,19 +207,17 @@ export default function DeviceEdit() {
     if (isNew) return
     let alive = true
     collectionApi('devices').get(id)
-      .then((d) => { if (alive) setForm({ ...EMPTY, ...d }) })
+      .then((d) => { if (alive) setForm({ ...EMPTY, ...d, type: normalizeDeviceType(d.type) }) })
       .catch((e) => toast(e.message || 'No se pudo cargar', 'error'))
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [id, isNew]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
-  const onType = (e) => {
-    const type = e.target.value
-    setForm((f) => ({ ...f, type, vendor: f.vendor || VENDOR_BY_TYPE[type] || '' }))
-  }
+  const onType = (e) => setForm((f) => ({ ...f, type: e.target.value }))
   const curMfr = MANUFACTURERS.find((m) => m.id === form.vendor) || null
-  const pickMfr = (m) => setForm((f) => ({ ...f, vendor: m.id, type: m.type, isapiPort: m.isapiPort ?? f.isapiPort, rtspPort: m.rtspPort ?? f.rtspPort }))
+  // Elegir fabricante ajusta vendor y puertos — NO el tipo (son campos independientes).
+  const pickMfr = (m) => setForm((f) => ({ ...f, vendor: m.id, isapiPort: m.isapiPort ?? f.isapiPort, rtspPort: m.rtspPort ?? f.rtspPort }))
   const createSite = async (name) => {
     const nm = (name || '').trim()
     if (!nm) return null
@@ -231,7 +231,7 @@ export default function DeviceEdit() {
   const applyImport = (patch) => setForm((f) => ({ ...f, ...patch }))
   const canProbe = !isAlarm && !!(form.ip || '').trim() && !!(form.username || '').trim()
   // En alta de cámara/NVR exigimos verificar la conexión antes de mostrar/guardar el resto.
-  const gated = isNew && !isAlarm && !probed
+  const gated = isNew && (isCamera || isNvr) && !probed
   const onProbed = (r) => {
     setProbed(true)
     setForm((f) => ({

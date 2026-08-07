@@ -24,9 +24,12 @@ export const CATEGORY_LABELS = {
   video: 'Video', access: 'Accesos', intrusion: 'Intrusión', system: 'Sistema',
 }
 
+// El TIPO es la categoría del equipo (no el fabricante). Se mantienen los
+// valores antiguos (hikvision/akuvox/generic) como alias para fichas ya creadas.
 export const DEVICE_TYPE_LABELS = {
-  hikvision: 'Hikvision', akuvox: 'Akuvox', nvr: 'NVR / DVR',
-  alarm: 'Central de alarma', generic: 'Genérico',
+  camera: 'Cámara IP', nvr: 'NVR / DVR', alarm: 'Alarma',
+  intercom: 'Portero', access: 'Control de acceso',
+  hikvision: 'Cámara IP', akuvox: 'Portero', generic: 'Cámara IP', // legado
 }
 
 // Objetivo clasificado por la cámara (AcuSense/DeepinView) — filtrado de falsas.
@@ -73,7 +76,8 @@ export const EVENT_TYPE_ICON = {
   alarm:'bell', tamper_alarm:'shield', system:'device',
 }
 export const DEVICE_TYPE_ICON = {
-  hikvision:'camera', akuvox:'bell', nvr:'device', alarm:'bell', generic:'device',
+  camera:'camera', nvr:'device', alarm:'siren', intercom:'speaker', access:'shield',
+  hikvision:'camera', akuvox:'speaker', generic:'camera', // legado
 }
 
 const get = (map, key, fallback) => map[key] ?? (fallback !== undefined ? fallback : key)

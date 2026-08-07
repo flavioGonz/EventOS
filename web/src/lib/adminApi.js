@@ -164,21 +164,26 @@ export const EVENT_CATEGORIES = ['video', 'access', 'intrusion', 'system']
 // Objetivos clasificados por la cámara (filtrado de falsas alarmas).
 export const TARGETS = ['human', 'vehicle', 'none']
 
+// TIPO = categoría del equipo (el fabricante es un campo aparte).
 export const DEVICE_TYPES = [
-  { value: 'hikvision', label: 'Hikvision' },
-  { value: 'akuvox',    label: 'Akuvox' },
-  { value: 'nvr',       label: 'NVR' },
-  { value: 'alarm',     label: 'Central de alarma' },
-  { value: 'generic',   label: 'Genérico' },
+  { value: 'camera',   label: 'Cámara IP' },
+  { value: 'nvr',      label: 'NVR / DVR' },
+  { value: 'alarm',    label: 'Alarma' },
+  { value: 'intercom', label: 'Portero' },
+  { value: 'access',   label: 'Control de acceso' },
 ]
+// Normaliza valores antiguos (fabricante-como-tipo) a la nueva categoría.
+export const normalizeDeviceType = (t) => (
+  t === 'hikvision' || t === 'generic' ? 'camera' : t === 'akuvox' ? 'intercom' : (t || 'camera')
+)
 
 // Pista de webhook por tipo de dispositivo (endpoint de ingesta).
 export function webhookHint(type) {
-  switch (type) {
-    case 'hikvision': return '/api/ingest/hikvision'
-    case 'akuvox':    return '/api/ingest/akuvox'
-    case 'nvr':       return '/api/ingest/nvr'
-    case 'alarm':     return '/api/ingest/alarm'
-    default:          return '/api/ingest/generic'
+  switch (normalizeDeviceType(type)) {
+    case 'nvr':      return '/api/ingest/nvr'
+    case 'alarm':    return '/api/ingest/alarm'
+    case 'intercom': return '/api/ingest/akuvox'
+    case 'access':   return '/api/ingest/access'
+    default:         return '/api/ingest/hikvision'
   }
 }

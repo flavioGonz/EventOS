@@ -4,7 +4,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Field, TextInput, Select, Combobox, Icon } from '../ui/primitives.jsx'
-import { VendorLogo, VENDOR_BRANDS } from '../ui/vendorLogos.jsx'
 import { collectionApi, unwrap, DEVICE_TYPES } from '../lib/adminApi.js'
 import { deviceTypeLabel, priorityLabel, DEVICE_TYPE_ICON } from '../lib/labels.js'
 import { PageHead, useToast } from './_shared.jsx'
@@ -16,14 +15,14 @@ const STEPS = [
   { key: 'place', label: 'Ubicación' },
   { key: 'review', label: 'Revisar' },
 ]
-const VENDOR_BY_TYPE = { hikvision: 'Hikvision', akuvox: 'Akuvox', nvr: 'NVR', alarm: 'Alarma', generic: '' }
-// Descripción corta por tipo — llena mejor la tarjeta y orienta al usuario.
+const VENDORS = ['Hikvision', 'Dahua', 'Tiandy', 'Akuvox', 'Uniview', 'Otro']
+// Descripción corta por CATEGORÍA — llena mejor la tarjeta y orienta al usuario.
 const TYPE_DESC = {
-  hikvision: 'Cámara IP Hikvision · ISAPI + RTSP, eventos en vivo.',
-  akuvox: 'Portero / intercom IP · eventos por webhook.',
+  camera: 'Cámara IP · RTSP + eventos (ISAPI / ONVIF).',
   nvr: 'Grabador con varias cámaras · RTSP por canal.',
   alarm: 'Central de alarma · reporta por IP/HTTP, sin video.',
-  generic: 'Cámara ONVIF u otro equipo · RTSP estándar.',
+  intercom: 'Portero / intercom IP · video, audio y relé.',
+  access: 'Control de acceso · puertas / relés y eventos.',
 }
 
 export default function DeviceWizard() {
@@ -33,7 +32,7 @@ export default function DeviceWizard() {
   const [sites, setSites] = useState([])
   const [creating, setCreating] = useState(false)
   const [f, setF] = useState({
-    name: '', type: 'hikvision', ip: '', channel: 1,
+    name: '', type: 'camera', vendor: '', ip: '', channel: 1,
     username: 'admin', password: '', isapiPort: 80, rtspPort: 554, camIp: '',
     siteId: '', zone: '', defaultPriority: null, enabled: true,
   })
@@ -41,7 +40,7 @@ export default function DeviceWizard() {
 
   useEffect(() => { collectionApi('sites').list().then((d) => setSites(unwrap(d, 'sites'))).catch(() => {}) }, [])
 
-  const isCam = f.type !== 'alarm'
+  const isCam = f.type === 'camera' || f.type === 'nvr' || f.type === 'intercom'
   const canNext =
     step === 0 ? !!f.name.trim() :
     step === 1 ? (!isCam || !!f.ip.trim()) : true
@@ -56,7 +55,7 @@ export default function DeviceWizard() {
     setCreating(true)
     const payload = {
       ...f,
-      vendor: VENDOR_BY_TYPE[f.type] || '',
+      vendor: f.vendor || '',
       channel: f.channel === '' ? null : Number(f.channel),
       isapiPort: f.isapiPort ? Number(f.isapiPort) : null,
       rtspPort: f.rtspPort ? Number(f.rtspPort) : null,
@@ -85,18 +84,24 @@ export default function DeviceWizard() {
                 {DEVICE_TYPES.map((t) => (
                   <button type="button" key={t.value} className={`etcard${f.type === t.value ? ' is-on' : ''}`}
                     onClick={() => setF((p) => ({ ...p, type: t.value }))}>
-                    {VENDOR_BRANDS[VENDOR_BY_TYPE[t.value]]
-                      ? <span className="etcard__logo"><VendorLogo id={VENDOR_BY_TYPE[t.value]} size={20} /></span>
-                      : <><span className="etcard__ic"><Icon name={DEVICE_TYPE_ICON[t.value] || 'device'} size={22} /></span>
-                          <span className="etcard__lbl">{deviceTypeLabel(t.value)}</span></>}
+                    <span className="etcard__ic"><Icon name={DEVICE_TYPE_ICON[t.value] || 'device'} size={22} /></span>
+                    <span className="etcard__lbl">{deviceTypeLabel(t.value)}</span>
                     <span className="etcard__desc">{TYPE_DESC[t.value]}</span>
                     {f.type === t.value && <span className="etcard__check"><Icon name="check" size={13} /></span>}
                   </button>
                 ))}
               </div>
-              <Field label={<><Icon name="device" size={14} /> Nombre del dispositivo</>} className="u-mt-16">
-                <TextInput autoFocus value={f.name} onChange={set('name')} placeholder="Cámara Acceso Norte" />
-              </Field>
+              <div className="form-grid form-grid--2 u-mt-16">
+                <Field label={<><Icon name="device" size={14} /> Nombre del dispositivo</>}>
+                  <TextInput autoFocus value={f.name} onChange={set('name')} placeholder="Cámara Acceso Norte" />
+                </Field>
+                <Field label={<><Icon name="shield" size={14} /> Fabricante</>} hint="Marca del equipo (independiente del tipo).">
+                  <Select value={f.vendor} onChange={set('vendor')}>
+                    <option value="">— Elegir —</option>
+                    {VENDORS.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </Select>
+                </Field>
+              </div>
             </>
           )}
 
