@@ -276,7 +276,16 @@ function deviceDirectRtsp(dev, quality) {
   const suffix = quality === "main" ? "01" : "02";
   const u = encodeURIComponent(dev.username);
   const p = encodeURIComponent(dev.password || "");
-  return `rtsp://${u}:${p}@${host}:${port}/Streaming/Channels/1${suffix}`; // cámara = 1 canal
+  const root = `rtsp://${u}:${p}@${host}:${port}`;
+  // Fabricante con plantilla propia (p. ej. Tiandy `/{ch}/1`): usarla con el
+  // canal del equipo (si es acceso directo a la cámara, canal = 1).
+  const tpl = rtspTemplateFor(dev.vendor);
+  if (tpl) {
+    const ch = dev.camIp ? 1 : (Number(dev.channel) > 0 ? Number(dev.channel) : 1);
+    const raw = (quality === "main" ? tpl.main : (tpl.sub || tpl.main)) || "";
+    return root + raw.replace(/\{ch\}/g, String(ch));
+  }
+  return `${root}/Streaming/Channels/1${suffix}`; // cámara = 1 canal
 }
 // Vivo DIRECTO por go2rtc (MSE), sin transcode (stream limpio). 404 si no hay
 // camIp → el front cae al MJPEG por el NVR.
