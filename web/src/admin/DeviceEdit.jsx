@@ -10,6 +10,7 @@ import { EventTypeGrid } from './EventTypeGrid.jsx'
 import DeviceHealth from './DeviceHealth.jsx'
 import DeviceProbe from './DeviceProbe.jsx'
 import AlarmPanel from './AlarmPanel.jsx'
+import { VendorLogo, VENDOR_BRANDS } from '../ui/vendorLogos.jsx'
 
 // Encabezado de sección con chip de icono de color, título, subtítulo y tooltip.
 function SecHead({ icon, tone, title, sub, hint, action }) {
@@ -38,6 +39,8 @@ const VENDOR_BY_TYPE = { hikvision: 'Hikvision', akuvox: 'Akuvox', nvr: 'NVR', a
 const MANUFACTURERS = [
   { id: 'Hikvision', label: 'Hikvision', icon: 'shield', type: 'hikvision', isapiPort: 80, rtspPort: 554,
     hint: 'Cámaras y NVR por ISAPI (HTTP) + RTSP 554. Eventos en vivo por alertStream. Paneles AX (Hybrid/Pro) por ISAPI SecurityCP (próximamente, con control de relé).' },
+  { id: 'Tiandy', label: 'Tiandy', icon: 'device', type: 'nvr', isapiPort: 80, rtspPort: 554,
+    hint: 'NVR/cámaras Tiandy. Vivo por RTSP (/Streaming/Channels o /media/…) y descubrimiento por ONVIF (Perfil S). Eventos por webhook/ONVIF. No usa ISAPI de Hikvision.' },
   { id: 'Dahua', label: 'Dahua', icon: 'shield', type: 'generic', isapiPort: 80, rtspPort: 554,
     hint: 'Cámaras/NVR por HTTP API + RTSP 554 (/cam/realmonitor). Eventos por webhook.' },
   { id: 'Akuvox', label: 'Akuvox', icon: 'speaker', type: 'akuvox', isapiPort: 80, rtspPort: 554,
@@ -303,8 +306,9 @@ export default function DeviceEdit() {
                 <div className="mfr-grid">
                   {MANUFACTURERS.map((m) => (
                     <button type="button" key={m.id} className={`mfr-card${form.vendor === m.id ? ' is-on' : ''}`} onClick={() => pickMfr(m)}>
-                      <span className="mfr-card__ic"><Icon name={m.icon} size={20} /></span>
-                      <span className="mfr-card__lbl">{m.label}</span>
+                      {VENDOR_BRANDS[m.id]
+                        ? <span className="mfr-card__logo"><VendorLogo id={m.id} size={18} /></span>
+                        : <><span className="mfr-card__ic"><Icon name={m.icon} size={20} /></span><span className="mfr-card__lbl">{m.label}</span></>}
                     </button>
                   ))}
                 </div>

@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Field, TextInput, Select, Combobox, Icon } from '../ui/primitives.jsx'
+import { VendorLogo, VENDOR_BRANDS } from '../ui/vendorLogos.jsx'
 import { collectionApi, unwrap, DEVICE_TYPES } from '../lib/adminApi.js'
 import { deviceTypeLabel, priorityLabel, DEVICE_TYPE_ICON } from '../lib/labels.js'
 import { PageHead, useToast } from './_shared.jsx'
@@ -73,7 +74,7 @@ export default function DeviceWizard() {
   return (
     <div className="anim-rise">
       <PageHead title="Nuevo dispositivo — asistente" subtitle="Te guío paso a paso para conectarlo bien." />
-      <div className="wizpage">
+      <div className="wizpage wizpage--full">
         <Wizard steps={STEPS} step={step} onStep={setStep} onCancel={() => navigate('/admin/devices')}
           onFinish={finish} canNext={canNext} finishing={creating} finishLabel="Crear dispositivo">
 
@@ -84,8 +85,10 @@ export default function DeviceWizard() {
                 {DEVICE_TYPES.map((t) => (
                   <button type="button" key={t.value} className={`etcard${f.type === t.value ? ' is-on' : ''}`}
                     onClick={() => setF((p) => ({ ...p, type: t.value }))}>
-                    <span className="etcard__ic"><Icon name={DEVICE_TYPE_ICON[t.value] || 'device'} size={22} /></span>
-                    <span className="etcard__lbl">{deviceTypeLabel(t.value)}</span>
+                    {VENDOR_BRANDS[VENDOR_BY_TYPE[t.value]]
+                      ? <span className="etcard__logo"><VendorLogo id={VENDOR_BY_TYPE[t.value]} size={20} /></span>
+                      : <><span className="etcard__ic"><Icon name={DEVICE_TYPE_ICON[t.value] || 'device'} size={22} /></span>
+                          <span className="etcard__lbl">{deviceTypeLabel(t.value)}</span></>}
                     <span className="etcard__desc">{TYPE_DESC[t.value]}</span>
                     {f.type === t.value && <span className="etcard__check"><Icon name="check" size={13} /></span>}
                   </button>

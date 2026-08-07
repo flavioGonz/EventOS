@@ -1525,3 +1525,16 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 .alarmlog__t { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .alarmlog__t b { font-size: 12.5px; font-weight: 600; }
 .alarmlog__t span { font-size: 11px; color: var(--text-faint); }
+
+/* ---------- Logos de fabricante (wordmark en color de marca) ---------- */
+.vlogo { display: inline-flex; align-items: center; gap: 7px; line-height: 1; color: var(--vc, var(--text)); }
+.vlogo__dot { width: 8px; height: 8px; border-radius: 2px; background: var(--vc); flex: none; }
+.vlogo__txt { color: var(--vc); }
+.vlogo--icon { color: var(--text-dim); display: inline-flex; align-items: center; }
+.mfr-card__logo, .etcard__logo { display: flex; align-items: center; justify-content: flex-start; min-height: 36px; }
+.etcard__logo { justify-content: center; }
+
+/* ---------- Asistente de dispositivo: usar todo el ancho ---------- */
+.wizpage.wizpage--full { max-width: none; }
+.wizpage--full .wiz__typegrid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.wizpage--full .wiz .form-grid--2 { max-width: 100%; }

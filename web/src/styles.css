@@ -2328,3 +2328,10 @@
 .wall__livecount.is-max { color: #ffd27a; background: rgba(255,176,32,.16); }
 .wall__picksearch input { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); color: #fff; }
 .wall__picksearch input::placeholder { color: rgba(255,255,255,.45); }
+
+/* Relés / puertas en la consola del operador (EventPopup) */
+.evpopup__relays { margin-top: 12px; }
+.evpopup__relay-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.evpopup__relay-msg { display: inline-block; margin-top: 6px; font-size: 12.5px; font-weight: 600; }
+.evpopup__relay-msg.is-ok { color: var(--ok, #1a9d5a); }
+.evpopup__relay-msg.is-err { color: var(--crit, #e5484d); }

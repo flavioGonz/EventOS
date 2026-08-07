@@ -342,6 +342,9 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
               </div>
             )}
 
+            <RelayBar deviceId={event.source && event.source.deviceId} closed={closed}
+              operatorId={(operator && operator.id) || 'operator'} />
+
             {!supervise && (
               <Procedures
                 procedure={procedure}
@@ -412,6 +415,56 @@ function Meta({ label, value }) {
     <div className="evpopup__meta-item">
       <dt>{label}</dt>
       <dd>{value}</dd>
+    </div>
+  )
+}
+
+// RelayBar — permite al operador accionar los relés/puertas del dispositivo del
+// evento sin salir de la consola. Lista las salidas del equipo y las dispara.
+function RelayBar({ deviceId, closed, operatorId }) {
+  const [outputs, setOutputs] = useState(null)
+  const [busy, setBusy] = useState('')
+  const [msg, setMsg] = useState(null)
+  useEffect(() => {
+    if (!deviceId) { setOutputs([]); return }
+    let alive = true
+    fetch(`/api/device/${deviceId}/outputs`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setOutputs(Array.isArray(d) ? d : (d && (d.outputs || d.relays)) || []) })
+      .catch(() => { if (alive) setOutputs([]) })
+    return () => { alive = false }
+  }, [deviceId])
+  if (!deviceId || !outputs || outputs.length === 0) return null
+
+  const fire = async (o, id) => {
+    if (!window.confirm(`¿Abrir "${o.name || 'salida ' + id}" ahora? Acciona la salida física del equipo.`)) return
+    setBusy(id); setMsg(null)
+    try {
+      const res = await fetch(`/api/device/${deviceId}/relay`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ output: id, cmd: o.kind || 'open', confirmed: true, operatorId }),
+      })
+      const d = await res.json().catch(() => ({}))
+      setMsg(d && d.ok ? { ok: true, t: `Accionado: ${o.name || 'salida ' + id}` } : { ok: false, t: `No respondió OK (${(d && (d.status || d.error)) || '—'})` })
+    } catch (e) { setMsg({ ok: false, t: e.message || 'No se pudo accionar' }) }
+    finally { setBusy('') }
+  }
+
+  return (
+    <div className="evpopup__relays">
+      <span className="evpopup__sec-lbl"><Icon name="route" size={13} /> Relés / puertas</span>
+      <div className="evpopup__relay-row">
+        {outputs.map((o, i) => {
+          const id = String(o.id != null ? o.id : (o.output != null ? o.output : i + 1))
+          return (
+            <Button key={i} variant="secondary" icon="route" disabled={closed || busy === id}
+              data-tip="Acciona la salida física del equipo (abrir puerta / relé)" onClick={() => fire(o, id)}>
+              {busy === id ? 'Accionando…' : (o.name || `Salida ${id}`)}
+            </Button>
+          )
+        })}
+      </div>
+      {msg && <span className={`evpopup__relay-msg ${msg.ok ? 'is-ok' : 'is-err'}`}>{msg.t}</span>}
     </div>
   )
 }
