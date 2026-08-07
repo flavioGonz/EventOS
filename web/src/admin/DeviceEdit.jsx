@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Field, TextInput, Select, Combobox, Switch, Button, Icon, InfoHint } from '../ui/primitives.jsx'
-import { collectionApi, unwrap, DEVICE_TYPES, webhookHint, testDeviceAlert, normalizeDeviceType } from '../lib/adminApi.js'
+import { collectionApi, unwrap, DEVICE_TYPES, webhookHint, testDeviceAlert, normalizeDeviceType, getReception } from '../lib/adminApi.js'
 import { deviceTypeLabel, priorityLabel, DEVICE_TYPE_ICON } from '../lib/labels.js'
 import { EditPage, Loading, useToast } from './_shared.jsx'
 import { Go2RtcView, AnalyticsLegend, useCameraAnalytics } from '../components/CameraLive.jsx'
@@ -206,6 +206,21 @@ export default function DeviceEdit() {
     collectionApi('sites').list().then((d) => setSites(unwrap(d, 'sites'))).catch(() => {})
     collectionApi('devices').list().then((d) => setAllDevices(unwrap(d, 'devices'))).catch(() => {})
   }, [])
+  // URL de webhook de ingesta para equipos que reportan por HTTP (alarma / acceso).
+  const [ingestUrl, setIngestUrl] = useState('')
+  useEffect(() => {
+    if (isNew || !(isAlarm || isAccess) || !id) return
+    let alive = true
+    getReception().then((d) => {
+      if (!alive) return
+      const rec = (d.devices || []).find((x) => x.id === id)
+      setIngestUrl(rec ? (rec.urlWithToken || rec.url || '') : (d.base ? `${d.base}${webhookHint(form.type)}?token=${d.ingestToken || ''}` : ''))
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [id, isNew, isAlarm, isAccess]) // eslint-disable-line react-hooks/exhaustive-deps
+  const copyIngest = async () => {
+    try { await navigator.clipboard.writeText(ingestUrl); toast('URL copiada') } catch { toast('No se pudo copiar', 'error') }
+  }
   // Canales asociados a este NVR = dispositivos con la misma IP y un nº de canal.
   const nvrChannels = isNvr && form.ip
     ? allDevices.filter((x) => x.id !== id && x.ip === form.ip && x.channel != null && x.type !== 'nvr' && x.type !== 'alarm')
@@ -480,6 +495,17 @@ export default function DeviceEdit() {
               </div>
             </div>
 
+            {(isAlarm || isAccess) && !isNew && (
+              <div className="dev-card span-all">
+                <SecHead icon="link" tone="cred" title="Webhook de eventos" sub="Dónde el equipo reporta sus eventos a EventOS."
+                  hint={<>Configurá la central/receptor para hacer <b>POST</b> de sus eventos a esta URL (ya incluye el token de ingesta). El equipo se identifica por su IP/payload.<span className="tt__eg">Ej.: intrusión, pánico, sabotaje, puerta forzada.</span></>} />
+                <p className="help-block">Pegá esta URL en la config de red del equipo (reporte por IP/HTTP). El detalle por tipo está en <b>Configuración › Endpoints de ingesta</b>.</p>
+                <button type="button" className="copyfield copyfield--mono" onClick={copyIngest} title="Copiar" disabled={!ingestUrl}>
+                  <span className="copyfield__val">{ingestUrl || 'Cargando…'}</span>
+                  <span className="copyfield__ic"><Icon name="copy" size={15} /></span>
+                </button>
+              </div>
+            )}
             {!canPreview && renderRelays(true)}
             </>)}
           </div>
