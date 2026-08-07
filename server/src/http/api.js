@@ -228,13 +228,30 @@ router.post("/playback/:id/keepalive", (req, res) => { res.json({ ok: keepAlive(
 // Construye el RTSP con credenciales desde la config del dispositivo (nunca del
 // cliente). `quality`: 'sub' (subflujo, ligero, por defecto) | 'main'. Reúsa la
 // sesión por (device,quality) para no duplicar ffmpeg si varios miran lo mismo.
+// Plantilla RTSP por fabricante (config video). Hikvision/vacío → null para
+// conservar la ruta histórica hardcodeada (retrocompatible).
+function rtspTemplateFor(vendor) {
+  const v = String(vendor || "").trim().toLowerCase();
+  if (!v || v === "hikvision") return null;
+  try {
+    const hit = (getVideo().rtspTemplates || []).find((t) => String(t.vendor || "").trim().toLowerCase() === v);
+    return hit && (hit.main || hit.sub) ? hit : null;
+  } catch { return null; }
+}
 function deviceLiveRtsp(dev, quality) {
   const suffix = quality === "main" ? "01" : "02";
   const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
   if (dev.username && dev.rtspPort && dev.ip) {
     const u = encodeURIComponent(dev.username);
     const p = encodeURIComponent(dev.password || "");
-    return `rtsp://${u}:${p}@${dev.ip}:${dev.rtspPort}/Streaming/channels/${ch}${suffix}`;
+    const root = `rtsp://${u}:${p}@${dev.ip}:${dev.rtspPort}`;
+    // Fabricante con plantilla propia (p. ej. Tiandy `/{ch}/1`): usarla.
+    const tpl = rtspTemplateFor(dev.vendor);
+    if (tpl) {
+      const raw = (quality === "main" ? tpl.main : (tpl.sub || tpl.main)) || "";
+      return root + raw.replace(/\{ch\}/g, String(ch));
+    }
+    return `${root}/Streaming/channels/${ch}${suffix}`;
   }
   // Fallback: rtspUrl ya guardada (main); para sub cambia el sufijo 01→02.
   if (dev.rtspUrl && /^rtsps?:\/\//i.test(dev.rtspUrl)) {

@@ -338,6 +338,7 @@ const DEFAULT_VIDEO = {
   rtspTemplates: [
     { vendor: "Hikvision", main: "/Streaming/channels/{ch}01", sub: "/Streaming/channels/{ch}02" },
     { vendor: "Dahua",     main: "/cam/realmonitor?channel={ch}&subtype=0", sub: "/cam/realmonitor?channel={ch}&subtype=1" },
+    { vendor: "Tiandy",    main: "/{ch}/1", sub: "/{ch}/2" },
     { vendor: "ONVIF",     main: "/onvif/profile1/media.smp", sub: "/onvif/profile2/media.smp" },
   ],
 };
