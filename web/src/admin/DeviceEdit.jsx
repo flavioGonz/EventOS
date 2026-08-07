@@ -80,7 +80,23 @@ const CAM_ALERT_TYPES = [
 const ALARM_ALERT_TYPES = [
   ['intrusion', 'Intrusión'], ['alarm', 'Pánico / alarma'],
   ['tamper_alarm', 'Sabotaje de central'], ['door_forced', 'Puerta forzada'],
+  ['door_open', 'Puerta abierta'],
 ]
+const INTERCOM_ALERT_TYPES = [
+  ['call', 'Llamada de portero'], ['door_open', 'Puerta abierta'], ['tamper', 'Sabotaje'],
+]
+const ACCESS_ALERT_TYPES = [
+  ['access_denied', 'Acceso denegado'], ['access_granted', 'Acceso concedido'],
+  ['door_forced', 'Puerta forzada'], ['door_held', 'Puerta mantenida abierta'],
+]
+// Tipos de evento ofrecidos SEGÚN el tipo de dispositivo (capacidad real): una
+// alarma no ofrece cruce de línea; un portero no ofrece analíticas de video.
+function alertTypesFor(deviceType) {
+  if (deviceType === 'alarm') return ALARM_ALERT_TYPES
+  if (deviceType === 'intercom') return INTERCOM_ALERT_TYPES
+  if (deviceType === 'access') return ACCESS_ALERT_TYPES
+  return CAM_ALERT_TYPES // camera / nvr
+}
 const TARGET_OPTS = [
   ['any', 'Cualquiera'], ['human', 'Solo personas'], ['vehicle', 'Solo vehículos'], ['human_vehicle', 'Personas o vehículos'],
 ]
@@ -101,7 +117,8 @@ function AlertsConfig({ deviceType, alerts, onChange, deviceId, isNew, toast }) 
   const target = A.target || 'any'
   const sched = A.schedule || { mode: 'always' }
   const schedDays = Array.isArray(sched.days) ? sched.days : [1, 2, 3, 4, 5, 6, 0]
-  const TYPES = deviceType === 'alarm' ? ALARM_ALERT_TYPES : CAM_ALERT_TYPES
+  const TYPES = alertTypesFor(deviceType)
+  const showTargetFilter = deviceType === 'camera' || deviceType === 'nvr'
   const set = (patch) => onChange({ ...A, ...patch })
   const setSched = (patch) => set({ schedule: { ...sched, ...patch } })
 
@@ -154,7 +171,7 @@ function AlertsConfig({ deviceType, alerts, onChange, deviceId, isNew, toast }) 
                 {[1, 2, 3, 4, 5].map((p) => <option key={p} value={p}>{`P${p} · ${priorityLabel(p)}`}</option>)}
               </Select>
             </Field>
-            {deviceType !== 'alarm' && (
+            {showTargetFilter && (
               <Field label={<><Icon name="filter" size={14} /> Filtro por objetivo
                 <InfoHint side="right" content={<>Descarta lo que la IA de la cámara no clasifique como persona o vehículo. Reduce muchísimo las falsas alarmas (ramas, sombras, animales).<span className="tt__eg">Ej.: «Solo personas» en un cruce de línea perimetral nocturno.</span></>} /></>}
                 hint="Descarta lo que no sea persona/vehículo (menos falsas alarmas).">
@@ -220,7 +237,9 @@ export default function DeviceEdit() {
   // Vista previa del canal: cámara/portero ya guardados (necesita id + credenciales).
   const canPreview = !isNew && (isCamera || isIntercom)
   // Aside a la derecha: video (cámara guardada) o ficha contextual (alarma/NVR guardados).
-  const hasAside = canPreview || isAlarm || (!isNew && isNvr)
+  const hasAside = canPreview || (!isNew && isNvr)
+  // ¿El equipo puede tener relés/salidas físicas? (todos menos NVR puro).
+  const hasRelays = !isNvr
   const ana = useCameraAnalytics(id, canPreview)
 
   useEffect(() => {
@@ -346,8 +365,9 @@ export default function DeviceEdit() {
 
   const TABS = [
     { k: 'datos', icon: 'device', label: 'Datos' },
+    { k: 'reles', icon: isAlarm ? 'siren' : 'route', label: isAlarm ? 'Central y relés' : (isAccess || isIntercom ? 'Relés / Puertas' : 'Relés / Puertas'), hide: !hasRelays },
     { k: 'alertas', icon: 'bell', label: 'Alertas' },
-    { k: 'medios', icon: 'video', label: 'Medios de video', hide: isAlarm },
+    { k: 'medios', icon: 'video', label: isNvr ? 'Canales' : 'Medios de video', hide: isAlarm },
     { k: 'salud', icon: 'gauge', label: 'Salud' },
   ]
 
@@ -588,16 +608,19 @@ export default function DeviceEdit() {
 
             {(isAlarm || isAccess) && !isNew && (
               <div className="dev-card span-all">
-                <SecHead icon="link" tone="cred" title="Webhook de eventos" sub="Dónde el equipo reporta sus eventos a EventOS."
-                  hint={<>Configurá la central/receptor para hacer <b>POST</b> de sus eventos a esta URL (ya incluye el token de ingesta). El equipo se identifica por su IP/payload.<span className="tt__eg">Ej.: intrusión, pánico, sabotaje, puerta forzada.</span></>} />
-                <p className="help-block">Pegá esta URL en la config de red del equipo (reporte por IP/HTTP). El detalle por tipo está en <b>Configuración › Endpoints de ingesta</b>.</p>
-                <button type="button" className="copyfield copyfield--mono" onClick={copyIngest} title="Copiar" disabled={!ingestUrl}>
-                  <span className="copyfield__val">{ingestUrl || 'Cargando…'}</span>
-                  <span className="copyfield__ic"><Icon name="copy" size={15} /></span>
-                </button>
+                <div className="webhook-row">
+                  <span className="dev-chip t-cred"><Icon name="link" size={16} /></span>
+                  <div className="dev-sec__t">
+                    <span className="dev-sec__title">Webhook de eventos
+                      <InfoHint side="right" content={<>URL a la que el equipo hace <b>POST</b> de sus eventos (ya incluye el token de ingesta). Pegala en la config de red del equipo.<span className="tt__eg">{ingestUrl || 'Cargando…'}</span></>} /></span>
+                    <span className="dev-sec__sub">Punto de recepción HTTP de esta central. Detalle en <b>Configuración › Endpoints de ingesta</b>.</span>
+                  </div>
+                  <button type="button" className="iconbtn" onClick={copyIngest} title={ingestUrl ? 'Copiar URL' : 'Cargando…'} disabled={!ingestUrl} aria-label="Copiar URL del webhook">
+                    <Icon name="copy" size={16} />
+                  </button>
+                </div>
               </div>
             )}
-            {!canPreview && renderRelays(true)}
             </>)}
           </div>
 
@@ -611,15 +634,6 @@ export default function DeviceEdit() {
               {ana && ana.rules && ana.rules.length > 0 && (
                 <div className="device-preview__legend"><AnalyticsLegend rules={ana.rules} /></div>
               )}
-              {renderRelays(false)}
-            </aside>
-          )}
-          {isAlarm && (
-            <aside className="dev-aside">
-              <div className="dev-aside__hd"><span className="dev-chip t-relay"><Icon name="siren" size={16} /></span>
-                <div className="dev-sec__t"><span className="dev-sec__title">Central de alarma</span><span className="dev-sec__sub">Armado, pánico, relés y actividad.</span></div>
-              </div>
-              <AlarmPanel device={form} id={id} isNew={isNew} armed={form.armed} onArmed={(v) => setForm((f) => ({ ...f, armed: v }))} toast={toast} />
             </aside>
           )}
           {!gated && !canPreview && isNvr && !isNew && (
@@ -651,6 +665,27 @@ export default function DeviceEdit() {
       )}
 
       {probing && <DeviceProbe device={form} onClose={() => setProbing(false)} onImport={applyImport} onProbed={onProbed} toast={toast} />}
+
+      {/* ===== Pestaña RELÉS / PUERTAS ===== */}
+      {tab === 'reles' && hasRelays && (
+        <div key="reles" className="dev-tabpane anim-rise">
+          {isAlarm ? (
+            <>
+              <p className="section-label"><Icon name="siren" size={14} /> Central de alarma
+                <InfoHint side="right" content={<>Armado/desarmado, pánico, salidas de relé y actividad reciente de la central. Con paneles Hik AX podés operar sus salidas y enterarte de puertas abiertas / aperturas remotas.</>} /></p>
+              <p className="help-block">Armado, pánico, relés y últimos eventos de la central.</p>
+              <AlarmPanel device={form} id={id} isNew={isNew} armed={form.armed} onArmed={(v) => setForm((f) => ({ ...f, armed: v }))} toast={toast} />
+            </>
+          ) : (
+            <>
+              <p className="section-label"><Icon name="route" size={14} /> Relés y puertas
+                <InfoHint side="right" content={<>Salidas físicas del equipo para abrir puertas o accionar dispositivos. El operador puede accionarlas desde la consola durante un evento.<span className="tt__eg">Ej.: «Portón principal» → salida 1.</span></>} /></p>
+              <p className="help-block">Salidas de relé de este equipo. Definí nombre y nº de salida; «Abrir» acciona el relé físico y pide confirmación.</p>
+              {renderRelays(true)}
+            </>
+          )}
+        </div>
+      )}
 
       {/* ===== Pestaña ALERTAS ===== */}
       {tab === 'alertas' && (

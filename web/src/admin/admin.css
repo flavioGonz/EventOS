@@ -1664,3 +1664,13 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 .doorrow .field { margin: 0; }
 .doorrow__ctl { display: flex; gap: 6px; align-items: center; padding-bottom: 1px; }
 @media (max-width: 720px) { .doorrow { grid-template-columns: 1fr 1fr; } .doorrow__ctl { grid-column: 1 / -1; } }
+
+/* ---------- Webhook compacto (icono + tooltip URL + copiar) ---------- */
+.webhook-row { display: flex; align-items: center; gap: 12px; }
+.webhook-row .dev-sec__t { flex: 1; min-width: 0; }
+.iconbtn { display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: 10px;
+  border: 1px solid var(--separator); background: var(--bg-elev); color: var(--text-dim); cursor: pointer;
+  transition: transform .12s, border-color .12s, color .12s, background .12s; }
+.iconbtn:hover:not(:disabled) { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--separator)); transform: translateY(-1px); }
+.iconbtn:active:not(:disabled) { transform: scale(.92); }
+.iconbtn:disabled { opacity: .5; cursor: default; }
