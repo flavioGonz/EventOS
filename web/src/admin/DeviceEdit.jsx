@@ -32,7 +32,7 @@ const EMPTY = {
   siteId: '', zone: '', streamUrl: '', snapshotUrl: '', rtspUrl: '',
   enabled: true, defaultPriority: null, tags: [], alerts: null, armed: false, relays: [],
 }
-const VENDORS = ['Hikvision', 'Dahua', 'Tiandy', 'Akuvox', 'Uniview', 'ONVIF', 'Otro']
+const VENDORS = ['Hikvision', 'Dahua', 'Tiandy', 'Akuvox', 'Uniview', 'Siera', 'Intelbras', 'ONVIF', 'Otro']
 const TYPE_DESC = {
   camera: 'RTSP + eventos (ISAPI / ONVIF).',
   nvr: 'Grabador · varias cámaras por canal.',
@@ -52,10 +52,23 @@ const MANUFACTURERS = [
     hint: 'Cámaras/NVR por HTTP API + RTSP 554 (/cam/realmonitor). Eventos por webhook.' },
   { id: 'Akuvox', label: 'Akuvox', icon: 'speaker', type: 'akuvox', isapiPort: 80, rtspPort: 554,
     hint: 'Intercom / portero IP. Eventos por webhook; audio y apertura por SIP / relé.' },
+  { id: 'Uniview', label: 'Uniview (UNV)', icon: 'device', type: 'generic', isapiPort: 80, rtspPort: 554,
+    hint: 'Cámaras y NVR UNV. Vivo por RTSP 554 (/media/{ch}/...) y descubrimiento por ONVIF (Perfil S). Eventos por ONVIF/webhook. No usa ISAPI de Hikvision.' },
+  { id: 'Siera', label: 'Siera', icon: 'shield', type: 'generic', isapiPort: 80, rtspPort: 554,
+    hint: 'Cámaras/NVR Siera por RTSP 554 y ONVIF (Perfil S). Descubrimiento y eventos por ONVIF/webhook.' },
+  { id: 'Intelbras', label: 'Intelbras', icon: 'shield', type: 'generic', isapiPort: 80, rtspPort: 554,
+    hint: 'Cámaras/NVR Intelbras (base Dahua). RTSP 554 (/cam/realmonitor) + HTTP API. Eventos por webhook.' },
   { id: 'SIP', label: 'Parlante / Intercom SIP', icon: 'speaker', type: 'generic', isapiPort: '', rtspPort: '',
     hint: 'Parlante o intercom IP por SIP (sip:) o teléfono (tel:). No genera eventos; se usa para audio/aviso. También podés cargarlos a nivel Sitio.' },
   { id: 'ONVIF', label: 'Genérico / ONVIF', icon: 'device', type: 'generic', isapiPort: 80, rtspPort: 554,
     hint: 'Cualquier cámara ONVIF (Perfil S/M). Descubrir por ONVIF; RTSP estándar.' },
+]
+
+// Pasos del alta guiada (riel de progreso animado).
+const WIZ_STEPS = [
+  { k: 'marca', lbl: 'Marca', icon: 'shield' },
+  { k: 'tipo', lbl: 'Tipo', icon: 'grid' },
+  { k: 'conexion', lbl: 'Conexión', icon: 'globe' },
 ]
 
 // Tipos de evento que puede disparar cada clase de dispositivo (para la config de alertas).
@@ -358,29 +371,38 @@ export default function DeviceEdit() {
         <div key="datos" className={`dev-premium anim-rise ${!gated && hasAside ? 'dev-premium--aside' : ''}`}>
           <div className="dev-form">
             {gated && (
-              <div className="dev-setup span-all">
-                <div className="dev-steps">
-                  {['Marca', 'Tipo', 'Conexión'].map((lbl, i) => (
-                    <button type="button" key={lbl} disabled={i > newStep}
-                      className={`dev-step${newStep === i ? ' is-cur' : ''}${newStep > i ? ' is-done' : ''}`}
+              <div className="wizx span-all">
+                <div className="wizx__rail" style={{ '--prog': `${(newStep / 2) * 100}%` }}>
+                  <span className="wizx__track"><span className="wizx__fill" /></span>
+                  {WIZ_STEPS.map((s, i) => (
+                    <button type="button" key={s.k} disabled={i > newStep}
+                      className={`wiznode${newStep === i ? ' is-cur' : ''}${newStep > i ? ' is-done' : ''}`}
                       onClick={() => newStep > i && setNewStep(i)}>
-                      <span className="dev-step__n">{newStep > i ? <Icon name="check" size={13} /> : i + 1}</span>
-                      <span className="dev-step__lbl">{lbl}</span>
+                      <span className="wiznode__dot">
+                        <span className="wiznode__ring" />
+                        {newStep > i ? <Icon name="check" size={18} /> : <Icon name={s.icon} size={18} />}
+                      </span>
+                      <span className="wiznode__txt">
+                        <span className="wiznode__n">Paso {i + 1}</span>
+                        <span className="wiznode__lbl">{s.lbl}</span>
+                      </span>
                     </button>
                   ))}
                 </div>
 
                 {newStep === 0 && (
-                  <div className="dev-setup__body anim-rise">
-                    <p className="dev-setup__q">¿Qué marca es el equipo?</p>
-                    <div className="brandgrid">
+                  <div className="wizx__body anim-rise">
+                    <div className="wizx__head">
+                      <h3 className="wizx__q">¿Qué marca es el equipo?</h3>
+                      <p className="wizx__sub">Elegí el fabricante — preconfiguramos puertos y protocolo de descubrimiento.</p>
+                    </div>
+                    <div className="brandgrid2">
                       {MANUFACTURERS.map((m) => (
-                        <button type="button" key={m.id} className={`brandcard${form.vendor === m.id ? ' is-on' : ''}`}
+                        <button type="button" key={m.id} className={`brandtile${form.vendor === m.id ? ' is-on' : ''}`}
                           onClick={() => { pickMfr(m); setNewStep(1) }}>
-                          <span className="brandcard__logo">
-                            {VENDOR_BRANDS[m.id] ? <VendorLogo id={m.id} size={22} /> : <Icon name={m.icon} size={26} />}
-                          </span>
-                          {!VENDOR_BRANDS[m.id] && <span className="brandcard__sub">{m.label}</span>}
+                          <span className="brandtile__logo"><VendorLogo id={m.id} variant="tile" size={46} /></span>
+                          <span className="brandtile__lbl">{m.label}</span>
+                          {form.vendor === m.id && <span className="brandtile__check"><Icon name="check" size={13} /></span>}
                         </button>
                       ))}
                     </div>
@@ -389,48 +411,77 @@ export default function DeviceEdit() {
                 )}
 
                 {newStep === 1 && (
-                  <div className="dev-setup__body anim-rise">
-                    <p className="dev-setup__q">¿Qué tipo de dispositivo es? <span className="dev-setup__ctx"><VendorLogo id={form.vendor} size={14} /></span></p>
-                    <div className="typegrid2">
+                  <div className="wizx__body anim-rise">
+                    <div className="wizx__head">
+                      <h3 className="wizx__q">¿Qué tipo de dispositivo es?</h3>
+                      <p className="wizx__sub">Define qué campos y recursos aplican. <span className="wizx__ctx"><VendorLogo id={form.vendor} size={14} /></span></p>
+                    </div>
+                    <div className="typegrid3">
                       {DEVICE_TYPES.map((t) => (
-                        <button type="button" key={t.value} className={`typecard${form.type === t.value ? ' is-on' : ''}`}
+                        <button type="button" key={t.value} className={`typetile${form.type === t.value ? ' is-on' : ''}`}
                           onClick={() => { setForm((f) => ({ ...f, type: t.value })); setNewStep(2) }}>
-                          <span className="typecard__ic"><Icon name={DEVICE_TYPE_ICON[t.value] || 'device'} size={22} /></span>
-                          <span className="typecard__lbl">{deviceTypeLabel(t.value)}</span>
-                          <span className="typecard__desc">{TYPE_DESC[t.value]}</span>
+                          <span className="typetile__ic"><Icon name={DEVICE_TYPE_ICON[t.value] || 'device'} size={24} /></span>
+                          <span className="typetile__body">
+                            <span className="typetile__lbl">{deviceTypeLabel(t.value)}</span>
+                            <span className="typetile__desc">{TYPE_DESC[t.value]}</span>
+                          </span>
+                          <span className="typetile__go"><Icon name="chevron" size={16} /></span>
                         </button>
                       ))}
                     </div>
-                    <button type="button" className="dev-setup__back" onClick={() => setNewStep(0)}>← Cambiar marca</button>
+                    <button type="button" className="wizx__back" onClick={() => setNewStep(0)}>← Cambiar marca</button>
                   </div>
                 )}
 
                 {newStep === 2 && needsProbe && (
-                  <div className="dev-setup__body anim-rise">
-                    <p className="dev-setup__q">Conectá el equipo
-                      <span className="dev-setup__ctx"><VendorLogo id={form.vendor} size={14} /> · {deviceTypeLabel(form.type)}</span></p>
-                    <div className="dev-grid dev-grid--4 dev-conn2">
-                      <Field label={<><Icon name="globe" size={14} /> IP</>} className="span-2">
-                        <TextInput autoFocus value={form.ip} onChange={set('ip')} placeholder="192.168.99.96" />
-                      </Field>
-                      <Field label={<><Icon name="hash" size={14} /> Puerto ISAPI</>} hint="80 por defecto.">
-                        <TextInput type="number" value={form.isapiPort ?? ''} onChange={set('isapiPort')} placeholder="80" />
-                      </Field>
-                      <Field label={<><Icon name="hash" size={14} /> Puerto RTSP</>} hint="554 por defecto.">
-                        <TextInput type="number" value={form.rtspPort ?? ''} onChange={set('rtspPort')} placeholder="554" />
-                      </Field>
-                      <Field label={<><Icon name="user" size={14} /> Usuario</>} className="span-2">
-                        <TextInput value={form.username || ''} onChange={set('username')} placeholder="admin" autoComplete="off" />
-                      </Field>
-                      <Field label={<><Icon name="shield" size={14} /> Contraseña</>} className="span-2">
-                        <TextInput type="password" value={form.password || ''} onChange={set('password')} placeholder="••••••••" autoComplete="new-password" />
-                      </Field>
+                  <div className="wizx__body anim-rise">
+                    <div className="wizx__head">
+                      <h3 className="wizx__q">Conectá y escaneá el equipo</h3>
+                      <p className="wizx__sub">Verificamos el acceso e importamos sus recursos automáticamente. <span className="wizx__ctx"><VendorLogo id={form.vendor} size={14} /> · {deviceTypeLabel(form.type)}</span></p>
                     </div>
-                    <div className="dev-setup__cta">
-                      <p className="help-block">{canProbe ? 'Verificá que el equipo responde antes de darlo de alta. Al probar, se importan sus canales y relés.' : 'Completá IP y usuario para habilitar la prueba.'}</p>
-                      <Button variant="primary" icon="search" disabled={!canProbe} onClick={() => setProbing(true)}>Probar conexión</Button>
+                    <div className="wizx__conn">
+                      <div className="wizx__connform">
+                        <div className="dev-grid dev-grid--4">
+                          <Field label={<><Icon name="globe" size={14} /> IP</>} className="span-2">
+                            <TextInput autoFocus value={form.ip} onChange={set('ip')} placeholder="192.168.99.96" />
+                          </Field>
+                          <Field label={<><Icon name="hash" size={14} /> Puerto ISAPI/HTTP</>} hint="80 por defecto.">
+                            <TextInput type="number" value={form.isapiPort ?? ''} onChange={set('isapiPort')} placeholder="80" />
+                          </Field>
+                          <Field label={<><Icon name="hash" size={14} /> Puerto RTSP</>} hint="554 por defecto.">
+                            <TextInput type="number" value={form.rtspPort ?? ''} onChange={set('rtspPort')} placeholder="554" />
+                          </Field>
+                          <Field label={<><Icon name="user" size={14} /> Usuario</>} className="span-2">
+                            <TextInput value={form.username || ''} onChange={set('username')} placeholder="admin" autoComplete="off" />
+                          </Field>
+                          <Field label={<><Icon name="shield" size={14} /> Contraseña</>} className="span-2">
+                            <TextInput type="password" value={form.password || ''} onChange={set('password')} placeholder="••••••••" autoComplete="new-password" />
+                          </Field>
+                        </div>
+                        <button type="button" className="wizx__back" onClick={() => setNewStep(1)}>← Cambiar tipo</button>
+                      </div>
+
+                      <aside className="scanpanel">
+                        <div className={`scanviz${canProbe ? ' is-ready' : ''}`}>
+                          <span className="scanviz__pulse" />
+                          <span className="scanviz__pulse scanviz__pulse--2" />
+                          <span className="scanviz__core"><Icon name={DEVICE_TYPE_ICON[form.type] || 'device'} size={26} /></span>
+                          <span className="scanviz__sweep" />
+                        </div>
+                        <div className="scanpanel__txt">
+                          <b>Escaneo de recursos</b>
+                          <p>{canProbe
+                            ? `Al escanear traemos canales, analíticas, relés y streams del ${isNvr ? 'NVR' : 'equipo'} — listos para importar.`
+                            : 'Completá IP y usuario para habilitar el escaneo.'}</p>
+                        </div>
+                        <div className="scanpanel__tags">
+                          {(isNvr ? ['Canales', 'Analíticas', 'Relés', 'Streams'] : ['Video', 'Analíticas', 'Relés', 'Snapshot']).map((t) => (
+                            <span key={t} className="scanpanel__tag"><Icon name="check" size={11} /> {t}</span>
+                          ))}
+                        </div>
+                        <Button variant="primary" icon="search" disabled={!canProbe} onClick={() => setProbing(true)}>Escanear e importar recursos</Button>
+                      </aside>
                     </div>
-                    <button type="button" className="dev-setup__back" onClick={() => setNewStep(1)}>← Cambiar tipo</button>
                   </div>
                 )}
               </div>
@@ -557,10 +608,9 @@ export default function DeviceEdit() {
               <div className="device-preview__stage" style={{ aspectRatio: previewAspect }}>
                 <Go2RtcView deviceId={id} rules={ana && ana.rules} space={ana && ana.space} onAspect={setPreviewAspect} />
               </div>
-              {ana && ana.rules && ana.rules.length > 0
-                ? <div className="device-preview__legend"><AnalyticsLegend rules={ana.rules} /></div>
-                : <p className="help-block">Sin analíticas dibujadas en esta cámara (líneas/zonas).</p>}
-              <p className="help-block">Vista en vivo del canal #{form.channel ?? '—'}. Las líneas de cruce y zonas de intrusión se dibujan sobre el video.</p>
+              {ana && ana.rules && ana.rules.length > 0 && (
+                <div className="device-preview__legend"><AnalyticsLegend rules={ana.rules} /></div>
+              )}
               {renderRelays(false)}
             </aside>
           )}
