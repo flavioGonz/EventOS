@@ -3,17 +3,38 @@ import { Icon, Button } from '../ui/primitives.jsx'
 
 export function Wizard({ steps, step, onStep, onCancel, onFinish, canNext = true, finishing = false, finishLabel = 'Crear', jumpable = false, children }) {
   const last = step >= steps.length - 1
+  const n = steps.length
+  const prog = n > 1 ? (step / (n - 1)) * 100 : 0
   return (
     <div className="wiz">
-      <ol className="wiz__rail">
+      {/* Riel de pasos animado: barra de progreso que crece + nodos con icono,
+          anillo pulsante en el actual y check al completar. */}
+      <div className="wsteps" style={{ '--n': n, '--prog': `${prog}%` }}>
+        <span className="wsteps__track"><span className="wsteps__fill" /></span>
         {steps.map((s, i) => {
-          const cls = `wiz__step${i === step ? ' is-cur' : ''}${i < step ? ' is-done' : ''}${jumpable ? ' is-jump' : ''}`
-          const inner = <><span className="wiz__dot">{i < step ? <Icon name="check" size={13} /> : i + 1}</span><span className="wiz__lbl">{s.label}</span></>
-          return jumpable
-            ? <li key={s.key || i}><button type="button" className={cls} onClick={() => onStep(i)}>{inner}</button></li>
-            : <li key={s.key || i} className={cls}>{inner}</li>
+          const state = i === step ? ' is-cur' : i < step ? ' is-done' : ''
+          const clickable = jumpable || i < step
+          const inner = (
+            <>
+              <span className="wnode__dot">
+                <span className="wnode__ring" />
+                <span className="wnode__glyph">
+                  {i < step
+                    ? <Icon name="check" size={17} />
+                    : (s.icon ? <Icon name={s.icon} size={19} /> : <b>{i + 1}</b>)}
+                </span>
+              </span>
+              <span className="wnode__txt">
+                <span className="wnode__n">Paso {i + 1}</span>
+                <span className="wnode__lbl">{s.label}</span>
+              </span>
+            </>
+          )
+          return clickable
+            ? <button type="button" key={s.key || i} className={`wnode${state}`} onClick={() => onStep(i)}>{inner}</button>
+            : <div key={s.key || i} className={`wnode${state}`}>{inner}</div>
         })}
-      </ol>
+      </div>
 
       <div className="wiz__body anim-rise" key={step}>{children}</div>
 

@@ -70,10 +70,16 @@ export default function OperatorEdit() {
 
   if (loading) return <Loading label="Cargando operario…" />
 
+  const roleLabel = (ROLES.find((r) => r.value === (form.role || 'agente')) || {}).label?.split(' — ')[0] || 'Agente'
+  const shiftText = hasShift
+    ? `${(sched.days || []).length ? SHIFT_DAYS.filter((d) => sched.days.includes(d.v)).map((d) => d.l).join(' ') : 'Todos'} · ${sched.from || '08:00'}–${sched.to || '20:00'}`
+    : 'Siempre disponible'
+
   return (
     <EditPage title={isNew ? 'Nuevo operario' : 'Editar operario'}
       subtitle="Operador, su rol de acceso y sus competencias para el enrutado." onCancel={back} onSave={save} saving={saving}>
-      <div className="form-grid" style={{ maxWidth: 560 }}>
+     <div className="edit-2col">
+      <div className="edit-2col__form form-grid">
         <Field label={<><Icon name="users" size={14} /> Nombre</>}>
           <TextInput autoFocus value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Ana" />
         </Field>
@@ -131,6 +137,34 @@ export default function OperatorEdit() {
           </div>
         )}
       </div>
+
+      <aside className="edit-aside">
+        <div className="edit-aside__card">
+          <div className="edit-aside__hd">
+            <span className="edit-aside__ic"><Icon name="users" size={20} /></span>
+            <div><small>Resumen</small><b>{form.name?.trim() || 'Nuevo operario'}</b></div>
+          </div>
+          <div className="edit-aside__rows">
+            <div className="edit-aside__row"><span><Icon name="shield" size={13} /> Rol</span><span className="edit-aside__v">{roleLabel}</span></div>
+            <div className="edit-aside__row"><span><Icon name="shield" size={13} /> PIN</span><span className="edit-aside__v">{pin ? 'Nuevo' : removePin ? 'Se quita' : hasPin ? 'Configurado' : 'Sin PIN'}</span></div>
+            <div className="edit-aside__row"><span><Icon name="tag" size={13} /> Competencias</span><span className="edit-aside__v">{form.skills?.length || 0}</span></div>
+            <div className="edit-aside__row"><span><Icon name="online" size={13} /> Estado</span><span className="edit-aside__v">{form.active ? 'Activo' : 'Inactivo'}</span></div>
+            <div className="edit-aside__row"><span><Icon name="clock" size={13} /> Turno</span><span className="edit-aside__v">{shiftText}</span></div>
+          </div>
+        </div>
+        <div className="edit-aside__card">
+          <div className="edit-aside__hd">
+            <span className="edit-aside__ic"><Icon name="info" size={20} /></span>
+            <div><small>Cómo se usa</small><b>Enrutado por operario</b></div>
+          </div>
+          <ul className="edit-aside__tips">
+            <li><b><Icon name="check" size={12} /></b><span>El <b>rol</b> define qué ve al iniciar sesión: agente (consola), supervisor (+panel y videowall) o admin (total).</span></li>
+            <li><b><Icon name="check" size={12} /></b><span>Las <b>competencias</b> deciden qué eventos se le enrutan cuando el balanceo respeta habilidades.</span></li>
+            <li><b><Icon name="check" size={12} /></b><span>Con <b>turno horario</b>, fuera de su ventana no recibe eventos automáticos — pero puede tomarlos a mano.</span></li>
+          </ul>
+        </div>
+      </aside>
+     </div>
     </EditPage>
   )
 }

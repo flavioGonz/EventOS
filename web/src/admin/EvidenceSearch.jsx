@@ -71,7 +71,6 @@ function EvidenceCard({ ev, onOpen }) {
 
 function EvidenceModal({ ev, onClose }) {
   const [live, setLive] = useState(false)
-  const [vAspect, setVAspect] = useState(16 / 9)
   const src = evidenceSrc(ev)
   const deviceId = ev.source?.deviceId
   const [imgs, setImgs] = useState(null)
@@ -97,73 +96,75 @@ function EvidenceModal({ ev, onClose }) {
     const cam = { id: deviceId, name: ev.source?.deviceName || ev.zone || 'Cámara', channel: ev.source?.channel, zone: ev.source?.site, ip: ev.source?.ip }
     return <CameraModal cam={cam} onClose={() => setLive(false)} />
   }
-  // El escenario calza al aspecto REAL de la foto → sin marcos, y el overlay de
-  // analíticas alinea exacto sobre la imagen.
-  const stageStyle = mainSrc ? { width: `clamp(360px, calc(var(--camh) * ${vAspect.toFixed(4)}), 76vw)` } : undefined
+  const pri = ev.priority || 3
 
   return (
     <Modal open size="xl" onClose={onClose}>
-      <div className="campremium">
-        <div className="campremium__stage evstage" style={stageStyle}>
+      <div className="evdetail">
+        {/* Escenario: la foto centrada, se ajusta sin recortarse; el overlay de
+            analíticas calza exacto sobre la imagen (el marco envuelve la foto). */}
+        <div className="evdetail__stage">
           {mainSrc
-            ? <>
-                <img className="evstage__img" alt="Evidencia" src={mainSrc}
-                  onLoad={(e) => { const im = e.currentTarget; if (im.naturalWidth && im.naturalHeight) setVAspect(im.naturalWidth / im.naturalHeight) }} />
+            ? <div className="evdetail__frame">
+                <img className="evdetail__img" alt="Evidencia" src={mainSrc} />
                 {hasAna && <AnalyticsOverlay rules={ana.rules} space={ana.space || 1000} />}
-              </>
-            : <div className="evstage__none"><Icon name={icon} size={40} /><span>Sin imagen de evidencia</span></div>}
-          <div className="campremium__top">
-            <span className={`evscard__pri p${ev.priority || 3}`} style={{ position: 'static' }}>P{ev.priority || 3} · {priorityLabel(ev.priority || 3)}</span>
-            <span className="campremium__sp" />
+              </div>
+            : <div className="evdetail__none"><Icon name={icon} size={44} /><span>Sin imagen de evidencia</span></div>}
+          <div className="evdetail__badges">
+            <span className={`evscard__pri p${pri}`} style={{ position: 'static' }}>P{pri} · {priorityLabel(pri)}</span>
+            {tgt && <span className={`evdetail__tgt t-${tgt}`}><Icon name={TARGET_ICON[tgt] || 'filter'} size={12} /> {TARGET_LABELS[tgt]}</span>}
             {hasAna && <span className="evstage__anatag"><Icon name="filter" size={12} /> {ana.rules.length} analítica{ana.rules.length === 1 ? '' : 's'}</span>}
           </div>
         </div>
-        <aside className="campremium__rail">
-          <header className="campremium__railhead">
-            <span className="campremium__name"><Icon name={icon} size={16} /> {eventTypeLabel(ev.type)}</span>
-            <button type="button" className="campremium__close" onClick={onClose} aria-label="Cerrar"><Icon name="x" size={18} /></button>
+
+        <aside className="evdetail__rail">
+          <header className="evdetail__head">
+            <span className="evdetail__title"><Icon name={icon} size={16} /> {eventTypeLabel(ev.type)}</span>
+            <button type="button" className="evdetail__close" onClick={onClose} aria-label="Cerrar"><Icon name="x" size={18} /></button>
           </header>
-          <div className="campremium__status">
-            <Icon name="clock" size={14} />
-            <strong>{fmtTime(ev.ts)}</strong>
-            <span className="campremium__lastev">{fmtRel(ev.ts)}</span>
-          </div>
-          <div className="caminfo">
-            {tgt && <div className="caminfo__row"><span className="caminfo__k">Objetivo</span><span className="caminfo__v"><Icon name={TARGET_ICON[tgt]} size={12} /> {TARGET_LABELS[tgt]}</span></div>}
-            <div className="caminfo__row"><span className="caminfo__k">Cámara</span><span className="caminfo__v">{ev.source?.deviceName || '—'}</span></div>
-            <div className="caminfo__row"><span className="caminfo__k">Canal</span><span className="caminfo__v">{ev.source?.channel ? `#${ev.source.channel}` : '—'}</span></div>
-            <div className="caminfo__row"><span className="caminfo__k">Sitio</span><span className="caminfo__v">{ev.source?.site || '—'}</span></div>
-            <div className="caminfo__row"><span className="caminfo__k">Zona</span><span className="caminfo__v">{ev.zone || '—'}</span></div>
-            <div className="caminfo__row"><span className="caminfo__k">Estado</span><span className="caminfo__v">{statusLabel(ev.status)}</span></div>
-            <div className="caminfo__row"><span className="caminfo__k">IP</span><span className="caminfo__v">{ev.source?.ip || '—'}</span></div>
-          </div>
-          {ev.message && <p className="evmsg">{ev.message}</p>}
-          {hasAna && (
-            <div className="campremium__railana">
-              <p className="caminfo__sec">Analíticas sobre la imagen</p>
-              <AnalyticsLegend rules={ana.rules} />
+          <div className="evdetail__body">
+            <div className="evdetail__when">
+              <Icon name="clock" size={14} />
+              <strong>{fmtTime(ev.ts)}</strong>
+              <span className="evdetail__rel">{fmtRel(ev.ts)}</span>
             </div>
-          )}
-          <div className="campremium__railana evgal">
-            <p className="caminfo__sec">Fotos del caso ({gallery.length})</p>
-            {gallery.length > 1 && (
-              <div className="evgal__thumbs">
-                {gallery.map((g, i) => (
-                  <button key={g.url} type="button" className={`evgal__thumb${i === curIdx ? ' is-on' : ''}`} onClick={() => setIdx(i)}>
-                    <img src={g.url} alt="" loading="lazy" />
-                  </button>
-                ))}
+            <div className="caminfo">
+              {tgt && <div className="caminfo__row"><span className="caminfo__k">Objetivo</span><span className="caminfo__v"><Icon name={TARGET_ICON[tgt]} size={12} /> {TARGET_LABELS[tgt]}</span></div>}
+              <div className="caminfo__row"><span className="caminfo__k">Cámara</span><span className="caminfo__v">{ev.source?.deviceName || '—'}</span></div>
+              <div className="caminfo__row"><span className="caminfo__k">Canal</span><span className="caminfo__v">{ev.source?.channel ? `#${ev.source.channel}` : '—'}</span></div>
+              <div className="caminfo__row"><span className="caminfo__k">Sitio</span><span className="caminfo__v">{ev.source?.site || '—'}</span></div>
+              <div className="caminfo__row"><span className="caminfo__k">Zona</span><span className="caminfo__v">{ev.zone || '—'}</span></div>
+              <div className="caminfo__row"><span className="caminfo__k">Estado</span><span className="caminfo__v">{statusLabel(ev.status)}</span></div>
+              <div className="caminfo__row"><span className="caminfo__k">IP</span><span className="caminfo__v">{ev.source?.ip || '—'}</span></div>
+            </div>
+            {ev.message && <p className="evmsg">{ev.message}</p>}
+            {hasAna && (
+              <div className="evdetail__sec">
+                <p className="caminfo__sec">Analíticas sobre la imagen</p>
+                <AnalyticsLegend rules={ana.rules} />
               </div>
             )}
-            <div className="evgal__actions">
-              {deviceId && <Button variant="secondary" icon="camera" onClick={capture} disabled={busy}>{busy ? 'Capturando…' : 'Capturar ahora'}</Button>}
-              {mainSrc && <a className="btn btn--secondary btn--md" href={mainSrc} download={`evidencia-${ev.id}.jpg`}>Descargar</a>}
+            <div className="evdetail__sec">
+              <p className="caminfo__sec">Fotos del caso ({gallery.length})</p>
+              {gallery.length > 1 && (
+                <div className="evgal__thumbs">
+                  {gallery.map((g, i) => (
+                    <button key={g.url} type="button" className={`evgal__thumb${i === curIdx ? ' is-on' : ''}`} onClick={() => setIdx(i)}>
+                      <img src={g.url} alt="" loading="lazy" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="evgal__actions">
+                {deviceId && <Button variant="secondary" icon="camera" onClick={capture} disabled={busy}>{busy ? 'Capturando…' : 'Capturar ahora'}</Button>}
+                {mainSrc && <a className="btn btn--secondary btn--md" href={mainSrc} download={`evidencia-${ev.id}.jpg`}>Descargar</a>}
+              </div>
             </div>
           </div>
           {deviceId && (
-            <div className="campremium__railana">
+            <footer className="evdetail__foot">
               <Button variant="primary" icon="play" onClick={() => setLive(true)} className="u-full">Ver cámara en vivo</Button>
-            </div>
+            </footer>
           )}
         </aside>
       </div>
@@ -171,7 +172,8 @@ function EvidenceModal({ ev, onClose }) {
   )
 }
 
-export default function EvidenceSearch({ site: fixedSite = null, embedded = false }) {
+export default function EvidenceSearch({ site: fixedSite = null, embedded = false, mode = 'ai' }) {
+  const isEvents = mode === 'events'
   const [events, setEvents] = useState(null)
   const [retDays, setRetDays] = useState(null)
   const [savingRet, setSavingRet] = useState(false)
@@ -219,8 +221,10 @@ export default function EvidenceSearch({ site: fixedSite = null, embedded = fals
   return (
     <div className="evsearch">
       {!embedded && (
-        <PageHead title="Búsqueda IA · Evidencias"
-          subtitle="Explora los eventos con su foto del momento. Filtra por objetivo (personas / vehículos), tipo, prioridad, cámara y tiempo."
+        <PageHead title={isEvents ? 'Evidencia · Eventos' : 'Evidencia · Búsqueda IA'}
+          subtitle={isEvents
+            ? 'Feed cronológico de eventos con su foto del momento. Filtra por tipo, prioridad, cámara y tiempo.'
+            : 'Explora los eventos con su foto del momento. Filtra por objetivo (personas / vehículos), tipo, prioridad, cámara y tiempo.'}
           actions={retDays !== null && (
             <div className="evret">
               <Icon name="clock" size={14} /><span>Retención</span>

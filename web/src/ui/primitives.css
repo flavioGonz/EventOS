@@ -144,6 +144,7 @@
 .modal--xl:has(.camstage) { width:fit-content; max-width:92vw; }
 .modal--xl:has(.campremium) { width:fit-content; max-width:97vw; }
 .modal--xl:has(.camlive) { width:fit-content; max-width:97vw; }
+.modal--xl:has(.evdetail) { width:fit-content; max-width:96vw; }
 .modal__head { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; gap:12px;
   padding:16px 18px; border-bottom:1px solid var(--separator); }
 .modal__title { margin:0; font-size:16px; font-weight:650; letter-spacing:-.02em; }

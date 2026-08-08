@@ -14,9 +14,9 @@ import { Wizard } from './Wizard.jsx'
 import { EventTypeGrid } from './EventTypeGrid.jsx'
 
 const WSTEPS = [
-  { key: 'cond', label: 'Condición' },
-  { key: 'act', label: 'Acción' },
-  { key: 'rev', label: 'Revisar' },
+  { key: 'cond', label: 'Condición', icon: 'rules' },
+  { key: 'act', label: 'Acción', icon: 'balance' },
+  { key: 'rev', label: 'Revisar', icon: 'check' },
 ]
 // Columna explicativa (derecha) — qué hace cada paso de la regla.
 function ruleStepHelp(step) {

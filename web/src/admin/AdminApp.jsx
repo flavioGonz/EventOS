@@ -52,6 +52,10 @@ const NAV_GROUPS = [
     { to: 'dispatch',  icon: 'balance',   label: 'Balanceo' },
     { to: 'flujos',    icon: 'layers',    label: 'Flujos' },
   ] },
+  { key: 'evidencia', label: 'Evidencia', icon: 'search', items: [
+    { to: 'search', icon: 'bolt',      label: 'IA', hint: 'Búsqueda inteligente de evidencias' },
+    { to: 'events', icon: 'reception', label: 'Eventos', hint: 'Feed cronológico de eventos' },
+  ] },
 ]
 const NAV_SETTINGS = { to: 'settings', icon: 'sliders', label: 'Configuración' }
 
@@ -127,8 +131,9 @@ function NavGroup({ group }) {
         <div className="admin-navgrp__menu anim-pop">
           {group.items.map((it) => (
             <NavLink key={it.to} to={it.to}
-                     className={({ isActive }) => `admin-navgrp__item${isActive ? ' is-active' : ''}`}>
-              <Icon name={it.icon} size={15} /><span>{it.label}</span>
+                     className={({ isActive }) => `admin-navgrp__item${it.hint ? ' admin-navgrp__item--rich' : ''}${isActive ? ' is-active' : ''}`}>
+              <Icon name={it.icon} size={15} />
+              <span className="admin-navgrp__itemtxt"><b>{it.label}</b>{it.hint && <small>{it.hint}</small>}</span>
             </NavLink>
           ))}
         </div>
@@ -149,23 +154,22 @@ function AdminTopNav({ onLogout }) {
       </NavLink>
       <nav className="admin-topnav">
         {NAV_GROUPS.map((g) => <NavGroup key={g.key} group={g} />)}
-        <NavLink to={NAV_SETTINGS.to} title={NAV_SETTINGS.label}
-                 className={({ isActive }) => `admin-navgrp__btn admin-navgrp__solo${isActive ? ' is-active' : ''}`}>
-          <Icon name={NAV_SETTINGS.icon} size={16} /><span>{NAV_SETTINGS.label}</span>
-        </NavLink>
-        <NavLink to="search" title="Búsqueda IA de evidencias"
-                 className={({ isActive }) => `admin-navgrp__btn admin-navgrp__solo${isActive ? ' is-active' : ''}`}>
-          <Icon name="search" size={16} /><span>Búsqueda IA</span>
-        </NavLink>
         <a className="admin-navgrp__btn admin-navgrp__solo" href="/wall" title="Videowall multipantalla">
           <Icon name="grid" size={16} /><span>Videowall</span>
         </a>
       </nav>
-      <ThemeToggle />
-      <button type="button" className="admin-topnav__logout" onClick={onLogout} title="Cerrar sesión">
-        <Icon name="logout" size={16} />
-        <span>Salir</span>
-      </button>
+      {/* Cluster derecho: tema · Configuración (solo icono) · Salir */}
+      <div className="admin-topbar__right">
+        <ThemeToggle />
+        <NavLink to={NAV_SETTINGS.to} title={NAV_SETTINGS.label} aria-label={NAV_SETTINGS.label}
+                 className={({ isActive }) => `admin-topicon${isActive ? ' is-active' : ''}`}>
+          <Icon name={NAV_SETTINGS.icon} size={17} />
+        </NavLink>
+        <button type="button" className="admin-topnav__logout" onClick={onLogout} title="Cerrar sesión">
+          <Icon name="logout" size={16} />
+          <span>Salir</span>
+        </button>
+      </div>
     </Glass>
   )
 }
@@ -235,7 +239,8 @@ export default function AdminApp() {
           : <Navigate to="/admin/login" replace />}>
           <Route index element={<Navigate to="devices" replace />} />
           <Route path="supervisor" element={<Supervisor />} />
-          <Route path="search" element={<EvidenceSearch />} />
+          <Route path="search" element={<EvidenceSearch mode="ai" />} />
+          <Route path="events" element={<EvidenceSearch mode="events" />} />
           <Route path="tracking" element={<VisualTracking />} />
           <Route path="health" element={<Health />} />
           <Route path="devices" element={<Devices />} />

@@ -10,10 +10,10 @@ import { PageHead, useToast } from './_shared.jsx'
 import { Wizard } from './Wizard.jsx'
 
 const STEPS = [
-  { key: 'type', label: 'Tipo y nombre' },
-  { key: 'conn', label: 'Conexión' },
-  { key: 'place', label: 'Ubicación' },
-  { key: 'review', label: 'Revisar' },
+  { key: 'type', label: 'Tipo y nombre', icon: 'device' },
+  { key: 'conn', label: 'Conexión', icon: 'link' },
+  { key: 'place', label: 'Ubicación', icon: 'site' },
+  { key: 'review', label: 'Revisar', icon: 'check' },
 ]
 const VENDORS = ['Hikvision', 'Dahua', 'Tiandy', 'Akuvox', 'Uniview', 'Otro']
 // Descripción corta por CATEGORÍA — llena mejor la tarjeta y orienta al usuario.
