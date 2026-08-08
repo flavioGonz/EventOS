@@ -25,6 +25,52 @@ const TYPE_DESC = {
   access: 'Control de acceso · puertas / relés y eventos.',
 }
 
+// Columna explicativa (derecha) — qué hace cada paso y qué pasa según lo elegido.
+function stepHelp(step, f, isCam) {
+  if (step === 0) return {
+    icon: 'device', title: 'Tipo y nombre',
+    lead: 'Definí qué es el equipo y cómo se llama dentro de EventOS.',
+    points: [
+      'El tipo determina qué campos y recursos aplican: una cámara/NVR trae video y analíticas; una alarma reporta sin video; un portero suma audio y relé.',
+      'El fabricante preconfigura los puertos y el protocolo de descubrimiento (Hikvision→ISAPI, Tiandy→RTSP, resto→ONVIF).',
+      'El nombre es cómo lo verás en la consola y los eventos.',
+    ],
+  }
+  if (step === 1) return isCam ? {
+    icon: 'globe', title: 'Conexión',
+    lead: 'Con estos datos EventOS arma el RTSP/snapshot y descubre los canales del equipo.',
+    points: [
+      'IP + usuario/clave: se usan para probar el equipo e importar sus canales y relés. Nunca viajan en la URL.',
+      'Puertos: 80 (ISAPI/HTTP) y 554 (RTSP) por defecto — cambialos solo si tu equipo usa otros.',
+      'IP directa (opcional): si la cámara está detrás de un NVR pero la alcanzás por su IP (VPN), el vivo sale directo, con menos latencia.',
+    ],
+  } : {
+    icon: 'siren', title: 'Conexión',
+    lead: 'Las centrales de alarma reportan por webhook — no necesitan IP de cámara.',
+    points: [
+      'Tras crearla, la URL exacta (con token) para configurar el equipo aparece en Configuración › Endpoints de ingesta.',
+      'El equipo se identifica por su IP/payload al hacer POST de sus eventos.',
+    ],
+  }
+  if (step === 2) return {
+    icon: 'site', title: 'Ubicación y prioridad',
+    lead: 'Agrupá el equipo por cliente y definí su urgencia base.',
+    points: [
+      'El sitio agrupa por cliente y afecta el despacho (afinidad por sitio), los informes y los filtros.',
+      'La prioridad por defecto ordena la cola cuando ninguna regla dice otra cosa (1 = crítica … 5 = baja).',
+      'La zona es una etiqueta libre de ubicación (p. ej. «Acceso Norte»).',
+    ],
+  }
+  return {
+    icon: 'check', title: 'Revisar y crear',
+    lead: 'Confirmá el resumen. Todo es editable después.',
+    points: [
+      'Al crear, vas directo a la ficha del equipo para afinar alertas, medios de video y relés.',
+      'Podés volver a cualquier paso desde el riel superior.',
+    ],
+  }
+}
+
 export default function DeviceWizard() {
   const navigate = useNavigate()
   const toast = useToast()
@@ -74,6 +120,7 @@ export default function DeviceWizard() {
     <div className="anim-rise">
       <PageHead title="Nuevo dispositivo — asistente" subtitle="Te guío paso a paso para conectarlo bien." />
       <div className="wizpage wizpage--full">
+       <div className="wiz-2col">
         <Wizard steps={STEPS} step={step} onStep={setStep} onCancel={() => navigate('/admin/devices')}
           onFinish={finish} canNext={canNext} finishing={creating} finishLabel="Crear dispositivo">
 
@@ -184,6 +231,17 @@ export default function DeviceWizard() {
             </>
           )}
         </Wizard>
+        <aside className="wiz-help anim-rise" key={step}>
+          {(() => { const h = stepHelp(step, f, isCam); return (<>
+            <div className="wiz-help__hd"><span className="wiz-help__ic"><Icon name={h.icon} size={18} /></span>
+              <div><span className="wiz-help__k">Paso {step + 1} de {STEPS.length}</span><b>{h.title}</b></div></div>
+            <p className="wiz-help__lead">{h.lead}</p>
+            <ul className="wiz-help__list">{h.points.map((p, i) => (
+              <li key={i}><span className="wiz-help__b"><Icon name="check" size={12} /></span><span>{p}</span></li>
+            ))}</ul>
+          </>) })()}
+        </aside>
+       </div>
       </div>
     </div>
   )

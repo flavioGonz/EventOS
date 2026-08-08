@@ -18,6 +18,37 @@ const WSTEPS = [
   { key: 'act', label: 'Acción' },
   { key: 'rev', label: 'Revisar' },
 ]
+// Columna explicativa (derecha) — qué hace cada paso de la regla.
+function ruleStepHelp(step) {
+  if (step === 0) return {
+    icon: 'rules', title: 'Condición',
+    lead: 'Qué eventos hacen que esta regla se aplique.',
+    points: [
+      'Marcá uno o más tipos de evento. Si no marcás ninguno, la regla casa cualquier evento.',
+      'El objetivo de IA (persona / vehículo) filtra por lo que la cámara clasificó — recorta muchísimas falsas alarmas.',
+      'Las reglas se evalúan por su orden: la primera que casa define el trato del evento.',
+    ],
+  }
+  if (step === 1) return {
+    icon: 'balance', title: 'Acción',
+    lead: 'Qué hace EventOS cuando un evento casa la regla.',
+    points: [
+      'Prioridad: con qué urgencia entra a la consola (P1 crítica … P5 baja). Sobreescribe la del catálogo.',
+      'Procedimiento: los pasos que verá el operario ante este evento.',
+      'Despacho: cómo se reparte — simultáneo (todos), secuencial (uno a uno) o heredar el modo global.',
+      'Falsa alarma: si lo marcás, no alerta al operario; solo queda en analítica.',
+    ],
+  }
+  return {
+    icon: 'check', title: 'Revisar',
+    lead: 'Confirmá el resumen y activá la regla.',
+    points: [
+      'El orden de evaluación decide qué regla gana cuando varias casan (menor = antes).',
+      'Con «Activa» encendida, la regla empieza a evaluar cada evento entrante al guardar.',
+      'Todo es editable después desde esta misma pantalla.',
+    ],
+  }
+}
 // Objetivo (IA de cámara) como botones con explicación.
 const TARGET_CARDS = [
   ['human', 'Persona', 'user', 'La cámara clasificó una persona'],
@@ -146,6 +177,7 @@ export default function RuleEdit() {
       <PageHead title={isNew ? 'Nueva regla — asistente' : `Editar regla · ${form.name || ''}`}
         subtitle="Definí en 3 pasos cuándo se dispara y qué hace EventOS." />
       <div className="wizpage wizpage--wide">
+       <div className="wiz-2col wiz-2col--wide">
         <Wizard steps={WSTEPS} step={step} onStep={setStep} jumpable={!isNew}
           onCancel={back} onFinish={save} canNext={canNext} finishing={saving}
           finishLabel={isNew ? 'Crear regla' : 'Guardar regla'}>
@@ -287,6 +319,17 @@ export default function RuleEdit() {
             </>
           )}
         </Wizard>
+        <aside className="wiz-help anim-rise" key={step}>
+          {(() => { const h = ruleStepHelp(step); return (<>
+            <div className="wiz-help__hd"><span className="wiz-help__ic"><Icon name={h.icon} size={18} /></span>
+              <div><span className="wiz-help__k">Paso {step + 1} de {WSTEPS.length}</span><b>{h.title}</b></div></div>
+            <p className="wiz-help__lead">{h.lead}</p>
+            <ul className="wiz-help__list">{h.points.map((p, i) => (
+              <li key={i}><span className="wiz-help__b"><Icon name="check" size={12} /></span><span>{p}</span></li>
+            ))}</ul>
+          </>) })()}
+        </aside>
+       </div>
       </div>
     </div>
   )

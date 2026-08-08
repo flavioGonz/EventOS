@@ -1674,3 +1674,26 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 .iconbtn:hover:not(:disabled) { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 50%, var(--separator)); transform: translateY(-1px); }
 .iconbtn:active:not(:disabled) { transform: scale(.92); }
 .iconbtn:disabled { opacity: .5; cursor: default; }
+
+/* ---------- Asistentes: 2 columnas (wizard + ayuda), tamaño consistente ---------- */
+.wiz-2col { display: grid; grid-template-columns: 720px 380px; gap: 22px; justify-content: center; align-items: start; }
+.wiz-2col--wide { grid-template-columns: 820px 360px; }
+.wiz-2col > .wiz { width: 100%; }
+.wiz-2col .wiz__body { min-height: 470px; } /* misma altura entre pasos: no salta el tamaño */
+
+.wiz-help { align-self: stretch; border-radius: var(--r-lg); border: 1px solid var(--border);
+  background: var(--surface); padding: 22px 24px; position: sticky; top: 20px; }
+.wiz-help__hd { display: flex; align-items: center; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.wiz-help__ic { width: 44px; height: 44px; border-radius: 12px; flex: none; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.wiz-help__hd b { font-size: 18px; font-weight: 700; display: block; color: var(--text); }
+.wiz-help__k { font-size: 11.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-faint); }
+.wiz-help__lead { margin: 16px 0 0; font-size: 14.5px; color: var(--text); font-weight: 600; line-height: 1.5; }
+.wiz-help__list { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+.wiz-help__list li { display: flex; gap: 11px; font-size: 13px; color: var(--text-dim); line-height: 1.5; }
+.wiz-help__b { width: 20px; height: 20px; border-radius: 6px; flex: none; display: grid; place-items: center; margin-top: 1px;
+  background: color-mix(in srgb, var(--ok, #1a9d5a) 18%, transparent); color: var(--ok, #1a9d5a); }
+@media (max-width: 1200px) {
+  .wiz-2col, .wiz-2col--wide { grid-template-columns: minmax(0, 720px); margin: 0 auto; }
+  .wiz-help { position: static; }
+}
