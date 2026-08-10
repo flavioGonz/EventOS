@@ -52,7 +52,8 @@ export default function ProcedureEdit() {
   return (
     <EditPage title={isNew ? 'Nuevo procedimiento' : 'Editar procedimiento'}
       subtitle="Protocolo paso a paso que se muestra al operario al atender un evento." onCancel={back} onSave={save} saving={saving}>
-      <div style={{ maxWidth: 720 }}>
+     <div className="edit-2col">
+      <div className="edit-2col__form">
         <div className="form-grid form-grid--2">
           <Field label={<><Icon name="procedure" size={14} /> Nombre</>}>
             <TextInput autoFocus value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="Intrusión confirmada" />
@@ -78,6 +79,31 @@ export default function ProcedureEdit() {
         </div>
         <Button size="sm" icon="plus" variant="secondary" onClick={addStep} className="u-mt-12">Añadir paso</Button>
       </div>
+
+      <aside className="edit-aside">
+        <div className="edit-aside__card">
+          <div className="edit-aside__hd">
+            <span className="edit-aside__ic"><Icon name="procedure" size={20} /></span>
+            <div><small>Resumen</small><b>{form.name?.trim() || 'Nuevo procedimiento'}</b></div>
+          </div>
+          <div className="edit-aside__rows">
+            <div className="edit-aside__row"><span><Icon name="rules" size={13} /> Pasos</span><span className="edit-aside__v">{form.steps.filter((s) => s.trim()).length}</span></div>
+            <div className="edit-aside__row"><span><Icon name="clock" size={13} /> SLA</span><span className="edit-aside__v">{Number(form.slaSeconds) || 0}s</span></div>
+          </div>
+        </div>
+        <div className="edit-aside__card">
+          <div className="edit-aside__hd">
+            <span className="edit-aside__ic"><Icon name="info" size={20} /></span>
+            <div><small>Cómo se usa</small><b>Guía al operario</b></div>
+          </div>
+          <ul className="edit-aside__tips">
+            <li><b><Icon name="check" size={12} /></b><span>Al atender un evento, el operario ve estos pasos <b>en orden</b> dentro de la consola.</span></li>
+            <li><b><Icon name="check" size={12} /></b><span>El <b>SLA</b> marca el tiempo objetivo — alimenta los KPIs de «en riesgo» y «vencido» en Recepción.</span></li>
+            <li><b><Icon name="check" size={12} /></b><span>Se asigna a un evento desde una <b>regla</b> (paso «Acción › Procedimiento»).</span></li>
+          </ul>
+        </div>
+      </aside>
+     </div>
     </EditPage>
   )
 }

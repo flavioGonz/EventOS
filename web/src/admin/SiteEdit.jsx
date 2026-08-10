@@ -126,7 +126,7 @@ export default function SiteEdit() {
             <Icon name="gauge" size={15} /> Salud
           </button>
           <button type="button" className={`subtab${tab === 'busqueda' ? ' is-on' : ''}`} onClick={() => setTab('busqueda')}>
-            <Icon name="search" size={15} /> Búsqueda IA
+            <Icon name="search" size={15} /> Evidencia
           </button>
         </div>
       )}
