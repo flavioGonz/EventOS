@@ -434,8 +434,10 @@ export function isRealDeviceId(id) { return typeof id === 'string' && id.length 
 export const ANA_LABEL = { line: 'Cruce de línea', field: 'Intrusión', entrance: 'Entrada a zona', exiting: 'Salida de zona', baggage: 'Objeto abandonado', takenaway: 'Objeto retirado' }
 
 // Dibuja las reglas sobre el video. Hikvision: origen abajo-izquierda → invierte Y.
-export function AnalyticsOverlay({ rules, space = 1000, highlightId = null }) {
-  if (!rules || !rules.length) return null
+// `hidden` (Set de tipos) permite ocultar analíticas concretas desde la leyenda.
+export function AnalyticsOverlay({ rules, space = 1000, highlightId = null, hidden = null }) {
+  const shown = (rules || []).filter((r) => !(hidden && hidden.has(r.type)))
+  if (!shown.length) return null
   const fy = (y) => space - y
   return (
     <svg className="anov" viewBox={`0 0 ${space} ${space}`} preserveAspectRatio="none" aria-hidden="true">
@@ -444,7 +446,7 @@ export function AnalyticsOverlay({ rules, space = 1000, highlightId = null }) {
           <path d="M0,0 L7,3 L0,6 Z" fill="#f5b945" />
         </marker>
       </defs>
-      {rules.map((r, i) => {
+      {shown.map((r, i) => {
         const hot = highlightId != null && String(r.id) === String(highlightId)
         return r.type === 'line' ? (
           <line key={i} className={`anov__line${hot ? ' is-hot' : ''}`} markerEnd="url(#anar)"
@@ -482,13 +484,20 @@ export function FittedLive({ deviceId, quality = 'main', priority = true, rules 
   )
 }
 
-export function AnalyticsLegend({ rules }) {
+// `onToggle` (opcional) convierte las píldoras en botones para mostrar/ocultar cada
+// analítica; `hidden` es el Set de tipos ocultos. Sin `onToggle` es solo lectura.
+export function AnalyticsLegend({ rules, hidden = null, onToggle = null }) {
   const counts = rules.reduce((a, r) => { a[r.type] = (a[r.type] || 0) + 1; return a }, {})
   return (
     <div className="ana-legend">
-      {Object.entries(counts).map(([t, n]) => (
-        <span key={t} className={`ana-pill ana-pill--${t}`}>{ANA_LABEL[t] || t} · {n}</span>
-      ))}
+      {Object.entries(counts).map(([t, n]) => {
+        const off = !!(hidden && hidden.has(t))
+        const label = `${ANA_LABEL[t] || t} · ${n}`
+        return onToggle
+          ? <button key={t} type="button" className={`ana-pill ana-pill--${t} ana-pill--btn${off ? ' is-off' : ''}`}
+                    onClick={() => onToggle(t)} aria-pressed={!off} title={off ? 'Mostrar' : 'Ocultar'}>{label}</button>
+          : <span key={t} className={`ana-pill ana-pill--${t}`}>{label}</span>
+      })}
     </div>
   )
 }

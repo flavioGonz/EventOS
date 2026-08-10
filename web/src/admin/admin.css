@@ -1814,3 +1814,18 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 .admin-navgrp__itemtxt { display: flex; flex-direction: column; gap: 2px; }
 .admin-navgrp__itemtxt b { font-weight: 620; font-size: 13px; }
 .admin-navgrp__itemtxt small { font-size: 11px; color: var(--text-faint); font-weight: 500; }
+
+/* ---- Ficha de sitio: título · subtabs (centro) · acciones en una fila ---- */
+.site-head { align-items: center; gap: 12px 22px; }
+.site-head .admin-head__titles { flex: 0 1 auto; }
+.site-head__tabs { margin: 0; flex: 0 1 auto; }
+@media (max-width: 1000px) {
+  .site-head { align-items: flex-start; }
+  .site-head__tabs { order: 3; width: 100%; }
+}
+
+/* Leyenda de analíticas interactiva (mostrar/ocultar por tipo) */
+.ana-pill--btn { cursor: pointer; font: inherit; background: none; transition: opacity .15s, border-color .15s, color .15s; }
+.ana-pill--btn:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--separator)); color: var(--text); }
+.ana-pill--btn.is-off { opacity: .42; text-decoration: line-through; }
+.ana-pill--btn.is-off::before { opacity: .3; }

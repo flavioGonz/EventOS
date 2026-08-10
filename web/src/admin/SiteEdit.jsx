@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Button, IconButton, Field, TextInput, Textarea, Icon, Glass, Spinner } from '../ui/primitives.jsx'
 import { collectionApi } from '../lib/adminApi.js'
-import { PageHead, Loading, useToast } from './_shared.jsx'
+import { Loading, useToast } from './_shared.jsx'
 import SiteMap from '../components/SiteMap.jsx'
 import SiteDevices from './SiteDevices.jsx'
 import SiteDoors from './SiteDoors.jsx'
@@ -100,36 +100,42 @@ export default function SiteEdit() {
 
   return (
     <div className="anim-rise">
-      <PageHead title={isNew ? 'Nuevo sitio' : (form.name || 'Editar sitio')}
-        subtitle="Cliente y ubicación: datos, lista de llamada, parlantes SIP y mapa."
-        actions={tab === 'ficha' ? (
-          <>
-            <Button variant="ghost" onClick={back}>Cancelar</Button>
-            <Button variant="primary" icon={saving ? undefined : 'check'} disabled={saving} onClick={save}>
-              {saving ? <Spinner size={15} /> : 'Guardar'}
-            </Button>
-          </>
-        ) : <Button variant="ghost" icon="chevron" onClick={back}>Volver</Button>} />
-
-      {!isNew && (
-        <div className="subtabs">
-          <button type="button" className={`subtab${tab === 'ficha' ? ' is-on' : ''}`} onClick={() => setTab('ficha')}>
-            <Icon name="building" size={15} /> Ficha
-          </button>
-          <button type="button" className={`subtab${tab === 'dispositivos' ? ' is-on' : ''}`} onClick={() => setTab('dispositivos')}>
-            <Icon name="camera" size={15} /> Dispositivos
-          </button>
-          <button type="button" className={`subtab${tab === 'puertas' ? ' is-on' : ''}`} onClick={() => setTab('puertas')}>
-            <Icon name="route" size={15} /> Puertas
-          </button>
-          <button type="button" className={`subtab${tab === 'salud' ? ' is-on' : ''}`} onClick={() => setTab('salud')}>
-            <Icon name="gauge" size={15} /> Salud
-          </button>
-          <button type="button" className={`subtab${tab === 'busqueda' ? ' is-on' : ''}`} onClick={() => setTab('busqueda')}>
-            <Icon name="search" size={15} /> Evidencia
-          </button>
+      {/* Cabecera: título · subtabs (centro, donde antes quedaba vacío) · acciones */}
+      <div className="admin-head site-head">
+        <div className="admin-head__titles">
+          <h1>{isNew ? 'Nuevo sitio' : (form.name || 'Editar sitio')}</h1>
+          <p>Cliente y ubicación: datos, lista de llamada, parlantes SIP y mapa.</p>
         </div>
-      )}
+        {!isNew && (
+          <div className="subtabs site-head__tabs">
+            <button type="button" className={`subtab${tab === 'ficha' ? ' is-on' : ''}`} onClick={() => setTab('ficha')}>
+              <Icon name="building" size={15} /> Ficha
+            </button>
+            <button type="button" className={`subtab${tab === 'dispositivos' ? ' is-on' : ''}`} onClick={() => setTab('dispositivos')}>
+              <Icon name="camera" size={15} /> Dispositivos
+            </button>
+            <button type="button" className={`subtab${tab === 'puertas' ? ' is-on' : ''}`} onClick={() => setTab('puertas')}>
+              <Icon name="route" size={15} /> Puertas
+            </button>
+            <button type="button" className={`subtab${tab === 'salud' ? ' is-on' : ''}`} onClick={() => setTab('salud')}>
+              <Icon name="gauge" size={15} /> Salud
+            </button>
+            <button type="button" className={`subtab${tab === 'busqueda' ? ' is-on' : ''}`} onClick={() => setTab('busqueda')}>
+              <Icon name="search" size={15} /> Evidencia
+            </button>
+          </div>
+        )}
+        <div className="admin-head__actions">
+          {tab === 'ficha' ? (
+            <>
+              <Button variant="ghost" onClick={back}>Cancelar</Button>
+              <Button variant="primary" icon={saving ? undefined : 'check'} disabled={saving} onClick={save}>
+                {saving ? <Spinner size={15} /> : 'Guardar'}
+              </Button>
+            </>
+          ) : <Button variant="ghost" icon="chevron" onClick={back}>Volver</Button>}
+        </div>
+      </div>
 
       {tab === 'salud' && !isNew ? (
         <SiteHealth siteId={id} />

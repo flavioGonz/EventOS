@@ -76,6 +76,8 @@ function EvidenceModal({ ev, onClose }) {
   const [imgs, setImgs] = useState(null)
   const [idx, setIdx] = useState(0)
   const [busy, setBusy] = useState(false)
+  const [hiddenAna, setHiddenAna] = useState(() => new Set())
+  const toggleAna = (t) => setHiddenAna((prev) => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n })
   const reloadEvidence = () => fetch(`/api/events/${ev.id}/evidence`).then((r) => r.json()).then((d) => setImgs(Array.isArray(d.images) ? d.images : [])).catch(() => setImgs([]))
   useEffect(() => { reloadEvidence() }, [ev.id])
   const gallery = (imgs && imgs.length) ? imgs : (src ? [{ url: src, ts: new Date(ev.ts).getTime() }] : [])
@@ -107,7 +109,7 @@ function EvidenceModal({ ev, onClose }) {
           {mainSrc
             ? <div className="evdetail__frame">
                 <img className="evdetail__img" alt="Evidencia" src={mainSrc} />
-                {hasAna && <AnalyticsOverlay rules={ana.rules} space={ana.space || 1000} />}
+                {hasAna && <AnalyticsOverlay rules={ana.rules} space={ana.space || 1000} hidden={hiddenAna} />}
               </div>
             : <div className="evdetail__none"><Icon name={icon} size={44} /><span>Sin imagen de evidencia</span></div>}
           <div className="evdetail__badges">
@@ -140,8 +142,8 @@ function EvidenceModal({ ev, onClose }) {
             {ev.message && <p className="evmsg">{ev.message}</p>}
             {hasAna && (
               <div className="evdetail__sec">
-                <p className="caminfo__sec">Analíticas sobre la imagen</p>
-                <AnalyticsLegend rules={ana.rules} />
+                <p className="caminfo__sec">Analíticas sobre la imagen <span className="muted">· tocá para mostrar/ocultar</span></p>
+                <AnalyticsLegend rules={ana.rules} hidden={hiddenAna} onToggle={toggleAna} />
               </div>
             )}
             <div className="evdetail__sec">
