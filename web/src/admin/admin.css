@@ -1876,11 +1876,10 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
    relés como botones flotantes y skeleton hasta que carga.
    ============================================================ */
 .livecard { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r-lg); overflow: hidden;
-  display: grid; place-items: center; border: 1px solid var(--border); box-shadow: var(--shadow-1);
-  background: radial-gradient(120% 130% at 50% -10%, #12202e, #05090f 72%); }
-.livecard__fit { position: relative; max-width: 100%; max-height: 100%; line-height: 0; }
-.livecard__fit > .go2view, .livecard__fit > .fitlive, .livecard__fit > div:first-child { position: absolute; inset: 0; width: 100%; height: 100%; }
-.livecard__fit .go2view__video, .livecard__fit .go2view__canvas, .livecard__fit video, .livecard__fit video-stream { width: 100%; height: 100%; object-fit: cover; }
+  border: 1px solid var(--border); box-shadow: var(--shadow-1); background: #05090f; }
+/* El video LLENA el bloque (cover) → tamaño FIJO, nunca re-dimensiona */
+.livecard > .go2view, .livecard > .fitlive, .livecard > div:first-child { position: absolute; inset: 0; width: 100%; height: 100%; }
+.livecard .go2view__video, .livecard .go2view__canvas, .livecard video, .livecard video-stream { width: 100%; height: 100%; object-fit: cover; }
 /* Skeleton loader (shimmer) hasta el primer frame */
 .livecard__skel { position: absolute; inset: 0; z-index: 3;
   background: linear-gradient(100deg, #0e1a26 30%, #16273a 50%, #0e1a26 70%); background-size: 200% 100%;
@@ -1918,3 +1917,56 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 .analabel--line { border-color: #f5b945; } .analabel--field { border-color: #e5484d; }
 .analabel--entrance { border-color: #46a758; } .analabel--exiting { border-color: #f5b945; }
 .analabel--baggage { border-color: #8b5cf6; } .analabel--takenaway { border-color: #06b6d4; }
+
+/* ---- Live card: chrome OCULTO por defecto, aparece al pasar el mouse ---- */
+.livecard__top, .livecard__relays, .livecard .analabels { opacity: 0; transition: opacity .18s ease; }
+.livecard:hover .livecard__top, .livecard:hover .livecard__relays, .livecard:hover .analabels,
+.livecard:focus-within .livecard__top, .livecard:focus-within .livecard__relays { opacity: 1; }
+.livecard__topr { display: inline-flex; align-items: center; gap: 6px; pointer-events: auto; }
+button.livecard__chip { cursor: pointer; }
+button.livecard__chip:hover { background: rgba(56,189,248,.3); }
+button.livecard__chip svg { color: var(--accent, #38bdf8); }
+
+/* ---- Capturas / historial de alertas del dispositivo (debajo del video) ---- */
+.devcaps { margin-top: 12px; }
+.devcaps__hd { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.devcaps__t { display: inline-flex; align-items: center; gap: 7px; font-size: 13.5px; font-weight: 680; color: var(--text); }
+.devcaps__t svg { color: var(--accent); }
+.devcaps__sub { font-size: 11.5px; color: var(--text-faint); }
+.devcaps__load { display: grid; place-items: center; padding: 20px; }
+.devcaps__empty { margin: 0; }
+.devcaps__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; }
+.devcap { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; cursor: pointer; padding: 0;
+  border: 1px solid var(--border); background: #06080c; transition: transform .1s, border-color .15s, box-shadow .15s; }
+.devcap:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: var(--shadow-1); }
+.devcap__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.devcap__noimg { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text-faint);
+  background: repeating-linear-gradient(135deg, #0b0f15 0 10px, #0d1219 10px 20px); }
+.devcap__pri { position: absolute; top: 4px; left: 4px; font-size: 9.5px; font-weight: 750; padding: 1px 5px; border-radius: 5px; color: #fff; }
+.devcap__pri.p1 { background: #ef4444; } .devcap__pri.p2 { background: #f59e0b; color: #231400; }
+.devcap__pri.p3 { background: #3b82f6; } .devcap__pri.p4 { background: #64748b; } .devcap__pri.p5 { background: #475569; }
+.devcap__time { position: absolute; bottom: 3px; right: 4px; font-size: 9.5px; font-weight: 650; color: #fff;
+  background: rgba(0,0,0,.6); padding: 1px 5px; border-radius: 5px; }
+
+/* ---- Editor de analíticas (modal) ---- */
+.anedit { display: flex; flex-direction: column; gap: 12px; }
+.anedit__tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.anedit__tab { display: inline-flex; align-items: center; gap: 8px; padding: 8px 13px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text-dim); font: inherit; font-size: 13px; font-weight: 600;
+  transition: background .15s, border-color .15s, color .15s; }
+.anedit__tab:hover { color: var(--text); }
+.anedit__tab.is-on { background: var(--accent-weak); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.anedit__swatch { width: 12px; height: 12px; border-radius: 4px; }
+.anedit__n { font-size: 11px; font-weight: 800; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px;
+  display: inline-grid; place-items: center; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+.anedit__hint { margin: 0; }
+.anedit__stage { position: relative; width: 100%; max-height: 62vh; border-radius: var(--r-md); overflow: hidden;
+  background: #05090f; border: 1px solid var(--border); }
+.anedit__img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.anedit__load { position: absolute; inset: 0; display: grid; place-items: center; }
+.anedit__svg { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+.anedit__label { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 7px; color: #fff; background: rgba(6,10,16,.72); border: 1px solid rgba(255,255,255,.28);
+  text-shadow: 0 1px 2px rgba(0,0,0,.85); pointer-events: none; }
+.anedit__note { display: flex; align-items: center; gap: 7px; margin: 0; font-size: 12px; color: var(--text-dim); }
+.anedit__note svg { color: var(--accent); }

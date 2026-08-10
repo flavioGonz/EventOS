@@ -6,6 +6,8 @@ import { collectionApi, unwrap, DEVICE_TYPES, webhookHint, testDeviceAlert, norm
 import { deviceTypeLabel, priorityLabel, DEVICE_TYPE_ICON } from '../lib/labels.js'
 import { EditPage, Loading, useToast } from './_shared.jsx'
 import { Go2RtcView, AnalyticsLabels, useCameraAnalytics, refreshCameraAnalytics } from '../components/CameraLive.jsx'
+import AnalyticsEditor from './AnalyticsEditor.jsx'
+import DeviceCaptures from './DeviceCaptures.jsx'
 import { EventTypeGrid } from './EventTypeGrid.jsx'
 import DeviceHealth from './DeviceHealth.jsx'
 import DeviceProbe from './DeviceProbe.jsx'
@@ -226,6 +228,7 @@ export default function DeviceEdit() {
   const [saving, setSaving] = useState(false)
   const [previewAspect, setPreviewAspect] = useState('16 / 9')
   const [videoReady, setVideoReady] = useState(false)
+  const [editingAna, setEditingAna] = useState(false)
   const [tab, setTab] = useState('datos') // datos | alertas | medios | salud
   const [probing, setProbing] = useState(false)
   const [probed, setProbed] = useState(false) // conexión verificada al menos una vez
@@ -629,28 +632,22 @@ export default function DeviceEdit() {
           {/* Aside derecho: video (cámara) o ficha contextual (alarma / NVR) */}
           {!gated && canPreview && (
             <aside className="dev-aside">
-              {/* Bloque de tamaño FIJO (16:9). El video se ajusta en un "fit" interno
-                  centrado (letterbox) para que el overlay alinee sin re-dimensionar
-                  el bloque. Título/canal/Sincronizar y relés van flotando encima. */}
+              {/* Bloque de tamaño FIJO (16:9). El video LLENA el bloque (object-fit
+                  cover) → nunca re-dimensiona. Los controles (título/editar/sync/relés)
+                  y los nombres de analíticas están OCULTOS y aparecen al pasar el mouse. */}
               <div className="livecard">
-                <div className="livecard__fit" style={(() => {
-                  const [w, h] = String(previewAspect).split('/').map((s) => parseFloat(s))
-                  const ar = (w && h) ? w / h : 16 / 9
-                  // Ancla el eje que "sobra" a 100% y deja el otro derivar del aspecto:
-                  // el bloque exterior no cambia; adentro se hace letterbox/pillarbox.
-                  return ar >= 16 / 9
-                    ? { aspectRatio: previewAspect, width: '100%', height: 'auto' }
-                    : { aspectRatio: previewAspect, height: '100%', width: 'auto' }
-                })()}>
-                  <Go2RtcView deviceId={id} rules={ana && ana.rules} space={ana && ana.space}
-                    onAspect={(a) => { setPreviewAspect(a); setVideoReady(true) }} />
-                  {ana && ana.rules && ana.rules.length > 0 && <AnalyticsLabels rules={ana.rules} space={ana.space} />}
-                </div>
+                <Go2RtcView deviceId={id} rules={ana && ana.rules} space={ana && ana.space}
+                  onAspect={() => setVideoReady(true)} />
+                {ana && ana.rules && ana.rules.length > 0 && <AnalyticsLabels rules={ana.rules} space={ana.space} />}
                 {!videoReady && <div className="livecard__skel" aria-hidden="true" />}
                 <div className="livecard__top">
                   <span className="livecard__chip livecard__title"><Icon name="video" size={13} /> Canal en vivo <b>· #{form.channel ?? '—'}</b></span>
-                  <button type="button" className="livecard__chip livecard__sync" onClick={() => refreshCameraAnalytics(id)}
-                          title="Volver a leer las analíticas del equipo"><Icon name="refresh" size={13} /> Sincronizar</button>
+                  <span className="livecard__topr">
+                    <button type="button" className="livecard__chip" onClick={() => setEditingAna(true)}
+                            title="Dibujar / editar las analíticas en la cámara"><Icon name="edit" size={13} /> Editar</button>
+                    <button type="button" className="livecard__chip" onClick={() => refreshCameraAnalytics(id)}
+                            title="Volver a leer las analíticas del equipo"><Icon name="refresh" size={13} /> Sincronizar</button>
+                  </span>
                 </div>
                 {(form.relays || []).length > 0 && (
                   <div className="livecard__relays">
@@ -663,6 +660,7 @@ export default function DeviceEdit() {
                   </div>
                 )}
               </div>
+              <DeviceCaptures deviceId={id} />
             </aside>
           )}
           {!gated && !canPreview && isNvr && !isNew && (
@@ -698,6 +696,7 @@ export default function DeviceEdit() {
       )}
 
       {probing && <DeviceProbe device={form} onClose={() => setProbing(false)} onImport={applyImport} onProbed={onProbed} onCreated={reloadDevices} toast={toast} />}
+      {editingAna && <AnalyticsEditor deviceId={id} onClose={() => setEditingAna(false)} onSaved={() => refreshCameraAnalytics(id)} />}
 
       {/* ===== Pestaña RELÉS / PUERTAS ===== */}
       {tab === 'reles' && hasRelays && (

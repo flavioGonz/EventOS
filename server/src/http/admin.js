@@ -15,6 +15,7 @@ import { discover as discoverHik } from "../discovery/hikvision.js";
 import { discover as discoverOnvif } from "../discovery/onvif.js";
 import { discover as discoverRtsp } from "../discovery/rtsp.js";
 import { scan } from "../discovery/netscan.js";
+import { saveAnalytics, SMART } from "../discovery/analyticsWrite.js";
 import { digestGetBuffer } from "../util/digestFetch.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
 import { sessionFromReq } from "../auth/session.js";
@@ -76,6 +77,30 @@ router.post("/discover/scan", async (req, res) => {
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: "scan_failed", message: e.message });
+  }
+});
+
+// ── Guardar analíticas dibujadas EN LA CÁMARA (ISAPI PUT) ────────────────────
+// Admin-only. Escribe la geometría (línea / zona) de una regla Smart en el equipo.
+// Es una acción de escritura sobre el dispositivo: la dispara el operador desde el
+// editor de analíticas de EventOS.
+router.post("/analytics/save", async (req, res) => {
+  const { deviceId, type, points } = req.body || {};
+  if (!deviceId || !SMART[type] || !Array.isArray(points)) return res.status(400).json({ error: "bad_request" });
+  const need = type === "line" ? 2 : 3;
+  if (points.length < need) return res.status(400).json({ error: "few_points", message: `Se necesitan al menos ${need} puntos` });
+  let devices = []; try { devices = store.list("devices"); } catch { /* store */ }
+  const dev = devices.find((d) => d.id === String(deviceId));
+  if (!dev || !dev.ip || !dev.isapiPort || !dev.username) return res.status(404).json({ error: "no_device" });
+  const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
+  const behindNvr = devices.some((n) => n.type === "nvr" && n.id !== dev.id && n.ip && n.ip === dev.ip);
+  const channelIds = [...new Set(behindNvr ? [ch * 100 + 1, ch] : [ch, ch * 100 + 1])];
+  try {
+    const r = await saveAnalytics({ host: dev.ip, port: dev.isapiPort, https: !!dev.isapiHttps, user: dev.username, pass: dev.password, channelIds, type, points });
+    log.info(`analytics/save[${dev.name}] ${type} ${points.length}pts → ${r.ok ? "OK" : "FALLÓ"} (ch ${r.channel ?? "-"}, http ${r.status ?? "-"})`);
+    res.status(r.ok ? 200 : 502).json(r);
+  } catch (e) {
+    res.status(500).json({ error: "save_failed", message: e.message });
   }
 });
 

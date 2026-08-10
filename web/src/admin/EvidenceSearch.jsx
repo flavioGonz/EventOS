@@ -69,7 +69,7 @@ function EvidenceCard({ ev, onOpen }) {
   )
 }
 
-function EvidenceModal({ ev, onClose }) {
+export function EvidenceModal({ ev, onClose }) {
   const [live, setLive] = useState(false)
   const src = evidenceSrc(ev)
   const deviceId = ev.source?.deviceId
