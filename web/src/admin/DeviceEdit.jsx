@@ -242,9 +242,10 @@ export default function DeviceEdit() {
   const hasRelays = !isNvr
   const ana = useCameraAnalytics(id, canPreview)
 
+  const reloadDevices = () => collectionApi('devices').list().then((d) => setAllDevices(unwrap(d, 'devices'))).catch(() => {})
   useEffect(() => {
     collectionApi('sites').list().then((d) => setSites(unwrap(d, 'sites'))).catch(() => {})
-    collectionApi('devices').list().then((d) => setAllDevices(unwrap(d, 'devices'))).catch(() => {})
+    reloadDevices()
   }, [])
   // URL de webhook de ingesta para equipos que reportan por HTTP (alarma / acceso).
   const [ingestUrl, setIngestUrl] = useState('')
@@ -669,7 +670,7 @@ export default function DeviceEdit() {
         </div>
       )}
 
-      {probing && <DeviceProbe device={form} onClose={() => setProbing(false)} onImport={applyImport} onProbed={onProbed} toast={toast} />}
+      {probing && <DeviceProbe device={form} onClose={() => setProbing(false)} onImport={applyImport} onProbed={onProbed} onCreated={reloadDevices} toast={toast} />}
 
       {/* ===== Pestaña RELÉS / PUERTAS ===== */}
       {tab === 'reles' && hasRelays && (

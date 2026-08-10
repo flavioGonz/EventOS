@@ -4,9 +4,8 @@
 // permite importar lo descubierto a la ficha (RTSP + relés) o crear un
 // dispositivo por cada canal (útil para NVR).
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { Modal, Button, Icon, Badge, Spinner } from '../ui/primitives.jsx'
-import { api } from '../lib/adminApi.js'
+import { api, collectionApi } from '../lib/adminApi.js'
 
 const STAGES = [
   { key: 'conn', icon: 'globe', label: 'Conectando al equipo' },
@@ -26,12 +25,13 @@ function streamForChannel(streams, ch) {
   return same.find((s) => String(s.id).endsWith('01')) || same[0] || null
 }
 
-export default function DeviceProbe({ device, onClose, onImport, onProbed, toast }) {
-  const navigate = useNavigate()
+export default function DeviceProbe({ device, onClose, onImport, onProbed, onCreated, toast }) {
   const [stage, setStage] = useState(0)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [running, setRunning] = useState(false)
+  const [creating, setCreating] = useState(null) // id de canal en curso
+  const [created, setCreated] = useState({})      // id de canal → id del dispositivo creado
   const ivRef = useRef(null)
 
   const run = () => {
@@ -103,18 +103,29 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, toast
     toast?.(`${outputs.length} relé(s) importados a la ficha`)
   }
 
-  const createFromChannel = (c) => {
+  // Crea la cámara del canal DIRECTO por API (ya tenemos todos los datos) — sin
+  // navegar a la ficha de alta (eso abría el selector de vendor detrás del modal).
+  const createFromChannel = async (c) => {
+    if (created[c.id] || creating != null) return
+    setCreating(c.id)
     const st = streamForChannel(streams, c.id)
-    navigate('/admin/devices/new', {
-      state: { prefill: {
-        name: c.name || `${d?.name || 'Cámara'} ${c.id}`, type: 'camera',
-        vendor: device.vendor || d?.model || '',
-        ip: c.ip || device.ip, channel: c.id || 1, rtspUrl: st?.rtsp || '',
-        username: device.username, password: device.password || '',
-        isapiPort: device.isapiPort || '', rtspPort: device.rtspPort || '',
-        siteId: device.siteId || '',   // hereda el sitio del NVR → queda asociada
-      } },
-    })
+    const payload = {
+      name: c.name || `${d?.name || 'Cámara'} ${c.id}`, type: 'camera',
+      vendor: device.vendor || d?.model || '',
+      ip: c.ip || device.ip, channel: c.id || 1, rtspUrl: st?.rtsp || '',
+      username: device.username, password: device.password || '',
+      isapiPort: device.isapiPort || '', rtspPort: device.rtspPort || '',
+      siteId: device.siteId || '',   // hereda el sitio del NVR → queda asociada
+    }
+    try {
+      const res = await collectionApi('devices').create(payload)
+      const newId = res?.id || res?.device?.id || true
+      setCreated((m) => ({ ...m, [c.id]: newId }))
+      toast?.(`Cámara «${payload.name}» creada`)
+      onCreated?.(res)
+    } catch (e) {
+      toast?.(e.message || 'No se pudo crear la cámara', 'error')
+    } finally { setCreating(null) }
   }
 
   const footer = (
@@ -202,7 +213,11 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, toast
                         <td className="cell-mono">{c.ip || '—'}</td>
                         <td>{c.online ? <Badge tone="ok">En línea</Badge> : <span className="muted">—</span>}</td>
                         <td className="cell-actions">
-                          <Button variant="ghost" size="sm" icon="plus" onClick={() => createFromChannel(c)}>Crear dispositivo</Button>
+                          {created[c.id]
+                            ? <span className="probe-created"><Icon name="check" size={14} /> Creado</span>
+                            : <Button variant="ghost" size="sm" icon={creating === c.id ? undefined : 'plus'} disabled={creating != null} onClick={() => createFromChannel(c)}>
+                                {creating === c.id ? <Spinner size={14} /> : 'Crear dispositivo'}
+                              </Button>}
                         </td>
                       </tr>
                     ))}
