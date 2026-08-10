@@ -122,6 +122,20 @@ async function identifyHik(host, port, user, pass) {
     return { vendor: "Hikvision", model: xmlTag(xml, "model"), name: xmlTag(xml, "deviceName"), fw: xmlTag(xml, "firmwareVersion"), type };
   } catch { return null; }
 }
+// ¿El :80 habla ISAPI? Sonda SIN credenciales: una cámara/NVR Hik responde 401
+// con reto Digest (o 200 con XML DeviceInfo) en /ISAPI/...; un router o web server
+// normal responde 404/otra cosa. Esto separa "nuestros equipos" del resto sin login.
+async function isapiProbe(host, port, timeoutMs = 2500) {
+  const url = `http://${host}:${port}/ISAPI/System/deviceInfo`;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal, redirect: "manual" });
+    if (res.status === 401) return /digest/i.test(res.headers.get("www-authenticate") || "");
+    if (res.status === 200) { const txt = await res.text().catch(() => ""); return /DeviceInfo|deviceType|<model/i.test(txt); }
+    return false;
+  } catch { return false; } finally { clearTimeout(t); }
+}
 
 // ── Escaneo principal ────────────────────────────────────────────────────────
 export async function scan({ base, from = 1, to = 254, user = "", pass = "", onvif = true, tcpTimeoutMs = 1200, concurrency = 48 } = {}) {
@@ -146,16 +160,20 @@ export async function scan({ base, from = 1, to = 254, user = "", pass = "", onv
   // 3) Unión de candidatos (algo con 80/554, o que respondió WS-Discovery).
   const cand = new Set([...tcp.keys(), ...ws.keys()]);
 
-  // 4) Identificación (limitada) por ISAPI cuando hay 80 abierto.
+  // 4) Identificación (limitada). Un :80 abierto NO alcanza: confirmamos que hable
+  // ISAPI (o que tenga 554/ONVIF). Así no se cuelan routers, el propio server, etc.
   const hosts = await pool([...cand], async (ip) => {
-    const ports = tcp.get(ip) || new Set();
+    const ports = new Set(tcp.get(ip) || []);
     const wsi = ws.get(ip);
     if (wsi && wsi.port) ports.add(wsi.port);
-    let vendor = null, model = null, name = null, type = null, fw = null;
-    // ISAPI (Hik) si el 80 está abierto y hay credenciales.
-    if (ports.has(80) && (user || pass)) {
-      const hik = await identifyHik(ip, 80, user, pass);
-      if (hik) { vendor = hik.vendor; model = hik.model || null; name = hik.name || null; type = hik.type || null; fw = hik.fw || null; }
+    let isapi = false, vendor = null, model = null, name = null, type = null, fw = null;
+    if (ports.has(80)) {
+      isapi = await isapiProbe(ip, 80);
+      if (isapi && (user || pass)) {
+        const hik = await identifyHik(ip, 80, user, pass);
+        if (hik) { vendor = hik.vendor; model = hik.model || null; name = hik.name || null; type = hik.type || null; fw = hik.fw || null; }
+      }
+      if (isapi && !vendor) vendor = "Hikvision";
     }
     // ONVIF: vendor/modelo/nombre/tipo desde los scopes.
     if (!vendor && wsi) {
@@ -167,15 +185,14 @@ export async function scan({ base, from = 1, to = 254, user = "", pass = "", onv
       if (/NetworkVideoRecorder/i.test(wsi.scopes)) type = "nvr";
       else if (/NetworkVideoTransmitter/i.test(wsi.scopes)) type = "camera";
     }
-    // Fallback por puerto.
-    if (!type) type = ports.has(554) ? "camera" : "camera";
-    if (!vendor) vendor = ports.has(554) ? "RTSP" : "Desconocido";
-    // "Astuto": descartar hosts sin ninguna señal A/V real.
-    const signal = ports.has(554) || ports.has(80) || !!wsi;
+    if (!type) type = "camera";
+    if (!vendor) vendor = ports.has(554) ? "RTSP/ONVIF" : "Desconocido";
+    // "Astuto": señal A/V real = RTSP (554) o ONVIF o ISAPI confirmado. El :80 solo NO.
+    const signal = ports.has(554) || !!wsi || isapi;
     if (!signal) return null;
     const via = [];
     if (wsi) via.push("onvif");
-    if (ports.has(80)) via.push("isapi/http");
+    if (isapi) via.push("isapi");
     if (ports.has(554)) via.push("rtsp");
     return { ip, ports: [...ports].sort((a, b) => a - b), vendor, model: model || null, name: name || null, type, fw: fw || null, via };
   }, 16);
