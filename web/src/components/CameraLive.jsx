@@ -413,18 +413,37 @@ export function useLiveHls(deviceId, quality, enabled, priority = false) {
   return { videoRef, phase }
 }
 
+// Registro de refrescos por deviceId → permite forzar un re-sync desde cualquier
+// parte (botón «Sincronizar») sin cambiar la firma del hook.
+const anaRefreshers = new Map() // deviceId → Set<fn>
+export function refreshCameraAnalytics(deviceId) {
+  const set = anaRefreshers.get(deviceId)
+  if (set) set.forEach((fn) => fn())
+}
+
 // Carga las analíticas dibujadas de una cámara (por id de dispositivo).
 export function useCameraAnalytics(deviceId, enabled = true) {
   const [ana, setAna] = useState(null)
+  const [tick, setTick] = useState(0)
+  // Registrar/desregistrar el refresco global para este deviceId.
+  useEffect(() => {
+    if (!deviceId) return
+    const bump = () => setTick((t) => t + 1)
+    let set = anaRefreshers.get(deviceId)
+    if (!set) { set = new Set(); anaRefreshers.set(deviceId, set) }
+    set.add(bump)
+    return () => { set.delete(bump); if (!set.size) anaRefreshers.delete(deviceId) }
+  }, [deviceId])
   useEffect(() => {
     if (!enabled || !deviceId) { setAna(null); return }
     let alive = true
-    fetch(`/api/camera/${deviceId}/analytics`)
+    // tick>0 = sync manual → pide fresco (ignora la caché del server).
+    fetch(`/api/camera/${deviceId}/analytics${tick ? '?fresh=1' : ''}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (alive) setAna(d) })
       .catch(() => {})
     return () => { alive = false }
-  }, [deviceId, enabled])
+  }, [deviceId, enabled, tick])
   return ana
 }
 

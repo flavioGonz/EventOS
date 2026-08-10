@@ -896,10 +896,12 @@ async function fetchAnalyticsForChannel(dev, host, port, chId) {
   }
   return { ok, rules };
 }
-async function getDeviceAnalytics(dev) {
+async function getDeviceAnalytics(dev, fresh = false) {
   if (!dev || !dev.ip || !dev.isapiPort || !dev.username) return null;
   const cached = ANALYTICS_CACHE.get(dev.id);
-  if (cached && Date.now() - cached.ts < 30000) return cached.data;
+  // fresh=true → ignora la caché y re-lee del equipo (sync manual): si la cámara
+  // cambió/borró una analítica, se refleja al instante.
+  if (!fresh && cached && Date.now() - cached.ts < 30000) return cached.data;
   let devices = [];
   try { devices = listConfig("devices"); } catch { /* store */ }
   const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
@@ -920,7 +922,8 @@ router.get("/camera/:id/analytics", async (req, res) => {
   let devices = [];
   try { devices = listConfig("devices"); } catch { /* store */ }
   const dev = devices.find((d) => d.id === String(req.params.id || ""));
-  const data = await getDeviceAnalytics(dev);
+  const fresh = req.query.fresh === "1" || req.query.fresh === "true";
+  const data = await getDeviceAnalytics(dev, fresh);
   if (!data) return res.status(404).json({ error: "no_device" });
   res.json(data);
 });

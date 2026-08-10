@@ -7,7 +7,7 @@ import { Icon, Segmented, Select, TextInput, Modal, Button, Badge } from '../ui/
 import { PageHead, Loading } from './_shared.jsx'
 import { api } from '../lib/adminApi.js'
 import { CameraModal } from './CameraWallView.jsx'
-import { AnalyticsOverlay, AnalyticsLegend, useCameraAnalytics } from '../components/CameraLive.jsx'
+import { AnalyticsOverlay, AnalyticsLegend, useCameraAnalytics, refreshCameraAnalytics } from '../components/CameraLive.jsx'
 import {
   eventTypeLabel, priorityLabel, EVENT_TYPE_ICON, EVENT_TYPE_LABELS,
   TARGET_LABELS, TARGET_ICON, statusLabel,
@@ -142,7 +142,9 @@ function EvidenceModal({ ev, onClose }) {
             {ev.message && <p className="evmsg">{ev.message}</p>}
             {hasAna && (
               <div className="evdetail__sec">
-                <p className="caminfo__sec">Analíticas sobre la imagen <span className="muted">· tocá para mostrar/ocultar</span></p>
+                <p className="caminfo__sec evdetail__anahd">Analíticas sobre la imagen <span className="muted">· tocá para mostrar/ocultar</span>
+                  {deviceId && <button type="button" className="evdetail__sync" onClick={() => refreshCameraAnalytics(deviceId)} title="Volver a leer las analíticas del equipo"><Icon name="refresh" size={13} /> Sincronizar</button>}
+                </p>
                 <AnalyticsLegend rules={ana.rules} hidden={hiddenAna} onToggle={toggleAna} />
               </div>
             )}

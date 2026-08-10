@@ -5,7 +5,7 @@ import { Field, TextInput, Select, Combobox, Switch, Button, Icon, InfoHint } fr
 import { collectionApi, unwrap, DEVICE_TYPES, webhookHint, testDeviceAlert, normalizeDeviceType, getReception } from '../lib/adminApi.js'
 import { deviceTypeLabel, priorityLabel, DEVICE_TYPE_ICON } from '../lib/labels.js'
 import { EditPage, Loading, useToast } from './_shared.jsx'
-import { Go2RtcView, AnalyticsLegend, useCameraAnalytics } from '../components/CameraLive.jsx'
+import { Go2RtcView, AnalyticsLegend, useCameraAnalytics, refreshCameraAnalytics } from '../components/CameraLive.jsx'
 import { EventTypeGrid } from './EventTypeGrid.jsx'
 import DeviceHealth from './DeviceHealth.jsx'
 import DeviceProbe from './DeviceProbe.jsx'
@@ -627,7 +627,8 @@ export default function DeviceEdit() {
           {/* Aside derecho: video (cámara) o ficha contextual (alarma / NVR) */}
           {!gated && canPreview && (
             <aside className="dev-aside">
-              <SecHead icon="video" tone="media" title="Canal en vivo" sub={`Canal #${form.channel ?? '—'} + analíticas`} />
+              <SecHead icon="video" tone="media" title="Canal en vivo" sub={`Canal #${form.channel ?? '—'} + analíticas`}
+                action={<Button variant="ghost" size="sm" icon="refresh" onClick={() => refreshCameraAnalytics(id)} title="Volver a leer las analíticas del equipo">Sincronizar</Button>} />
               <div className="device-preview__stage" style={{ aspectRatio: previewAspect }}>
                 <Go2RtcView deviceId={id} rules={ana && ana.rules} space={ana && ana.space} onAspect={setPreviewAspect} />
               </div>
@@ -642,6 +643,10 @@ export default function DeviceEdit() {
                 <div className="dev-sec__t"><span className="dev-sec__title">Cámaras del NVR</span>
                   <span className="dev-sec__sub">{nvrChannels.length ? `${nvrChannels.length} canal(es) asociado(s)` : 'Sin canales cargados aún'}</span></div>
               </div>
+              <Button variant="primary" icon="search" className="u-full u-mt-8" disabled={!canProbe} onClick={() => setProbing(true)}
+                title={canProbe ? 'Escanea el NVR e importa sus cámaras' : 'Completá IP y usuario del NVR'}>
+                Descubrir cámaras del NVR
+              </Button>
               {nvrChannels.length > 0 ? (
                 <div className="nvrgrid">
                   {nvrChannels.map((c) => (
@@ -656,7 +661,7 @@ export default function DeviceEdit() {
                   ))}
                 </div>
               ) : (
-                <p className="dev-sidecard__txt">Las alertas se configuran <b>por cámara</b>, no en el NVR. Usá <b>Probar e importar</b> para crear un dispositivo por canal (o cargalos con su RTSP) y aparecerán acá.</p>
+                <p className="dev-sidecard__txt">Las alertas se configuran <b>por cámara</b>, no en el NVR. Usá <b>«Descubrir cámaras del NVR»</b> (arriba) para crear un dispositivo por canal — se asocian a este NVR y a su sitio, y aparecen acá.</p>
               )}
               <p className="help-block u-mt-8">Tocá una cámara para abrir su ficha. Estado en vivo en <b>Salud</b>.</p>
             </aside>

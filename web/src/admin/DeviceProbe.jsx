@@ -112,6 +112,7 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, toast
         ip: c.ip || device.ip, channel: c.id || 1, rtspUrl: st?.rtsp || '',
         username: device.username, password: device.password || '',
         isapiPort: device.isapiPort || '', rtspPort: device.rtspPort || '',
+        siteId: device.siteId || '',   // hereda el sitio del NVR → queda asociada
       } },
     })
   }
