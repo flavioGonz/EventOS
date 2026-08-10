@@ -695,6 +695,7 @@ router.get("/camera/:id/info", async (req, res) => {
   const proxied = (dev.tags || []).some((t) => /^nvr:/i.test(t));
   const out = {
     id, name: dev.name, ip: dev.camIp || dev.ip || null, channel: dev.channel ?? null,
+    vendor: dev.vendor || null, via: null,
     online: false, model: dev.vendor || null, firmware: null, uptime: null,
     resolution: null, fps: null, bitrate: null, codec: null, lastEvent: null,
   };
@@ -712,7 +713,7 @@ router.get("/camera/:id/info", async (req, res) => {
       try { const r = await digestGetBuffer({ host, port, https: !!dev.isapiHttps, path, user: dev.username, pass: dev.password || "", timeoutMs: 4000 }); return r.status === 200 ? r.buffer.toString("utf8") : null; } catch { return null; }
     };
     const di = await get("/ISAPI/System/deviceInfo");
-    if (di) { out.online = true; out.model = xtagInfo(di, "model") || out.model; out.firmware = xtagInfo(di, "firmwareVersion"); }
+    if (di) { out.online = true; out.via = "isapi"; out.model = xtagInfo(di, "model") || out.model; out.firmware = xtagInfo(di, "firmwareVersion"); }
     const st = await get("/ISAPI/System/status");
     if (st) { const up = Number(xtagInfo(st, "deviceUpTime")); if (Number.isFinite(up)) out.uptime = up; }
     const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
@@ -726,10 +727,11 @@ router.get("/camera/:id/info", async (req, res) => {
     }
   }
   // Sin ISAPI (Tiandy/ONVIF/Dahua u otro): online si el puerto RTSP responde.
+  // Salud limitada: solo confirmamos alcance por RTSP, sin métricas del equipo.
   if (!out.online) {
     const rhost = dev.camIp || dev.ip;
     const rport = Number(dev.rtspPort) || 554;
-    if (rhost) out.online = await tcpReachable(rhost, rport, 3000);
+    if (rhost) { out.online = await tcpReachable(rhost, rport, 3000); if (out.online) out.via = "rtsp"; }
   }
   res.json(out);
 });

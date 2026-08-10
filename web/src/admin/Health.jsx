@@ -20,17 +20,29 @@ function Bar({ pct, tone }) {
 }
 const toneFor = (p) => (p >= 90 ? 'crit' : p >= 75 ? 'warn' : 'ok')
 
+const nvrVendorLabel = (v) => { if (!v) return 'Este grabador'; const s = String(v).toLowerCase(); if (s.includes('tiandy')) return 'Tiandy'; if (s.includes('hik')) return 'Hikvision'; if (s.includes('dahua')) return 'Dahua'; return v }
+
 export function NvrCard({ nvr }) {
   const memPct = pctUsed(nvr.memUsed, nvr.memTotal)
+  const limited = nvr.online && nvr.limited
+  const vlabel = nvrVendorLabel(nvr.vendor)
   return (
-    <div className={`hcard${nvr.online ? '' : ' is-off'}`}>
+    <div className={`hcard${nvr.online ? '' : ' is-off'}${limited ? ' is-limited' : ''}`}>
       <header className="hcard__head">
         <span className="hcard__name"><Icon name="device" size={16} /> {nvr.name}</span>
-        <span className={`hcard__badge hcard__badge--${nvr.online ? 'ok' : 'off'}`}>
-          <span className="dot" />{nvr.online ? 'En línea' : 'Sin conexión'}
+        <span className={`hcard__badge hcard__badge--${nvr.online ? (limited ? 'lim' : 'ok') : 'off'}`}>
+          <span className="dot" />{nvr.online ? (limited ? 'Alcanzable' : 'En línea') : 'Sin conexión'}
         </span>
       </header>
-      {nvr.online ? (
+      {limited ? (
+        <>
+          <div className="hcard__meta">
+            <span title="Marca">{vlabel}</span>
+            <span title="IP">{nvr.camIp || nvr.ip}</span>
+          </div>
+          <p className="help-block">Salud limitada: {vlabel} no expone métricas por ISAPI. Solo confirmamos que el grabador está alcanzable (responde el puerto de video). Uptime, CPU, memoria y discos no están disponibles para este equipo.</p>
+        </>
+      ) : nvr.online ? (
         <>
           <div className="hcard__meta">
             <span title="Modelo">{nvr.model || '—'}</span>

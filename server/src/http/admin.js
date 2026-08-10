@@ -232,7 +232,8 @@ router.put("/dispatch", (req, res) => {
 // ── Salud de NVR/DVR (ISAPI: uptime, CPU, RAM, discos) ───────────────────────
 const xtag = (xml, t) => { const m = new RegExp(`<${t}>([\\s\\S]*?)</${t}>`, "i").exec(xml || ""); return m ? m[1].trim() : null; };
 async function nvrHealth(dev) {
-  const out = { id: dev.id, name: dev.name, ip: dev.ip, online: false, model: null, firmware: null,
+  const out = { id: dev.id, name: dev.name, ip: dev.ip, vendor: dev.vendor || null, via: null,
+    online: false, model: null, firmware: null,
     uptime: null, cpu: null, memUsed: null, memTotal: null, hdds: [] };
   const get = async (path) => {
     try {
@@ -242,28 +243,32 @@ async function nvrHealth(dev) {
     } catch { /* offline */ }
     return null;
   };
-  const di = await get("/ISAPI/System/deviceInfo");
-  if (di) { out.online = true; out.model = xtag(di, "model"); out.firmware = xtag(di, "firmwareVersion"); out.name = xtag(di, "deviceName") || out.name; }
-  const st = await get("/ISAPI/System/status");
-  if (st) {
-    out.online = true;
-    const up = Number(xtag(st, "deviceUpTime")); if (Number.isFinite(up)) out.uptime = up;
-    const cpu = Number(xtag(st, "cpuUtilization")); if (Number.isFinite(cpu)) out.cpu = cpu;
-    const mu = Number(xtag(st, "memoryUsage")); const ma = Number(xtag(st, "memoryAvailable"));
-    if (Number.isFinite(mu)) out.memUsed = mu;
-    if (Number.isFinite(mu) && Number.isFinite(ma)) out.memTotal = mu + ma;
-  }
-  const storage = await get("/ISAPI/ContentMgmt/Storage");
-  if (storage) {
-    out.hdds = [...storage.matchAll(/<hdd>([\s\S]*?)<\/hdd>/gi)].map((m) => ({
-      name: xtag(m[1], "hddName"), status: xtag(m[1], "status"),
-      capacity: Number(xtag(m[1], "capacity")) || 0, free: Number(xtag(m[1], "freeSpace")) || 0,
-    }));
+  // Solo intentar ISAPI si el equipo tiene puerto ISAPI y usuario configurados;
+  // si no (Tiandy/ONVIF), evitamos timeouts inútiles y vamos directo a RTSP.
+  if (dev.isapiPort && dev.username) {
+    const di = await get("/ISAPI/System/deviceInfo");
+    if (di) { out.online = true; out.via = "isapi"; out.model = xtag(di, "model"); out.firmware = xtag(di, "firmwareVersion"); out.name = xtag(di, "deviceName") || out.name; }
+    const st = await get("/ISAPI/System/status");
+    if (st) {
+      out.online = true; out.via = "isapi";
+      const up = Number(xtag(st, "deviceUpTime")); if (Number.isFinite(up)) out.uptime = up;
+      const cpu = Number(xtag(st, "cpuUtilization")); if (Number.isFinite(cpu)) out.cpu = cpu;
+      const mu = Number(xtag(st, "memoryUsage")); const ma = Number(xtag(st, "memoryAvailable"));
+      if (Number.isFinite(mu)) out.memUsed = mu;
+      if (Number.isFinite(mu) && Number.isFinite(ma)) out.memTotal = mu + ma;
+    }
+    const storage = await get("/ISAPI/ContentMgmt/Storage");
+    if (storage) {
+      out.hdds = [...storage.matchAll(/<hdd>([\s\S]*?)<\/hdd>/gi)].map((m) => ({
+        name: xtag(m[1], "hddName"), status: xtag(m[1], "status"),
+        capacity: Number(xtag(m[1], "capacity")) || 0, free: Number(xtag(m[1], "freeSpace")) || 0,
+      }));
+    }
   }
   // NVR sin ISAPI (Tiandy/ONVIF): online si responde el puerto RTSP. Salud limitada.
   if (!out.online) {
     out.online = await tcpReachable(dev.camIp || dev.ip, Number(dev.rtspPort) || 554, 3000);
-    if (out.online) out.limited = true;
+    if (out.online) { out.limited = true; out.via = "rtsp"; }
   }
   return out;
 }
@@ -284,7 +289,9 @@ function tcpReachable(host, port, timeoutMs = 3000) {
 router.get("/nvr-health", async (req, res) => {
   let devices = [];
   try { devices = store.list("devices"); } catch { /* store */ }
-  const nvrs = devices.filter((d) => d.type === "nvr" && d.ip && d.isapiPort && d.username);
+  // Incluir también NVRs sin ISAPI (Tiandy/ONVIF): se les hace chequeo de alcance
+  // por RTSP (salud limitada) en lugar de excluirlos de la pestaña Salud.
+  const nvrs = devices.filter((d) => d.type === "nvr" && (d.ip || d.camIp));
   const nvrsHealth = await Promise.all(nvrs.map(nvrHealth));
   res.json({ nvrs: nvrsHealth });
 });

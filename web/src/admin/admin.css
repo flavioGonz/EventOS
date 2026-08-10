@@ -50,7 +50,9 @@
 .hcard__badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; padding: 3px 10px; border-radius: var(--r-pill); }
 .hcard__badge .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .hcard__badge--ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.hcard__badge--lim { color: var(--warn, #d9911f); background: color-mix(in srgb, var(--warn, #d9911f) 16%, transparent); }
 .hcard__badge--off { color: var(--text-faint); background: color-mix(in srgb, var(--text) 8%, transparent); }
+.hcard.is-limited { border-style: dashed; }
 .hcard__meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 8px 0 14px; font-size: 11.5px; color: var(--text-dim); }
 .hcard__stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 .hstat { display: flex; flex-direction: column; gap: 4px; }
@@ -922,6 +924,9 @@
 .devhealth__snap img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .devhealth__live { position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 3px 8px; border-radius: 999px; background: rgba(120,130,145,.85); color: #fff; }
 .devhealth__live.is-on { background: rgba(47,210,122,.9); color: #062a16; }
+.devhealth__live.is-limited { background: rgba(217,145,31,.92); color: #2c1c02; }
+.devhealth__srcbadge { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; padding: 2px 8px; border-radius: 999px; color: var(--warn, #d9911f); background: color-mix(in srgb, var(--warn, #d9911f) 16%, transparent); text-transform: uppercase; }
+.devhealth__note { border-left: 3px solid color-mix(in srgb, var(--warn, #d9911f) 55%, transparent); padding-left: 10px; }
 .devhealth__status { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
 .devhealth__status strong { font-size: 13px; }
 .devhealth__lastev { font-size: 11.5px; color: var(--text-dim); }
