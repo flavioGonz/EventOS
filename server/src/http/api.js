@@ -830,7 +830,10 @@ router.get("/cameras", (req, res) => {
 function parseLineRules(xml) {
   const out = [];
   for (const it of xml.split(/<LineItem>/).slice(1)) {
-    if (!/<enabled>\s*true\s*<\/enabled>/i.test(it)) continue;
+    // Dibujamos toda línea con geometría real (2 puntos distintos), igual que las
+    // zonas: no filtramos por <enabled> del item — algunos firmwares reportan la
+    // línea dibujada como enabled=false aunque la detección de cruce esté activa.
+    // Los slots sin usar quedan fuera por el filtro de puntos distintos de abajo.
     const id = (it.match(/<id>(\d+)<\/id>/) || [])[1] || null;
     const dir = (it.match(/<directionSensitivity>([^<]+)/) || [])[1] || "any";
     const pts = [...it.matchAll(/<positionX>(\d+)<\/positionX>\s*<positionY>(\d+)<\/positionY>/g)]
