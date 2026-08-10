@@ -5,7 +5,7 @@ import { Field, TextInput, Select, Combobox, Switch, Button, Icon, InfoHint } fr
 import { collectionApi, unwrap, DEVICE_TYPES, webhookHint, testDeviceAlert, normalizeDeviceType, getReception } from '../lib/adminApi.js'
 import { deviceTypeLabel, priorityLabel, DEVICE_TYPE_ICON } from '../lib/labels.js'
 import { EditPage, Loading, useToast } from './_shared.jsx'
-import { Go2RtcView, AnalyticsLegend, useCameraAnalytics, refreshCameraAnalytics } from '../components/CameraLive.jsx'
+import { Go2RtcView, AnalyticsLabels, useCameraAnalytics, refreshCameraAnalytics } from '../components/CameraLive.jsx'
 import { EventTypeGrid } from './EventTypeGrid.jsx'
 import DeviceHealth from './DeviceHealth.jsx'
 import DeviceProbe from './DeviceProbe.jsx'
@@ -225,6 +225,7 @@ export default function DeviceEdit() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [previewAspect, setPreviewAspect] = useState('16 / 9')
+  const [videoReady, setVideoReady] = useState(false)
   const [tab, setTab] = useState('datos') // datos | alertas | medios | salud
   const [probing, setProbing] = useState(false)
   const [probed, setProbed] = useState(false) // conexión verificada al menos una vez
@@ -628,14 +629,40 @@ export default function DeviceEdit() {
           {/* Aside derecho: video (cámara) o ficha contextual (alarma / NVR) */}
           {!gated && canPreview && (
             <aside className="dev-aside">
-              <SecHead icon="video" tone="media" title="Canal en vivo" sub={`Canal #${form.channel ?? '—'} + analíticas`}
-                action={<Button variant="ghost" size="sm" icon="refresh" onClick={() => refreshCameraAnalytics(id)} title="Volver a leer las analíticas del equipo">Sincronizar</Button>} />
-              <div className="device-preview__stage" style={{ aspectRatio: previewAspect }}>
-                <Go2RtcView deviceId={id} rules={ana && ana.rules} space={ana && ana.space} onAspect={setPreviewAspect} />
+              {/* Bloque de tamaño FIJO (16:9). El video se ajusta en un "fit" interno
+                  centrado (letterbox) para que el overlay alinee sin re-dimensionar
+                  el bloque. Título/canal/Sincronizar y relés van flotando encima. */}
+              <div className="livecard">
+                <div className="livecard__fit" style={(() => {
+                  const [w, h] = String(previewAspect).split('/').map((s) => parseFloat(s))
+                  const ar = (w && h) ? w / h : 16 / 9
+                  // Ancla el eje que "sobra" a 100% y deja el otro derivar del aspecto:
+                  // el bloque exterior no cambia; adentro se hace letterbox/pillarbox.
+                  return ar >= 16 / 9
+                    ? { aspectRatio: previewAspect, width: '100%', height: 'auto' }
+                    : { aspectRatio: previewAspect, height: '100%', width: 'auto' }
+                })()}>
+                  <Go2RtcView deviceId={id} rules={ana && ana.rules} space={ana && ana.space}
+                    onAspect={(a) => { setPreviewAspect(a); setVideoReady(true) }} />
+                  {ana && ana.rules && ana.rules.length > 0 && <AnalyticsLabels rules={ana.rules} space={ana.space} />}
+                </div>
+                {!videoReady && <div className="livecard__skel" aria-hidden="true" />}
+                <div className="livecard__top">
+                  <span className="livecard__chip livecard__title"><Icon name="video" size={13} /> Canal en vivo <b>· #{form.channel ?? '—'}</b></span>
+                  <button type="button" className="livecard__chip livecard__sync" onClick={() => refreshCameraAnalytics(id)}
+                          title="Volver a leer las analíticas del equipo"><Icon name="refresh" size={13} /> Sincronizar</button>
+                </div>
+                {(form.relays || []).length > 0 && (
+                  <div className="livecard__relays">
+                    {(form.relays || []).map((r, i) => (
+                      <button type="button" key={i} className="livecard__relay" disabled={isNew}
+                              onClick={() => triggerRelay(r)} title={`Abrir ${r.name || 'relé'} (acción física, pide confirmación)`}>
+                        <Icon name="route" size={13} /> {r.name || `Salida ${r.output ?? i + 1}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              {ana && ana.rules && ana.rules.length > 0 && (
-                <div className="device-preview__legend"><AnalyticsLegend rules={ana.rules} /></div>
-              )}
             </aside>
           )}
           {!gated && !canPreview && isNvr && !isNew && (

@@ -503,6 +503,30 @@ export function FittedLive({ deviceId, quality = 'main', priority = true, rules 
   )
 }
 
+// Etiqueta con el NOMBRE de cada analítica dibujada, posada SOBRE el dibujo
+// (centro de la zona / punto medio de la línea). Capa HTML — texto siempre nítido
+// (sin la distorsión del SVG estirado). Se posiciona en % → alinea con el overlay.
+export function AnalyticsLabels({ rules, space = 1000 }) {
+  if (!rules || !rules.length) return null
+  const fy = (y) => space - y
+  return (
+    <div className="analabels" aria-hidden="true">
+      {rules.map((r, i) => {
+        const pts = r.points || []
+        if (!pts.length) return null
+        const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length
+        const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length
+        return (
+          <span key={i} className={`analabel analabel--${r.type}`}
+                style={{ left: `${(cx / space) * 100}%`, top: `${(fy(cy) / space) * 100}%` }}>
+            {ANA_LABEL[r.type] || r.type}
+          </span>
+        )
+      })}
+    </div>
+  )
+}
+
 // `onToggle` (opcional) convierte las píldoras en botones para mostrar/ocultar cada
 // analítica; `hidden` es el Set de tipos ocultos. Sin `onToggle` es solo lectura.
 export function AnalyticsLegend({ rules, hidden = null, onToggle = null }) {

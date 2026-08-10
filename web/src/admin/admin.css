@@ -1869,3 +1869,52 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 .netscan__results { border: 1px solid var(--border); border-radius: var(--r-md); }
 .netscan__type { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
 .netscan__type svg { color: var(--accent); }
+
+/* ============================================================
+   CANAL EN VIVO (ficha de dispositivo) — bloque de tamaño FIJO,
+   controles flotando sobre el video, nombres sobre las analíticas,
+   relés como botones flotantes y skeleton hasta que carga.
+   ============================================================ */
+.livecard { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: var(--r-lg); overflow: hidden;
+  display: grid; place-items: center; border: 1px solid var(--border); box-shadow: var(--shadow-1);
+  background: radial-gradient(120% 130% at 50% -10%, #12202e, #05090f 72%); }
+.livecard__fit { position: relative; max-width: 100%; max-height: 100%; line-height: 0; }
+.livecard__fit > .go2view, .livecard__fit > .fitlive, .livecard__fit > div:first-child { position: absolute; inset: 0; width: 100%; height: 100%; }
+.livecard__fit .go2view__video, .livecard__fit .go2view__canvas, .livecard__fit video, .livecard__fit video-stream { width: 100%; height: 100%; object-fit: cover; }
+/* Skeleton loader (shimmer) hasta el primer frame */
+.livecard__skel { position: absolute; inset: 0; z-index: 3;
+  background: linear-gradient(100deg, #0e1a26 30%, #16273a 50%, #0e1a26 70%); background-size: 200% 100%;
+  animation: liveskel 1.25s ease-in-out infinite; }
+@keyframes liveskel { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .livecard__skel { animation: none; } }
+/* Controles flotantes (sin marco) */
+.livecard__top { position: absolute; top: 0; left: 0; right: 0; z-index: 5; display: flex; align-items: center;
+  justify-content: space-between; gap: 8px; padding: 10px 11px;
+  background: linear-gradient(180deg, rgba(0,0,0,.5), transparent); pointer-events: none; }
+.livecard__chip { pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650;
+  padding: 5px 10px; border-radius: 999px; color: #eaf2fb; background: rgba(8,14,22,.62);
+  border: 1px solid rgba(255,255,255,.16); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.livecard__title svg { color: var(--accent-2, #7dd3fc); }
+.livecard__title b { font-weight: 700; color: #bcd3ea; }
+.livecard__sync { border: 0; cursor: pointer; font: inherit; color: #eaf2fb; }
+.livecard__sync:hover { background: rgba(56,189,248,.28); }
+.livecard__sync svg { color: var(--accent, #38bdf8); }
+/* Relés / puertas flotando abajo */
+.livecard__relays { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px;
+  padding: 11px; justify-content: center; background: linear-gradient(0deg, rgba(0,0,0,.55), transparent); }
+.livecard__relay { display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 12.5px; font-weight: 650; cursor: pointer;
+  padding: 8px 14px; border-radius: 999px; color: #eafff4; background: rgba(16,26,20,.66);
+  border: 1px solid rgba(52,211,153,.5); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+  transition: background .15s, transform .1s; }
+.livecard__relay:hover:not(:disabled) { background: rgba(34,197,94,.4); }
+.livecard__relay:active:not(:disabled) { transform: scale(.96); }
+.livecard__relay:disabled { opacity: .5; cursor: not-allowed; }
+.livecard__relay svg { color: #34d399; }
+/* Nombres sobre las analíticas dibujadas */
+.analabels { position: absolute; inset: 0; z-index: 4; pointer-events: none; }
+.analabel { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 11px; font-weight: 700;
+  padding: 2px 8px; border-radius: 7px; color: #fff; background: rgba(6,10,16,.66); border: 1px solid rgba(255,255,255,.28);
+  text-shadow: 0 1px 2px rgba(0,0,0,.85); letter-spacing: .01em; }
+.analabel--line { border-color: #f5b945; } .analabel--field { border-color: #e5484d; }
+.analabel--entrance { border-color: #46a758; } .analabel--exiting { border-color: #f5b945; }
+.analabel--baggage { border-color: #8b5cf6; } .analabel--takenaway { border-color: #06b6d4; }
