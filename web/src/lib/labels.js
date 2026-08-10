@@ -6,6 +6,9 @@ export const EVENT_TYPE_LABELS = {
   intrusion:     'Intrusión',
   region_entrance:'Entrada a zona',
   region_exit:   'Salida de zona',
+  abandoned_object:'Objeto abandonado',
+  object_removal:'Objeto retirado',
+  loitering:     'Merodeo',
   motion:        'Movimiento',
   face:          'Rostro detectado',
   lpr:           'Matrícula (LPR)',
@@ -71,6 +74,7 @@ export const PAUSE_REASONS = ['descanso', 'almuerzo', 'capacitacion', 'bano', 'o
 // Icono sugerido (nombre del set en ui/icons.jsx) por tipo de evento / categoría / etc.
 export const EVENT_TYPE_ICON = {
   line_crossing:'bolt', intrusion:'alert', region_entrance:'site', region_exit:'site',
+  abandoned_object:'layers', object_removal:'filter', loitering:'clock',
   motion:'camera', face:'users', lpr:'device', tamper:'shield', video_loss:'camera',
   doorbell:'bell', door_forced:'alert', door_held:'reception', access_denied:'shield',
   alarm:'bell', tamper_alarm:'shield', system:'device',

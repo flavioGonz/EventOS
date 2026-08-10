@@ -431,7 +431,7 @@ export function useCameraAnalytics(deviceId, enabled = true) {
 // ¿Es un id de dispositivo real (no una fuente sintética del evento)?
 export function isRealDeviceId(id) { return typeof id === 'string' && id.length > 0 && !id.startsWith('__') }
 
-export const ANA_LABEL = { line: 'Cruce de línea', field: 'Intrusión', entrance: 'Entrada a zona', exiting: 'Salida de zona' }
+export const ANA_LABEL = { line: 'Cruce de línea', field: 'Intrusión', entrance: 'Entrada a zona', exiting: 'Salida de zona', baggage: 'Objeto abandonado', takenaway: 'Objeto retirado' }
 
 // Dibuja las reglas sobre el video. Hikvision: origen abajo-izquierda → invierte Y.
 export function AnalyticsOverlay({ rules, space = 1000, highlightId = null }) {

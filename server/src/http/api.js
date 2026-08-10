@@ -859,6 +859,7 @@ function parseRegionRules(xml, type) {
 const ANALYTICS_TYPES = [
   ["LineDetection", "line"], ["FieldDetection", "field"],
   ["regionEntrance", "entrance"], ["regionExiting", "exiting"],
+  ["unattendedBaggage", "baggage"], ["attendedBaggage", "takenaway"],
 ];
 const ANALYTICS_CACHE = new Map(); // deviceId → { ts, data }
 // ¿La cámara-canal está detrás de un NVR? (comparte IP con un dispositivo type=nvr).

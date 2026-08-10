@@ -1827,6 +1827,8 @@
 .anov__zone { fill: rgba(229,72,77,.16); stroke: #e5484d; stroke-width: 4; filter: drop-shadow(0 0 3px rgba(0,0,0,.6)); }
 .anov__zone--entrance { fill: rgba(70,167,88,.16); stroke: #46a758; }
 .anov__zone--exiting { fill: rgba(245,185,69,.16); stroke: #f5b945; }
+.anov__zone--baggage { fill: rgba(139,92,246,.18); stroke: #8b5cf6; }
+.anov__zone--takenaway { fill: rgba(6,182,212,.16); stroke: #06b6d4; }
 .anov__zone.is-hot { fill: rgba(255,91,91,.26); stroke: #ff5b5b; }
 
 /* ===== Reproductor go2rtc (WebRTC/MSE) — vivo robusto ===== */

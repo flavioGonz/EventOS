@@ -100,6 +100,9 @@ const HIK_EVENT_MAP = {
   regionentrance: "region_entrance",
   regionexiting: "region_exit",
   regionexit: "region_exit",
+  unattendedbaggage: "abandoned_object",
+  attendedbaggage: "object_removal",
+  loitering: "loitering",
   vmd: "motion",
   motion: "motion",
   motiondetection: "motion",
@@ -127,6 +130,8 @@ const HIK_POINT_KIND = {
   regionentrance: "entrance",
   regionexiting: "exiting",
   regionexit: "exiting",
+  unattendedbaggage: "baggage",
+  attendedbaggage: "takenaway",
 };
 
 function hikEventKey(s) {

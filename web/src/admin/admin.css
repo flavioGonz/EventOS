@@ -572,6 +572,8 @@
   filter: drop-shadow(0 0 3px rgba(0,0,0,.6)); }
 .anov__zone--entrance { fill: rgba(70,167,88,.16); stroke: #46a758; }
 .anov__zone--exiting { fill: rgba(245,185,69,.16); stroke: #f5b945; }
+.anov__zone--baggage { fill: rgba(139,92,246,.18); stroke: #8b5cf6; }
+.anov__zone--takenaway { fill: rgba(6,182,212,.16); stroke: #06b6d4; }
 .ana-legend { display: flex; flex-wrap: wrap; gap: 8px; }
 .ana-pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: var(--r-pill);
   font-size: 12px; font-weight: 600; border: 1px solid var(--separator); color: var(--text-dim); }
@@ -580,6 +582,8 @@
 .ana-pill--field::before { background: #e5484d; }
 .ana-pill--entrance::before { background: #46a758; }
 .ana-pill--exiting::before { background: #f5b945; }
+.ana-pill--baggage::before { background: #8b5cf6; }
+.ana-pill--takenaway::before { background: #06b6d4; }
 
 /* Encabezado por cliente en el muro de Dispositivos (multi-sitio) */
 .camsite { margin-bottom: 10px; }

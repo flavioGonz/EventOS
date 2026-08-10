@@ -64,6 +64,8 @@ export function pointKindOf(vendorType = "") {
   if (k.includes("fielddetection") || k.includes("intrusion") || k === "region") return "region";
   if (k.includes("regionentrance") || k === "entrance") return "entrance";
   if (k.includes("regionexiting") || k.includes("regionexit") || k === "exiting") return "exiting";
+  if (k.includes("unattendedbaggage") || k === "baggage") return "baggage";
+  if (k.includes("attendedbaggage") || k === "takenaway") return "takenaway";
   if (k === "zone" || k.includes("partition")) return "zone";
   if (k === "door" || k.includes("reader") || k.includes("lector")) return "door";
   if (k === "input") return "input";
