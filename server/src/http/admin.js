@@ -14,6 +14,7 @@ import { listOperators } from "../dispatch/store.js";
 import { discover as discoverHik } from "../discovery/hikvision.js";
 import { discover as discoverOnvif } from "../discovery/onvif.js";
 import { discover as discoverRtsp } from "../discovery/rtsp.js";
+import { scan } from "../discovery/netscan.js";
 import { digestGetBuffer } from "../util/digestFetch.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
 import { sessionFromReq } from "../auth/session.js";
@@ -59,6 +60,22 @@ router.post("/discover", async (req, res) => {
     res.json(result);
   } catch (e) {
     res.status(500).json({ error: "discover_failed", message: e.message });
+  }
+});
+
+// ── Escaneo de red: encuentra equipos A/V (ISAPI/ONVIF/RTSP) en un rango ─────
+// Admin-only. WS-Discovery (ONVIF multicast) + barrido TCP de 80/554, con
+// identificación por ISAPI si se pasan credenciales. Devuelve los hosts candidatos
+// para importarlos a un sitio.
+router.post("/discover/scan", async (req, res) => {
+  const { base, from, to, user, pass, onvif } = req.body || {};
+  if (!base) return res.status(400).json({ error: "bad_request", message: "base de red requerida (ej. 192.168.99)" });
+  try {
+    const result = await scan({ base, from, to, user, pass, onvif: onvif !== false });
+    log.info(`scan[${base}.${from ?? 1}-${to ?? 254}]: ${result.hosts.length} equipos de ${result.scanned} IPs`);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: "scan_failed", message: e.message });
   }
 });
 

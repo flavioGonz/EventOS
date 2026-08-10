@@ -1838,3 +1838,34 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 
 /* Estado "Creado" en la tabla de canales del descubridor */
 .probe-created { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 650; color: var(--ok, #1a9d5a); }
+
+/* ============================================================
+   ESCANEO DE RED (tab Dispositivos del sitio)
+   ============================================================ */
+.site-devices { display: flex; flex-direction: column; gap: 16px; }
+.netscan { border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.netscan__toggle { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 18px; border: 0; cursor: pointer;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 6%, var(--bg-elev)), var(--bg-elev));
+  color: var(--text); font: inherit; text-align: left; }
+.netscan__toggle svg:first-child { color: var(--accent); flex: none; }
+.netscan__toggle span { flex: 1; font-size: 14px; }
+.netscan__toggle b { font-weight: 680; }
+.netscan__chev { color: var(--text-faint); transition: transform var(--dur-1) var(--ease-out); }
+.netscan__toggle.is-open .netscan__chev { transform: rotate(180deg); }
+.netscan__panel { padding: 18px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 16px; }
+.netscan__form { display: grid; grid-template-columns: 1.6fr .7fr .7fr 1.1fr 1.1fr .8fr; gap: 12px; align-items: end; }
+@media (max-width: 900px) { .netscan__form { grid-template-columns: 1fr 1fr; } }
+.netscan__actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding-top: 4px; border-top: 1px dashed var(--border); }
+.netscan__scanning { display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--accent) 7%, transparent); color: var(--text-dim); font-size: 13.5px; }
+.netscan__radar { position: relative; width: 34px; height: 34px; flex: none; }
+.netscan__radar span { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--accent); opacity: 0;
+  animation: netradar 1.8s ease-out infinite; }
+.netscan__radar span:nth-child(2) { animation-delay: .6s; }
+.netscan__radar span:nth-child(3) { animation-delay: 1.2s; }
+@keyframes netradar { 0% { transform: scale(.2); opacity: .7; } 100% { transform: scale(1); opacity: 0; } }
+.netscan__empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px; color: var(--text-faint); text-align: center; }
+.netscan__results { border: 1px solid var(--border); border-radius: var(--r-md); }
+.netscan__type { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
+.netscan__type svg { color: var(--accent); }
