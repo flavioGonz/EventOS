@@ -28,7 +28,9 @@ export default function OperatorEdit() {
   const [saving, setSaving] = useState(false)
   const [pin, setPin] = useState('')        // PIN nuevo (write-only)
   const [removePin, setRemovePin] = useState(false)
+  const [password, setPassword] = useState('') // contraseña nueva (write-only)
   const hasPin = !!form.pinHash
+  const hasPassword = !!form.passwordHash
 
   // ── Turno horario (Reguard "Off-duty") ──
   const sched = form.schedule && form.schedule.mode === 'window' ? form.schedule : null
@@ -55,12 +57,17 @@ export default function OperatorEdit() {
   const save = async () => {
     if (!form.name.trim()) { toast('El nombre es obligatorio', 'error'); return }
     if (pin && pin.length < 4) { toast('El PIN debe tener al menos 4 dígitos', 'error'); return }
+    if (password && password.length < 4) { toast('La contraseña debe tener al menos 4 caracteres', 'error'); return }
+    const uname = (form.username || '').trim()
+    if (password && !uname) { toast('Para fijar contraseña, definí también el usuario', 'error'); return }
     setSaving(true)
-    // El payload no lleva pinHash; el server hashea `pin` si viene. pin:'' lo borra.
-    const { pinHash, ...rest } = form
-    const payload = { ...rest, role: form.role || 'agente' }
+    // El payload no reenvía los hashes; el server hashea `pin`/`password` si vienen.
+    // pin:'' borra el PIN; password:'' borra la contraseña (deja sin login usuario+clave).
+    const { pinHash, passwordHash, ...rest } = form
+    const payload = { ...rest, username: uname || null, role: form.role || 'agente' }
     if (pin) payload.pin = pin
     else if (removePin) payload.pin = ''
+    if (password) payload.password = password
     try {
       if (isNew) await collectionApi('operators').create(payload)
       else await collectionApi('operators').update(id, payload)
@@ -89,8 +96,20 @@ export default function OperatorEdit() {
             {ROLES.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
           </Select>
         </Field>
+        <Field label={<><Icon name="users" size={14} /> Usuario de acceso</>}
+          hint="Con qué usuario inicia sesión en la consola (usuario + contraseña). Se guarda en minúsculas, sin espacios.">
+          <TextInput type="text" autoComplete="off" value={form.username || ''}
+            onChange={(e) => setForm((f) => ({ ...f, username: e.target.value.trim().toLowerCase() }))}
+            placeholder="ej. ana" />
+        </Field>
+        <Field label={<><Icon name="shield" size={14} /> Contraseña de acceso</>}
+          hint={hasPassword ? 'Ya tiene contraseña. Escribí una nueva para cambiarla (mín. 4).' : 'Contraseña para iniciar sesión con este usuario (mín. 4).'}>
+          <TextInput type="password" value={password} autoComplete="new-password"
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={hasPassword ? '•••••••• (sin cambios)' : 'Definí una contraseña'} />
+        </Field>
         <Field label={<><Icon name="shield" size={14} /> PIN de acceso</>}
-          hint={hasPin ? 'Este operario ya tiene PIN. Escribe uno nuevo para cambiarlo, o quítalo.' : 'Opcional. 4-8 dígitos que se piden al iniciar sesión.'}>
+          hint={hasPin ? 'PIN alternativo (flujo por nombre + PIN). Escribí uno nuevo para cambiarlo, o quítalo.' : 'Opcional. 4-8 dígitos (flujo alternativo por nombre + PIN).'}>
           <TextInput type="password" inputMode="numeric" value={pin} maxLength={8}
             onChange={(e) => { setPin(e.target.value.replace(/\D/g, '')); setRemovePin(false) }}
             placeholder={hasPin ? '•••• (sin cambios)' : 'Sin PIN'} autoComplete="new-password" />
@@ -146,6 +165,8 @@ export default function OperatorEdit() {
           </div>
           <div className="edit-aside__rows">
             <div className="edit-aside__row"><span><Icon name="shield" size={13} /> Rol</span><span className="edit-aside__v">{roleLabel}</span></div>
+            <div className="edit-aside__row"><span><Icon name="users" size={13} /> Usuario</span><span className="edit-aside__v">{form.username?.trim() || '— sin login —'}</span></div>
+            <div className="edit-aside__row"><span><Icon name="shield" size={13} /> Contraseña</span><span className="edit-aside__v">{password ? 'Nueva' : hasPassword ? 'Configurada' : 'Sin definir'}</span></div>
             <div className="edit-aside__row"><span><Icon name="shield" size={13} /> PIN</span><span className="edit-aside__v">{pin ? 'Nuevo' : removePin ? 'Se quita' : hasPin ? 'Configurado' : 'Sin PIN'}</span></div>
             <div className="edit-aside__row"><span><Icon name="tag" size={13} /> Competencias</span><span className="edit-aside__v">{form.skills?.length || 0}</span></div>
             <div className="edit-aside__row"><span><Icon name="online" size={13} /> Estado</span><span className="edit-aside__v">{form.active ? 'Activo' : 'Inactivo'}</span></div>
