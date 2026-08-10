@@ -17,13 +17,19 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
 // acepta con remux `copy` (PIPELINE_ERROR_DECODE, por MSE y por WebRTC); el
 // re-encode lo sanea. HLS viaja por HTTP (puerto 80, vía nginx) → robusto desde
 // cualquier red, sin ICE/UDP. `src` = sesión go2rtc ya registrada (grabación).
-export function Go2RtcView({ deviceId, src, rules = null, space = 1000, highlightId = null, onAspect = null, quality = 'sub' }) {
+export function Go2RtcView({ deviceId, src, rules = null, space = 1000, highlightId = null, onAspect = null, onPoster = null, quality = 'sub' }) {
   // Camino A (deviceId, sin src): VIVO por HLS transcodificado.
   // Camino B (src): grabación por go2rtc/MSE (NvrPlayback registra el stream).
+  // `onPoster` avisa apenas se muestra el snapshot-póster (antes de que conecte el
+  // vivo) → el que consume puede quitar su skeleton sin esperar al video.
   const useGo2 = !!src && !deviceId
   if (useGo2) return <Go2RtcMseView src={src} rules={rules} space={space} highlightId={highlightId} onAspect={onAspect} />
-  return <HlsLiveView deviceId={deviceId} rules={rules} space={space} highlightId={highlightId} onAspect={onAspect} quality={quality} />
+  return <HlsLiveView deviceId={deviceId} rules={rules} space={space} highlightId={highlightId} onAspect={onAspect} onPoster={onPoster} quality={quality} />
 }
+
+// Refresco del snapshot-póster mientras NO hay vivo: una foto rápida y luego cada
+// ~10 min (placeholder liviano, no un loop de snapshots). El vivo carga por detrás.
+const POSTER_REFRESH_MS = 600000
 
 // VIVO por MJPEG (multipart de snapshots ISAPI ~10 fps). El H264 RTSP de este NVR
 // llega ~50% corrupto y NO se puede limpiar (relleno=gris; descarte=basura sin SPS),
@@ -137,7 +143,7 @@ function HlsLiveView(props) {
 
 // Vivo DIRECTO de la cámara por go2rtc/MSE (stream limpio, 25fps). Póster snapshot
 // instantáneo + overlay de analíticas.
-function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAspect }) {
+function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAspect, onPoster = null }) {
   const elRef = useRef(null)
   const [state, setState] = useState('connecting')
   // Vivo por fMP4 progresivo (HTTP GET) — robusto detrás de proxy TLS: no depende
@@ -168,16 +174,18 @@ function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAsp
   useEffect(() => {
     if (state === 'playing' || !deviceId) return
     setSnapT(Date.now())
-    const id = setInterval(() => setSnapT(Date.now()), 700)
+    const id = setInterval(() => setSnapT(Date.now()), POSTER_REFRESH_MS)
     return () => clearInterval(id)
   }, [state, deviceId])
   const playing = state === 'playing'
   return (
     <div className={`go2view${playing ? ' go2view--playing' : ''}`}>
-      {/* El aspecto lo fija el VIDEO (onMeta), no el póster (que puede ser de otra
-          resolución que el subflujo) → evita marcos negros por desajuste. */}
+      {/* El póster (snapshot) aparece YA y avisa con onPoster → quien consume quita
+          su skeleton al instante, sin esperar a que conecte el vivo (que carga por
+          detrás). El aspecto del bloque lo maneja el contenedor (16:9 fijo). */}
       {!playing && deviceId && (
-        <img className="go2view__snap" alt="" src={`/api/camera/${deviceId}/snapshot${snapT ? `?t=${snapT}` : ''}`} />
+        <img className="go2view__snap" alt="" src={`/api/camera/${deviceId}/snapshot${snapT ? `?t=${snapT}` : ''}`}
+             onLoad={() => onPoster && onPoster()} />
       )}
       <video ref={elRef} className="go2view__video" autoPlay muted playsInline />
       {rules && rules.length > 0 && <AnalyticsOverlay rules={rules} space={space} highlightId={highlightId} />}
@@ -191,7 +199,7 @@ function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAsp
 }
 
 // Vivo por HLS H264 transcodificado (modo 'hls'; útil cuando se apague H.264+).
-function HlsVideoLive({ deviceId, rules, space, highlightId, onAspect }) {
+function HlsVideoLive({ deviceId, rules, space, highlightId, onAspect, onPoster = null }) {
   const videoRef = useRef(null)
   const { phase } = useLiveHlsOn(videoRef, deviceId, 'sub', (w, h) => { if (onAspect && w && h) onAspect(`${w} / ${h}`) })
   const playing = phase === 'playing'
@@ -199,7 +207,7 @@ function HlsVideoLive({ deviceId, rules, space, highlightId, onAspect }) {
   useEffect(() => {
     if (playing || !deviceId) return
     setSnapT(Date.now())
-    const id = setInterval(() => setSnapT(Date.now()), 500)
+    const id = setInterval(() => setSnapT(Date.now()), POSTER_REFRESH_MS)
     return () => clearInterval(id)
   }, [playing, deviceId])
   if (!deviceId) return null
@@ -207,7 +215,7 @@ function HlsVideoLive({ deviceId, rules, space, highlightId, onAspect }) {
     <div className={`go2view${playing ? ' go2view--playing' : ''}`}>
       {!playing && (
         <img className="go2view__snap" alt="" src={`/api/camera/${deviceId}/snapshot${snapT ? `?t=${snapT}` : ''}`}
-             onLoad={(e) => { const n = e.currentTarget; if (onAspect && n.naturalWidth && n.naturalHeight) onAspect(`${n.naturalWidth} / ${n.naturalHeight}`) }} />
+             onLoad={(e) => { const n = e.currentTarget; if (onAspect && n.naturalWidth && n.naturalHeight) onAspect(`${n.naturalWidth} / ${n.naturalHeight}`); if (onPoster) onPoster() }} />
       )}
       <video ref={videoRef} className="go2view__video" muted autoPlay playsInline />
       {rules && rules.length > 0 && <AnalyticsOverlay rules={rules} space={space} highlightId={highlightId} />}
@@ -220,7 +228,7 @@ function HlsVideoLive({ deviceId, rules, space, highlightId, onAspect }) {
   )
 }
 
-function MjpegLive({ deviceId, rules, space, highlightId, onAspect, quality = 'sub' }) {
+function MjpegLive({ deviceId, rules, space, highlightId, onAspect, onPoster = null, quality = 'sub' }) {
   const [state, setState] = useState('connecting') // connecting | playing | error
   const [streamKey, setStreamKey] = useState(0)
   const [snapT, setSnapT] = useState(0)
@@ -231,7 +239,7 @@ function MjpegLive({ deviceId, rules, space, highlightId, onAspect, quality = 's
   useEffect(() => {
     if (state === 'playing' || !deviceId) return
     setSnapT(Date.now())
-    const id = setInterval(() => setSnapT(Date.now()), 500)
+    const id = setInterval(() => setSnapT(Date.now()), POSTER_REFRESH_MS)
     return () => clearInterval(id)
   }, [state, deviceId])
 
@@ -241,7 +249,7 @@ function MjpegLive({ deviceId, rules, space, highlightId, onAspect, quality = 's
     <div className={`go2view${playing ? ' go2view--playing' : ''}`}>
       {!playing && (
         <img className="go2view__snap" alt="" src={`/api/camera/${deviceId}/snapshot${snapT ? `?t=${snapT}` : ''}`}
-             onLoad={(e) => { const n = e.currentTarget; if (onAspect && n.naturalWidth && n.naturalHeight) onAspect(`${n.naturalWidth} / ${n.naturalHeight}`) }} />
+             onLoad={(e) => { const n = e.currentTarget; if (onAspect && n.naturalWidth && n.naturalHeight) onAspect(`${n.naturalWidth} / ${n.naturalHeight}`); if (onPoster) onPoster() }} />
       )}
       <MjpegCanvas key={streamKey} deviceId={deviceId} quality={quality}
         onFirst={() => setState('playing')}

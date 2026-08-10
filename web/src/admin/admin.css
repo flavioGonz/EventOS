@@ -1931,6 +1931,13 @@ button.recep-live__row:hover { transform: translateY(-1px); box-shadow: var(--sh
 button.livecard__chip { cursor: pointer; }
 button.livecard__chip:hover { background: rgba(56,189,248,.3); }
 button.livecard__chip svg { color: var(--accent, #38bdf8); }
+/* Selector de flujo (Sub / Principal) — segmentado tipo píldora */
+.livecard__seg { pointer-events: auto; display: inline-flex; align-items: center; padding: 2px; border-radius: 999px;
+  background: rgba(8,14,22,.62); border: 1px solid rgba(255,255,255,.16); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.livecard__segbtn { border: 0; cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 650; color: #b9cbe0;
+  padding: 4px 10px; border-radius: 999px; background: transparent; transition: background .15s, color .15s; }
+.livecard__segbtn:hover { color: #eaf2fb; }
+.livecard__segbtn.is-on { color: #06121f; background: var(--accent, #38bdf8); }
 
 /* ---- Capturas / historial de alertas del dispositivo (debajo del video) ---- */
 .devcaps { margin-top: 12px; }

@@ -240,6 +240,7 @@ export default function DeviceEdit() {
   const [saving, setSaving] = useState(false)
   const [previewAspect, setPreviewAspect] = useState('16 / 9')
   const [videoReady, setVideoReady] = useState(false)
+  const [liveQuality, setLiveQuality] = useState('sub') // 'sub' | 'main' — flujo elegido
   const [editingAna, setEditingAna] = useState(false)
   const [tab, setTab] = useState('datos') // datos | alertas | medios | salud
   const [probing, setProbing] = useState(false)
@@ -648,13 +649,21 @@ export default function DeviceEdit() {
                   cover) → nunca re-dimensiona. Los controles (título/editar/sync/relés)
                   y los nombres de analíticas están OCULTOS y aparecen al pasar el mouse. */}
               <div className="livecard">
-                <Go2RtcView deviceId={id} rules={ana && ana.rules} space={ana && ana.space}
-                  onAspect={() => setVideoReady(true)} />
+                <Go2RtcView key={liveQuality} deviceId={id} quality={liveQuality} rules={ana && ana.rules} space={ana && ana.space}
+                  onAspect={() => setVideoReady(true)} onPoster={() => setVideoReady(true)} />
                 {ana && ana.rules && ana.rules.length > 0 && <AnalyticsLabels rules={ana.rules} space={ana.space} />}
                 {!videoReady && <div className="livecard__skel" aria-hidden="true" />}
                 <div className="livecard__top">
                   <span className="livecard__chip livecard__title"><Icon name="video" size={13} /> Canal en vivo <b>· #{form.channel ?? '—'}</b></span>
                   <span className="livecard__topr">
+                    <span className="livecard__seg" role="group" aria-label="Flujo de video">
+                      <button type="button" className={`livecard__segbtn${liveQuality === 'sub' ? ' is-on' : ''}`}
+                              onClick={() => { if (liveQuality !== 'sub') { setVideoReady(false); setLiveQuality('sub') } }}
+                              title="Flujo secundario (más liviano, arranca más rápido)">Sub</button>
+                      <button type="button" className={`livecard__segbtn${liveQuality === 'main' ? ' is-on' : ''}`}
+                              onClick={() => { if (liveQuality !== 'main') { setVideoReady(false); setLiveQuality('main') } }}
+                              title="Flujo principal (máxima calidad)">Principal</button>
+                    </span>
                     <button type="button" className="livecard__chip" onClick={() => setEditingAna(true)}
                             title="Dibujar / editar las analíticas en la cámara"><Icon name="edit" size={13} /> Editar</button>
                     <button type="button" className="livecard__chip" onClick={() => refreshCameraAnalytics(id)}
