@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Modal, Button, Icon, Badge, Spinner } from '../ui/primitives.jsx'
 import { api, collectionApi } from '../lib/adminApi.js'
 
-const STAGES = [
+const STAGES_CAM = [
   { key: 'conn', icon: 'globe', label: 'Conectando al equipo' },
   { key: 'auth', icon: 'shield', label: 'Autenticando (digest)' },
   { key: 'chan', icon: 'camera', label: 'Enumerando canales' },
@@ -15,8 +15,14 @@ const STAGES = [
   { key: 'relay', icon: 'route', label: 'Detectando relés / salidas' },
   { key: 'done', icon: 'check', label: 'Listo' },
 ]
-const HOLD = STAGES.length - 2 // último paso "en vuelo" antes de resolver
-
+const STAGES_ALARM = [
+  { key: 'conn', icon: 'globe', label: 'Conectando al panel' },
+  { key: 'auth', icon: 'shield', label: 'Autenticando (digest)' },
+  { key: 'zones', icon: 'shield', label: 'Enumerando zonas' },
+  { key: 'sub', icon: 'layers', label: 'Leyendo subsistemas / áreas' },
+  { key: 'relay', icon: 'route', label: 'Detectando salidas / relés' },
+  { key: 'done', icon: 'check', label: 'Listo' },
+]
 // Elige el stream principal (…01) del canal indicado.
 function streamForChannel(streams, ch) {
   const list = streams || []
@@ -26,6 +32,9 @@ function streamForChannel(streams, ch) {
 }
 
 export default function DeviceProbe({ device, onClose, onImport, onProbed, onCreated, toast }) {
+  const isAlarm = /alarm|panel/i.test(device.type || '')
+  const STAGES = isAlarm ? STAGES_ALARM : STAGES_CAM
+  const HOLD = STAGES.length - 2 // último paso "en vuelo" antes de resolver
   const [stage, setStage] = useState(0)
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
@@ -55,6 +64,7 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, onCre
       protocol, host: device.ip, port: device.isapiPort || undefined,
       user: device.username, pass: device.password, https: !!device.https,
       vendor: device.vendor || undefined, rtspPort: device.rtspPort || undefined,
+      type: device.type || undefined,
     })
     const tryChain = async () => {
       let last = null
@@ -81,6 +91,8 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, onCre
   const streams = result?.streams || []
   const analytics = result?.analytics || []
   const outputs = result?.outputs || []
+  const zones = result?.zones || []
+  const subsystems = result?.subsystems || []
 
   const importToFicha = () => {
     const patch = {}
@@ -143,7 +155,7 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, onCre
     <Modal open title={<span className="ptitle"><Icon name="search" size={16} /> Test de conectividad e importación</span>}
       size="lg" onClose={onClose} footer={footer}>
       <p className="help-block" style={{ marginTop: 0 }}>
-        Sondeando <b>{device.ip || '—'}</b>{device.isapiPort ? `:${device.isapiPort}` : ''} con el usuario <b>{device.username || '—'}</b>. Detecta canales, analíticas y relés del equipo para importarlos.
+        Sondeando <b>{device.ip || '—'}</b>{device.isapiPort ? `:${device.isapiPort}` : ''} con el usuario <b>{device.username || '—'}</b>. Detecta {isAlarm ? 'zonas, subsistemas y salidas del panel' : 'canales, analíticas y relés del equipo'} para importarlos.
       </p>
 
       <div className="probe-steps">
@@ -193,9 +205,19 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, onCre
               {d.serial && <span className="muted">S/N {d.serial}{d.mac ? ` · ${d.mac}` : ''}</span>}
             </div>
             <div className="probe-result__counts">
-              <span className="probe-chip"><Icon name="camera" size={13} /> {chans.length} canal(es)</span>
-              <span className="probe-chip"><Icon name="route" size={13} /> {outputs.length} relé(s)</span>
-              <span className="probe-chip"><Icon name="filter" size={13} /> {analytics.length} analítica(s)</span>
+              {isAlarm ? (
+                <>
+                  <span className="probe-chip"><Icon name="shield" size={13} /> {zones.length} zona(s)</span>
+                  <span className="probe-chip"><Icon name="layers" size={13} /> {subsystems.length} subsistema(s)</span>
+                  <span className="probe-chip"><Icon name="route" size={13} /> {outputs.length} salida(s)</span>
+                </>
+              ) : (
+                <>
+                  <span className="probe-chip"><Icon name="camera" size={13} /> {chans.length} canal(es)</span>
+                  <span className="probe-chip"><Icon name="route" size={13} /> {outputs.length} relé(s)</span>
+                  <span className="probe-chip"><Icon name="filter" size={13} /> {analytics.length} analítica(s)</span>
+                </>
+              )}
             </div>
           </div>
 
@@ -227,10 +249,49 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, onCre
             </>
           )}
 
+          {zones.length > 0 && (
+            <>
+              <p className="section-label u-mt-16"><Icon name="shield" size={14} /> Zonas del panel</p>
+              <div className="adm-table-wrap">
+                <table className="adm-table">
+                  <thead><tr><th>#</th><th>Nombre</th><th>Tipo</th><th>Área</th><th>Estado</th></tr></thead>
+                  <tbody>
+                    {zones.map((z, i) => (
+                      <tr key={z.id ?? i}>
+                        <td className="cell-mono">{z.id ?? '—'}</td>
+                        <td className="cell-name">{z.name || '—'}</td>
+                        <td>{z.zoneType || '—'}</td>
+                        <td className="cell-mono">{z.subSystem ?? '—'}</td>
+                        <td>{z.status ? <Badge tone="neutral">{z.status}</Badge> : <span className="muted">—</span>}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+
+          {subsystems.length > 0 && (
+            <>
+              <p className="section-label u-mt-16"><Icon name="layers" size={14} /> Subsistemas / áreas</p>
+              <div className="inline-tags">
+                {subsystems.map((s, i) => (
+                  <Badge key={s.id ?? i} tone="neutral"><Icon name="layers" size={12} /> {s.name || `Área ${s.id}`}{s.armMode ? ` · ${s.armMode}` : ''}</Badge>
+                ))}
+              </div>
+            </>
+          )}
+
+          {isAlarm && result && !failed && zones.length === 0 && subsystems.length === 0 && (
+            <p className="help-block u-mt-12">
+              El equipo respondió por ISAPI pero no se leyeron zonas por SecurityCP. Si es un panel AX Pro/Hybrid, verificá que exponga el ISAPI local (SecurityCP) y las credenciales; algunos firmwares usan otras rutas. Los eventos del panel se reciben igual por alertStream.
+            </p>
+          )}
+
           {outputs.length > 0 && (
             <>
               <p className="section-label u-mt-16 section-label--action">
-                <span><Icon name="route" size={14} /> Relés / salidas</span>
+                <span><Icon name="route" size={14} /> {isAlarm ? 'Salidas / relés' : 'Relés / salidas'}</span>
                 <Button variant="secondary" size="sm" icon="plus" className="section-label__add" onClick={importRelays}>Importar {outputs.length} relé(s)</Button>
               </p>
               <div className="inline-tags">

@@ -144,10 +144,53 @@ function parseOutputs(xml) {
   })).filter((o) => o.id);
 }
 
+// ── Paneles de alarma AX (SecurityCP) ────────────────────────────────────────
+// Los AX Pro/Hybrid responden JSON (?format=json). Parseo tolerante: aceptamos
+// varias grafías de clave según firmware; nunca lanzamos. Sin panel real la rama
+// simplemente devuelve listas vacías (degradación elegante).
+function tryJson(text) { try { return JSON.parse(text); } catch { return null; } }
+const asArray = (v) => (Array.isArray(v) ? v : v == null ? [] : [v]);
+// Desanida objetos tipo {ZoneList:[{Zone:{...}}]} → [{...}] probando envoltorios.
+function unwrapList(root, listKeys, itemKeys) {
+  if (!root) return [];
+  let list = null;
+  for (const k of listKeys) if (root[k] != null) { list = root[k]; break; }
+  if (list == null && Array.isArray(root)) list = root;
+  return asArray(list).map((el) => {
+    for (const ik of itemKeys) if (el && el[ik] != null) return el[ik];
+    return el;
+  }).filter(Boolean);
+}
+function parseAxZones(text) {
+  const j = tryJson(text); if (!j) return [];
+  return unwrapList(j, ["ZoneList", "List", "zoneList"], ["Zone", "zone"]).map((z) => ({
+    id: z.id ?? z.zoneID ?? z.seq ?? null,
+    name: z.zoneName || z.name || z.detectorName || null,
+    zoneType: z.zoneType || z.detectorType || z.type || null,
+    subSystem: z.subSystemNo ?? z.subsystem ?? z.areaNo ?? null,
+    status: z.status || z.zoneStatus || null,
+  })).filter((z) => z.id != null || z.name);
+}
+function parseAxSubsys(text) {
+  const j = tryJson(text); if (!j) return [];
+  return unwrapList(j, ["SubSysList", "List", "subSysList"], ["SubSys", "subSys"]).map((s) => ({
+    id: s.id ?? s.subSystemNo ?? null,
+    name: s.name || s.subSystemName || null,
+    armMode: s.arming || s.armMode || s.status || null,
+  })).filter((s) => s.id != null || s.name);
+}
+function parseAxOutputs(text) {
+  const j = tryJson(text); if (!j) return [];
+  return unwrapList(j, ["OutputList", "List", "RelayList", "outputList"], ["Output", "output", "Relay", "relay"]).map((o) => ({
+    id: o.id ?? o.outputNo ?? o.relayNo ?? null,
+    name: o.name || o.outputName || o.relayName || null,
+  })).filter((o) => o.id != null || o.name);
+}
+
 // ── API ──────────────────────────────────────────────────────────────────────
-export async function discover({ host, port, rtspPort, user, pass, https = false }) {
+export async function discover({ host, port, rtspPort, user, pass, https = false, type = "" }) {
   const opt = { host: String(host || "").trim(), port: Number(port) || (https ? 443 : 80), rtspPort: Number(rtspPort) || 554, https: !!https, user, pass };
-  const out = { host: opt.host, port: opt.port, device: null, channels: [], streams: [], analytics: [], outputs: [], errors: [] };
+  const out = { host: opt.host, port: opt.port, device: null, channels: [], streams: [], analytics: [], outputs: [], zones: [], subsystems: [], errors: [] };
   if (!opt.host || !user) { out.errors.push("Faltan host o credenciales."); return out; }
 
   const probe = async (path, onOk) => {
@@ -170,13 +213,32 @@ export async function discover({ host, port, rtspPort, user, pass, https = false
     return out;
   }
 
-  await probe("/ISAPI/ContentMgmt/InputProxy/channels", (t) => { out.channels = parseProxyChannels(t); });
-  if (!out.channels.length) {
-    await probe("/ISAPI/System/Video/inputs/channels", (t) => { out.channels = parseVideoChannels(t); });
+  // ¿Es un panel de alarma AX? Por el tipo declarado en la ficha o por el
+  // deviceType que reporta el equipo (SecurityCPModule / "alarm host").
+  const dtype = (out.device?.deviceType || "").toLowerCase();
+  const looksAx = /alarm|securitycp|securitypanel/.test(dtype);
+  const wantAlarm = /alarm|panel/i.test(type) || looksAx;
+
+  if (wantAlarm) {
+    // Panel AX: enumerar zonas, subsistemas (particiones) y salidas por SecurityCP.
+    // JSON tolerante; si el firmware usa otra ruta, cae a vacío con un aviso.
+    await probe("/ISAPI/SecurityCP/Configuration/zones?format=json", (t) => { out.zones = parseAxZones(t); });
+    if (!out.zones.length) await probe("/ISAPI/SecurityCP/status/zones?format=json", (t) => { out.zones = parseAxZones(t); });
+    await probe("/ISAPI/SecurityCP/Configuration/subSys?format=json", (t) => { out.subsystems = parseAxSubsys(t); });
+    await probe("/ISAPI/SecurityCP/Configuration/outputCfg?format=json", (t) => { out.outputs = parseAxOutputs(t); });
+    if (!out.outputs.length) await probe("/ISAPI/SecurityCP/status/outputs?format=json", (t) => { out.outputs = parseAxOutputs(t); });
+    // Salidas IO físicas del propio panel (si expone además IO clásico).
+    if (!out.outputs.length) await probe("/ISAPI/System/IO/outputs", (t) => { out.outputs = parseOutputs(t); });
+  } else {
+    // Cámara / NVR / portero: canales, streams, analíticas y relés IO.
+    await probe("/ISAPI/ContentMgmt/InputProxy/channels", (t) => { out.channels = parseProxyChannels(t); });
+    if (!out.channels.length) {
+      await probe("/ISAPI/System/Video/inputs/channels", (t) => { out.channels = parseVideoChannels(t); });
+    }
+    await probe("/ISAPI/Streaming/channels", (t) => { out.streams = parseStreams(t, opt); });
+    await probe("/ISAPI/Event/triggers", (t) => { out.analytics = parseTriggers(t); });
+    await probe("/ISAPI/System/IO/outputs", (t) => { out.outputs = parseOutputs(t); });
   }
-  await probe("/ISAPI/Streaming/channels", (t) => { out.streams = parseStreams(t, opt); });
-  await probe("/ISAPI/Event/triggers", (t) => { out.analytics = parseTriggers(t); });
-  await probe("/ISAPI/System/IO/outputs", (t) => { out.outputs = parseOutputs(t); });
 
   return out;
 }
