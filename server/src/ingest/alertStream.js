@@ -85,6 +85,25 @@ function nvrTargets() {
   }
   return out;
 }
+// Cámaras Hikvision DIRECTAS (no detrás de un NVR): también exponen alertStream
+// ISAPI. Abrimos una conexión directa a cada una para recibir sus analíticas
+// (cruce de línea, intrusión, objeto abandonado/retirado…) sin depender de un NVR.
+// Se excluyen las que comparten IP con un NVR (sus eventos llegan por el NVR).
+function directCameraTargets() {
+  let devices = []; try { devices = listConfig("devices"); } catch { /* store */ }
+  const nvrIps = new Set(devices.filter((d) => d.type === "nvr" && d.ip).map((d) => d.ip));
+  const out = [];
+  for (const d of devices) {
+    if (d.type === "nvr" || !d.ip || !d.isapiPort || !d.username) continue;
+    if (!/hik/i.test(String(d.vendor || ""))) continue; // alertStream ISAPI = Hikvision
+    if (nvrIps.has(d.ip)) continue;                      // detrás de un NVR → llega por el NVR
+    out.push({ id: d.id, name: d.name, host: d.ip, port: Number(d.isapiPort), user: d.username, pass: d.password || "", https: !!d.isapiHttps, slug: null, siteId: d.siteId || null, kind: "camera", deviceId: d.id });
+  }
+  return out;
+}
+// Todos los orígenes de alertStream (pull): NVRs + cámaras Hik directas.
+function streamTargets() { return [...nvrTargets(), ...directCameraTargets()]; }
+
 // OJO (multi-cliente): el `slug` sale de hardcodear el puerto ISAPI (82→srv2,
 // 83→srv1), así que NO es único entre clientes: dos sitios con un NVR en :82
 // comparten el tag `nvr:srv2`. Por eso el sitio manda SIEMPRE que se conozca —
@@ -93,6 +112,8 @@ function nvrTargets() {
 // equivocado. El tag sólo desempata DENTRO del sitio.
 function cameraFor(nvr, channelID) {
   let devices = []; try { devices = listConfig("devices"); } catch { /* store */ }
+  // Origen = cámara directa → el evento es de esa misma cámara (sin mapear canal).
+  if (nvr.kind === "camera") return devices.find((d) => d.id === nvr.deviceId) || null;
   const ch = String(channelID);
   const sameChannel = (d) => d.type !== "nvr" && String(d.channel) === ch;
   const pool = nvr.siteId ? devices.filter((d) => d.siteId === nvr.siteId) : devices;
@@ -237,10 +258,11 @@ export function alertStreamCoverage() {
   const active = String(process.env.EVENTOS_ALERTSTREAM || "") === "1";
   const ids = new Set();
   if (!active) return { active, deviceIds: ids };
-  const nvrs = nvrTargets();
+  const nvrs = streamTargets();
   let devices = []; try { devices = listConfig("devices"); } catch { /* store */ }
   for (const nvr of nvrs) {
     ids.add(nvr.id);
+    if (nvr.kind === "camera") continue; // cámara directa: sólo se cubre a sí misma
     for (const d of devices) {
       if (d.type === "nvr") continue;
       const tags = (d.tags || []).map(String);
@@ -260,10 +282,11 @@ export function startAlertStreams() {
     return;
   }
   started = true;
-  const nvrs = nvrTargets();
-  if (!nvrs.length) { log.warn("alertStream: sin NVR con credenciales/puerto ISAPI"); return; }
-  for (const nvr of nvrs) runNvr(nvr);
-  log.info(`alertStream: escuchando ${nvrs.length} NVR (dedup ${DEDUP_MS / 1000}s)`);
+  const targets = streamTargets();
+  if (!targets.length) { log.warn("alertStream: sin NVR/cámara con credenciales/puerto ISAPI"); return; }
+  for (const t of targets) runNvr(t);
+  const nCam = targets.filter((t) => t.kind === "camera").length;
+  log.info(`alertStream: escuchando ${targets.length} orígenes (${targets.length - nCam} NVR + ${nCam} cámara Hik directa) (dedup ${DEDUP_MS / 1000}s)`);
 }
 
 export default { startAlertStreams, classify, alertStreamCoverage };
