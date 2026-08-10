@@ -32,14 +32,16 @@ import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
 
 const DEFAULT_PULSE_MS = 3000;
 
-export const DOOR_KINDS = ["dsk", "ax", "io"];
+export const DOOR_KINDS = ["dsk", "ax", "io", "akuvox"];
 
 /** ¿Qué familia es este dispositivo? Explícito primero, heurística después. */
 export function doorKindOf(dev = {}) {
   const k = String(dev.relayKind || dev.doorKind || "").toLowerCase();
   if (DOOR_KINDS.includes(k)) return k;
   if (k === "hik-io") return "io";            // nombre viejo, se sigue aceptando
-  const t = `${dev.type || ""} ${dev.model || ""}`.toLowerCase();
+  const t = `${dev.type || ""} ${dev.model || ""} ${dev.vendor || ""}`.toLowerCase();
+  // Akuvox: portero/intercom que abre por su HTTP API (no ISAPI).
+  if (/akuvox|intercom|portero/.test(t)) return "akuvox";
   if (/ax\s*pro|axpro|axhybrid|securitycp|panel/.test(t)) return "ax";
   if (/ds-k|access|acceso|controladora/.test(t)) return "dsk";
   return "io";
@@ -54,8 +56,21 @@ function req(dev, { path, method = "PUT", body = "", contentType = "application/
 }
 
 /** Arma la orden sin ejecutarla. Es lo que usa `dryRun` y lo que se testea. */
-export function buildOpenRequest(kind, id, cmd = "open") {
+export function buildOpenRequest(kind, id, cmd = "open", opts = {}) {
   const out = String(id);
+  if (kind === "akuvox") {
+    // Akuvox HTTP API: GET /api/relay/trig?mode=1&num=<n>&level=1&delay=<s>.
+    // num 1/2/3 = Relay A/B/C. delay = segundos que queda liberado (pulso nativo,
+    // por eso no se agenda el "volver a low" como en `io`). Respuesta {retcode:0}.
+    const num = /^[123]$/.test(out) ? out : "1";
+    const delay = Math.max(0, Math.min(65535, Number(opts.delaySec) || 5));
+    // "close" fuerza delay 0 (cierra ya); "open" abre por `delay` segundos.
+    const dl = cmd === "close" ? 0 : delay;
+    return {
+      path: `/api/relay/trig?mode=1&num=${num}&level=1&delay=${dl}`,
+      method: "GET", contentType: "application/json", body: "",
+    };
+  }
   if (kind === "dsk") {
     const c = ["open", "close", "alwaysOpen", "alwaysClose"].includes(cmd) ? cmd : "open";
     return {
@@ -96,6 +111,10 @@ export function okResponse(status, text = "") {
     if (j && j.statusCode != null && ![0, 1].includes(Number(j.statusCode))) {
       return { ok: false, why: `statusCode ${j.statusCode} (${j.statusString || ""})` };
     }
+    // Akuvox HTTP API: éxito = retcode 0.
+    if (j && j.retcode != null && Number(j.retcode) !== 0) {
+      return { ok: false, why: `retcode ${j.retcode} (${j.message || ""})` };
+    }
   } catch { /* no era JSON, ya está validado como XML */ }
   return { ok: true };
 }
@@ -124,7 +143,7 @@ export async function openDoor(dev, opts = {}) {
   if (!dryRun && !operatorId) throw new Error("no_operator");
 
   const kind = doorKindOf(dev);
-  const order = buildOpenRequest(kind, output, cmd);
+  const order = buildOpenRequest(kind, output, cmd, { delaySec: Math.round((pulseMs || DEFAULT_PULSE_MS) / 1000) });
   if (dryRun) return { dryRun: true, kind, ...order, host: dev.ip, port: dev.isapiPort };
   if (!dev.ip || !dev.username) throw new Error("no_creds");
 

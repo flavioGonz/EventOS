@@ -328,28 +328,52 @@ export function normalizeHikvision(input = {}) {
   });
 }
 
-// ── Akuvox (porteros) ───────────────────────────────────────────────────────
+// ── Akuvox (porteros / control de acceso) ────────────────────────────────────
+// Mapa de los nombres de evento que se configuran en los Action URLs del equipo
+// (event=<nombre>) → tipo canónico de EventOS. Los eventos de acceso VÁLIDO son
+// traza (access_granted, P5, no alerta); los inválidos y las alarmas sí alertan.
 const AKUVOX_EVENT_MAP = {
-  call: "doorbell",
-  doorbell: "doorbell",
-  ring: "doorbell",
-  dooropen: "access_denied",
-  dooropened: "door_held",
-  doorforced: "door_forced",
+  // Decisiones de acceso (tarjeta / PIN / rostro / QR)
+  validcard: "access_granted", invalidcard: "access_denied",
+  validcode: "access_granted", invalidcode: "access_denied",
+  validface: "access_granted", invalidface: "access_denied",
+  validqr: "access_granted", invalidqr: "access_denied",
+  // Alarmas
+  breakin: "alarm", breakinalarm: "alarm",
+  tampertri: "tamper_alarm", tamper: "tamper_alarm", tamperalarm: "tamper_alarm",
+  doortimeout: "door_held", dooropentimeout: "door_held",
+  // Relé actuado = puerta abierta (traza)
+  relaytrigger: "access_granted", relayclose: "access_granted",
+  // Llamada / portero
+  makecall: "doorbell", hangup: "doorbell", call: "doorbell", doorbell: "doorbell", ring: "doorbell",
+  // Otros / compatibilidad
   motion: "motion",
+  dooropen: "access_denied", dooropened: "door_held", doorforced: "door_forced",
 };
 
 export function normalizeAkuvox(raw = {}) {
-  const evName = String(pick(raw.event, raw.type, raw.action, "call")).toLowerCase();
+  const evName = String(pick(raw.event, raw.type, raw.action, "call")).toLowerCase().replace(/[\s_-]/g, "");
   const type = AKUVOX_EVENT_MAP[evName] || "doorbell";
 
   const source = {
-    deviceId: pick(raw.mac, raw.deviceId, raw.sn) ?? null,
+    // Preferimos el deviceId ya resuelto (por IP/MAC en el handler) sobre el MAC
+    // crudo, para que el pipeline atribuya el evento al dispositivo de EventOS.
+    deviceId: pick(raw.deviceId, raw.mac, raw.sn) ?? null,
     deviceName: pick(raw.deviceName, raw.location, raw.name, "Portero") ?? null,
     channel: pick(raw.door, raw.relay, raw.channel) ?? null,
     ip: pick(raw.ip, raw.ipAddress) ?? null,
     site: pick(raw.site, raw.building, raw.client) ?? null,
   };
+
+  // Detalle legible según el dato que traiga el Action URL (tarjeta / PIN / tipo).
+  const detail = pick(
+    raw.card && `tarjeta ${raw.card}`,
+    raw.card_sn && `tarjeta ${raw.card_sn}`,
+    raw.code && `PIN ${raw.code}`,
+    raw.unlocktype && `${raw.unlocktype}`,
+    raw.remote && `llamada ${raw.remote}`
+  );
+  const fields = detail ? { ...raw, detail } : raw;
 
   return buildEvent({
     sourceType: "akuvox",
@@ -357,7 +381,7 @@ export function normalizeAkuvox(raw = {}) {
     raw,
     type,
     source,
-    fields: raw,
+    fields,
   });
 }
 

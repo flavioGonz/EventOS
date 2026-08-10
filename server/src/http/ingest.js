@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { config, tokensEqual } from "../config.js";
 import { log } from "../logger.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
+import * as store from "../config/store.js";
 
 const router = Router();
 
@@ -107,8 +108,40 @@ function makeHandler(vendor) {
   };
 }
 
+// Resuelve el dispositivo EventOS a partir de la IP/MAC que trae un Action URL,
+// para atribuir el evento (deviceId + sitio). Tolerante: si no matchea, no rompe.
+function resolveDeviceByNet({ ip, mac }) {
+  try {
+    const devs = store.list("devices") || [];
+    const m = String(mac || "").replace(/[:-]/g, "").toLowerCase();
+    return devs.find((d) => {
+      if (ip && (d.ip === ip || d.camIp === ip)) return true;
+      if (m && String(d.mac || "").replace(/[:-]/g, "").toLowerCase() === m) return true;
+      return false;
+    }) || null;
+  } catch { return null; }
+}
+
 router.post("/hikvision", makeHandler("hikvision"));
 router.post("/akuvox", makeHandler("akuvox"));
+// Akuvox empuja eventos por **Action URL = HTTP GET saliente** (no POST). Este
+// handler lee los query params del Action URL, resuelve el dispositivo por IP/MAC
+// y los pasa al pipeline. Auth por ?token= (requireToken ya lo valida).
+router.get("/akuvox", async (req, res) => {
+  maybeDump("akuvox", req);
+  try {
+    const q = { ...req.query, _via: "actionurl" };
+    const dev = resolveDeviceByNet({ ip: q.ip || q.ipAddress, mac: q.mac });
+    if (dev) { q.deviceId = dev.id; if (!q.site) q.site = dev.siteId || dev.site || undefined; }
+    const event = await ingestRaw("akuvox", q, {});
+    if (event === null) return res.status(202).json({ ignored: true, reason: "echo" });
+    log.info(`Ingesta akuvox[actionurl]: ${event.type} → ${event.id} (p${event.priority})`);
+    return res.status(201).json({ ok: true, id: event.id, type: event.type });
+  } catch (err) {
+    log.error(`Error en ingesta akuvox[actionurl]: ${err.message}`);
+    return res.status(500).json({ error: "ingest_failed", message: err.message });
+  }
+});
 router.post("/nvr", makeHandler("nvr"));
 router.post("/alarm", makeHandler("alarm"));
 // Paneles de alarma AX y controladoras de acceso DS-K. Es el destino que se
