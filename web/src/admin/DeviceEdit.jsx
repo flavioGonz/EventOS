@@ -111,8 +111,16 @@ function AlertsConfig({ deviceType, alerts, onChange, deviceId, isNew, toast }) 
   const [testing, setTesting] = useState(false)
   const anaEnabled = !isNew && deviceType !== 'alarm' && deviceType !== 'nvr' && !!deviceId
   const ana = useCameraAnalytics(deviceId, anaEnabled)
-  const ANA_MAP = { line: ['line_crossing', 'Cruce de línea'], field: ['intrusion', 'Intrusión'], entrance: ['region_entrance', 'Entrada a zona'], exiting: ['region_exit', 'Salida de zona'] }
+  const ANA_MAP = { line: ['line_crossing', 'Cruce de línea'], field: ['intrusion', 'Intrusión'], entrance: ['region_entrance', 'Entrada a zona'], exiting: ['region_exit', 'Salida de zona'], baggage: ['abandoned_object', 'Objeto abandonado'], takenaway: ['object_removal', 'Objeto retirado'] }
   const detected = ana && ana.rules ? [...new Set(ana.rules.map((r) => r.type))].map((tp) => ANA_MAP[tp]).filter(Boolean) : []
+  // Catálogo de tipos que SON analíticas de cámara (se dibujan en el equipo) y set
+  // de los que están realmente dibujados → distingue "configurada" de "sin dibujar".
+  const ANALYTIC_CATALOG = new Set(['line_crossing', 'intrusion', 'region_entrance', 'region_exit', 'abandoned_object', 'object_removal'])
+  const configuredSet = new Set(detected.map(([k]) => k))
+  const anaStatus = (val) => {
+    if (!ANALYTIC_CATALOG.has(val)) return null
+    return configuredSet.has(val) ? { label: 'dibujada', tone: 'ok' } : { label: 'sin dibujar', tone: 'warn' }
+  }
   const A = alerts || {}
   const enabled = A.enabled !== false
   const types = A.types || {}
@@ -154,14 +162,18 @@ function AlertsConfig({ deviceType, alerts, onChange, deviceId, isNew, toast }) 
 
       {enabled && (
         <>
-          <p className="help-block u-mt-12">Qué eventos de este dispositivo generan alerta al operador. Lo apagado se ignora (solo queda en analítica).</p>
           {detected.length > 0 && (
             <div className="alertcfg__detected">
-              <span className="alertcfg__detected-lbl"><Icon name="filter" size={13} /> Analíticas configuradas en esta cámara:</span>
+              <span className="alertcfg__detected-lbl"><Icon name="filter" size={13} /> Analíticas dibujadas hoy en la cámara ({detected.length}):</span>
               {detected.map(([k, l]) => <span key={k} className="badge badge--accent">{l}</span>)}
             </div>
           )}
-          <EventTypeGrid types={TYPES.map((t) => t[0])} isOn={(v) => types[v] !== false}
+          <p className="help-block u-mt-10">
+            Marcá qué eventos de este equipo <b>alertan al operador</b>. Es distinto de lo que la cámara tiene <b>dibujado</b>:
+            una analítica marcada como <span className="etcard__tag etcard__tag--warn" style={{ position: 'static' }}>○ sin dibujar</span> no
+            generará eventos hasta que la dibujes en la cámara (botón <b>«Editar»</b> sobre el video, en la pestaña Datos).
+          </p>
+          <EventTypeGrid types={TYPES.map((t) => t[0])} isOn={(v) => types[v] !== false} status={anaStatus}
             onToggle={(v) => set({ types: { ...types, [v]: !(types[v] !== false) } })} />
 
           <div className="form-grid form-grid--2 u-mt-14">

@@ -8,9 +8,19 @@ import { EVENT_TYPE_ICON, eventTypeLabel } from '../lib/labels.js'
 const capSrc = (ev) => { const m = ev.media || {}; return m.evidenceUrl || m.snapshotUrl || null }
 const rel = (ts) => { const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000); if (m < 1) return 'recién'; if (m < 60) return `${m}m`; const h = Math.floor(m / 60); return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d` }
 
-export default function DeviceCaptures({ deviceId, limit = 24 }) {
+const PAGE = 18 // ~3 filas
+
+export default function DeviceCaptures({ deviceId }) {
   const [events, setEvents] = useState(null)
   const [open, setOpen] = useState(null)
+  const [visible, setVisible] = useState(PAGE)
+
+  const onScroll = (e) => {
+    const el = e.currentTarget
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 48) {
+      setVisible((v) => (events ? Math.min(v + PAGE, events.length) : v))
+    }
+  }
 
   useEffect(() => {
     if (!deviceId) return
@@ -36,8 +46,8 @@ export default function DeviceCaptures({ deviceId, limit = 24 }) {
         ? <div className="devcaps__load"><Spinner size={16} /></div>
         : events.length === 0
           ? <p className="help-block devcaps__empty">Sin capturas todavía. Aparecen acá cuando el equipo genera una alerta con foto.</p>
-          : <div className="devcaps__grid">
-              {events.slice(0, limit).map((ev) => {
+          : <div className="devcaps__grid" onScroll={onScroll}>
+              {events.slice(0, visible).map((ev) => {
                 const src = capSrc(ev); const pri = ev.priority || 3
                 return (
                   <button type="button" key={ev.id} className="devcap" onClick={() => setOpen(ev)} title={`${eventTypeLabel(ev.type)} · ${rel(ev.ts)}`}>

@@ -23,17 +23,21 @@ export const EVENT_TYPE_DESC = {
   system: 'Evento del sistema',
 }
 
-export function EventTypeGrid({ types = [], isOn, onToggle, size = 'md' }) {
+// `status(val)` (opcional) → { label, tone } para una etiqueta al pie de la tarjeta
+// (p. ej. marcar qué analíticas están realmente dibujadas en la cámara).
+export function EventTypeGrid({ types = [], isOn, onToggle, size = 'md', status = null }) {
   return (
     <div className={`etgrid etgrid--${size}`}>
       {types.map((val) => {
         const on = !!(isOn && isOn(val))
+        const st = status ? status(val) : null
         return (
           <button type="button" key={val} className={`etcard${on ? ' is-on' : ''}`} aria-pressed={on}
             onClick={() => onToggle && onToggle(val)}>
             <span className="etcard__ic"><Icon name={EVENT_TYPE_ICON[val] || 'bolt'} size={22} /></span>
             <span className="etcard__lbl">{EVENT_TYPE_LABELS[val] || val}</span>
             {EVENT_TYPE_DESC[val] && <span className="etcard__desc">{EVENT_TYPE_DESC[val]}</span>}
+            {st && <span className={`etcard__tag etcard__tag--${st.tone}`}>{st.tone === 'ok' ? '● ' : '○ '}{st.label}</span>}
             {on && <span className="etcard__check" aria-hidden="true"><Icon name="check" size={13} /></span>}
           </button>
         )
