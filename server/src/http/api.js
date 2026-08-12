@@ -7,12 +7,13 @@ import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import { bus } from "../bus/redisBus.js";
 import { listEvents, getEvent, listOperators, queueState } from "../dispatch/store.js";
-import { getDispatch, list as listConfig, getProcedure, getVideo } from "../config/store.js";
+import { getDispatch, list as listConfig, update as updateConfig, getProcedure, getVideo } from "../config/store.js";
 import { startHls, startHlsFromStream, sessionFile, stopHls, keepAlive } from "../playback/hls.js";
 import { searchSegment, openDownload, compactToMs, deviceTimeOffsetMs } from "../playback/contentmgmt.js";
 import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
+import { health as akuvoxHealth, logs as akuvoxLogs } from "../discovery/akuvox.js";
 import { openDoor, listOutputs, outputStatus } from "../ingest/doors.js";
-import { verifyPin } from "../auth/pin.js";
+import { verifyPin, hashPin } from "../auth/pin.js";
 import { createSession, destroySession, sessionFromReq, cookieOptions, SESSION_COOKIE } from "../auth/session.js";
 import { config } from "../config.js";
 
@@ -28,6 +29,7 @@ const router = Router();
 const startedAt = Date.now();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE_DIR = path.resolve(__dirname, "..", "..", "data", "evidence");
+const AVATAR_DIR = path.resolve(__dirname, "..", "..", "data", "avatars");
 
 // ── Guardia de sesión de operario ───────────────────────────────────────────
 // La instancia es pública (internet) con login: las ACCIONES FÍSICAS y el VIDEO
@@ -707,7 +709,15 @@ router.get("/camera/:id/info", async (req, res) => {
   // ISAPI directo (cámara con IP propia alcanzable). Las cámaras detrás de NVR cuyo
   // web da 401 simplemente no completan estos campos (degradación elegante).
   const host = dev.camIp || (proxied ? null : dev.ip);
-  if (host && dev.username) {
+  // Portero/intercom Akuvox: no habla ISAPI. Salud por su HTTP API (system/info).
+  const isAkuvox = /akuvox|intercom/i.test(String(dev.vendor || "") + " " + String(dev.type || ""));
+  if (isAkuvox && host && dev.username) {
+    try {
+      const h = await akuvoxHealth({ host, port: Number(dev.isapiPort) || 443, user: dev.username, pass: dev.password || "", https: dev.isapiHttps !== false });
+      if (h && h.online) { out.online = true; out.via = "akuvox"; out.model = h.model || out.model; out.firmware = h.firmware; out.uptime = h.uptimeSec != null ? h.uptimeSec : null; out.akuvox = h; }
+    } catch { /* degradado */ }
+  }
+  if (!out.online && host && dev.username) {
     const port = Number(dev.isapiPort) || 80;
     const get = async (path) => {
       try { const r = await digestGetBuffer({ host, port, https: !!dev.isapiHttps, path, user: dev.username, pass: dev.password || "", timeoutMs: 4000 }); return r.status === 200 ? r.buffer.toString("utf8") : null; } catch { return null; }
@@ -733,6 +743,38 @@ router.get("/camera/:id/info", async (req, res) => {
     const rport = Number(dev.rtspPort) || 554;
     if (rhost) { out.online = await tcpReachable(rhost, rport, 3000); if (out.online) out.via = "rtsp"; }
   }
+  res.json(out);
+});
+
+// Registro (Logs) del dispositivo: fusiona los eventos de EventOS de ese equipo
+// con el registro NATIVO (porteros Akuvox: aperturas doorlog + llamadas calllog).
+// El doorlog del E16C es pesado (~5MB); se cachea por dispositivo 60s.
+const _deviceLogCache = new Map();
+router.get("/device/:id/logs", async (req, res) => {
+  const id = String(req.params.id || "");
+  const limit = Math.max(1, Math.min(Number(req.query.limit) || 80, 300));
+  let devices = [];
+  try { devices = listConfig("devices"); } catch { /* store */ }
+  const dev = devices.find((d) => d.id === id);
+  if (!dev) return res.status(404).json({ error: "no_device" });
+  const out = { deviceName: dev.name, native: false, entries: [], error: null };
+  try {
+    const evs = listEvents({ limit: 500 }).filter((e) => e.source && e.source.deviceId === id).slice(0, limit);
+    for (const e of evs) out.entries.push({ ts: e.ts, source: "eventos", kind: "event", title: e.title || e.type, type: e.type, status: e.status, priority: e.priority != null ? e.priority : null, detail: e.zone || (e.source && e.source.site) || "" });
+  } catch { /* store */ }
+  const isAkuvox = /akuvox|intercom/i.test(String(dev.vendor || "") + " " + String(dev.type || ""));
+  if (isAkuvox && (dev.camIp || dev.ip) && dev.username) {
+    try {
+      const cached = _deviceLogCache.get(id);
+      let nat;
+      if (cached && Date.now() - cached.ts < 60000) nat = cached.entries;
+      else { nat = await akuvoxLogs({ host: dev.camIp || dev.ip, port: Number(dev.isapiPort) || 443, user: dev.username, pass: dev.password || "", https: dev.isapiHttps !== false }, 150); _deviceLogCache.set(id, { ts: Date.now(), entries: nat }); }
+      out.native = true;
+      out.entries.push(...nat);
+    } catch (e) { out.error = e.message; }
+  }
+  out.entries.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
+  out.entries = out.entries.slice(0, limit);
   res.json(out);
 });
 
@@ -1031,12 +1073,20 @@ router.get("/sites", (req, res) => {
     sites: sites.map((s) => ({
       id: s.id,
       name: s.name || null,
+      clientGroupId: s.clientGroupId || null,
       account: s.account || null,
       address: s.address || null,
       lat: Number.isFinite(Number(s.lat)) ? Number(s.lat) : null,
       lng: Number.isFinite(Number(s.lng)) ? Number(s.lng) : null,
     })),
   });
+});
+
+// Grupos de clientes (solo lectura, publico) — clasifican sitios para filtrar en consola.
+router.get("/clientGroups", (req, res) => {
+  let groups = [];
+  try { groups = listConfig("clientGroups"); } catch { /* store */ }
+  res.json({ clientGroups: groups.map((g) => ({ id: g.id, name: g.name || null, color: g.color || null })) });
 });
 
 // Roster de operarios (solo lectura, público) — el LISTADO configurado en Admin
@@ -1079,7 +1129,7 @@ router.post("/auth/login", (req, res) => {
   res.cookie(SESSION_COOKIE, sid, cookieOptions(req));
   res.json({
     ok: true,
-    operator: { operatorId: op.id, name: op.name || "Operario", username: op.username, skills: Array.isArray(op.skills) ? op.skills : [], role },
+    operator: { operatorId: op.id, name: op.name || "Operario", username: op.username, skills: Array.isArray(op.skills) ? op.skills : [], role, avatarUrl: op.avatarUrl || null },
     adminToken: role === "admin" ? (config.adminToken || null) : null,
   });
 });
@@ -1088,7 +1138,8 @@ router.post("/auth/login", (req, res) => {
 router.get("/auth/me", (req, res) => {
   const s = sessionFromReq(req);
   if (!s) return res.status(401).json({ ok: false, error: "no_session" });
-  res.json({ ok: true, operator: { operatorId: s.operatorId, name: s.name, role: s.role } });
+  let op = null; try { op = (listConfig("operators") || []).find((o) => o.id === s.operatorId); } catch { /* store */ }
+  res.json({ ok: true, operator: { operatorId: s.operatorId, name: s.name, role: s.role, avatarUrl: (op && op.avatarUrl) || null } });
 });
 
 // Cierre de sesión: destruye la sesión y limpia la cookie.
@@ -1105,6 +1156,52 @@ router.post("/auth/logout", (req, res) => {
   }
   res.clearCookie(SESSION_COOKIE, { path: "/" });
   res.json({ ok: true });
+});
+
+// ── Perfil del operario: cambiar clave + avatar ──────────────────────────────
+// Cambiar la propia contraseña (operario logueado). Verifica la actual.
+router.post("/auth/change-password", (req, res) => {
+  const s = sessionFromReq(req);
+  if (!s) return res.status(401).json({ ok: false, error: "no_session" });
+  const { current, next } = req.body || {};
+  if (!next || String(next).length < 4) return res.status(400).json({ ok: false, error: "weak_password" });
+  let ops = []; try { ops = listConfig("operators"); } catch { /* store */ }
+  const op = ops.find((o) => o.id === s.operatorId);
+  if (!op) return res.status(404).json({ ok: false, error: "not_found" });
+  if (op.passwordHash && !verifyPin(current, op.passwordHash)) return res.status(403).json({ ok: false, error: "bad_current" });
+  updateConfig("operators", op.id, { passwordHash: hashPin(String(next)) });
+  res.json({ ok: true });
+});
+
+// Subir/actualizar el avatar propio (dataURL base64 <= 2MB). Guarda en data/avatars.
+router.post("/auth/avatar", (req, res) => {
+  const s = sessionFromReq(req);
+  if (!s) return res.status(401).json({ ok: false, error: "no_session" });
+  const dataUrl = (req.body && req.body.dataUrl) || "";
+  const m = /^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/=]+)$/.exec(String(dataUrl));
+  if (!m) return res.status(400).json({ ok: false, error: "bad_image" });
+  const buf = Buffer.from(m[2], "base64");
+  if (buf.length > 2 * 1024 * 1024) return res.status(413).json({ ok: false, error: "too_big" });
+  const ext = m[1].startsWith("jp") ? "jpg" : m[1];
+  try {
+    fs.mkdirSync(AVATAR_DIR, { recursive: true });
+    const file = `${s.operatorId}.${ext}`;
+    fs.writeFileSync(path.join(AVATAR_DIR, file), buf);
+    const avatarUrl = `/api/avatars/${file}?v=${Date.now()}`;
+    updateConfig("operators", s.operatorId, { avatarUrl });
+    res.json({ ok: true, avatarUrl });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: "save_failed", message: e.message });
+  }
+});
+
+// Servir avatares (público, como la evidencia).
+router.get("/avatars/:file", (req, res) => {
+  const name = path.basename(String(req.params.file || ""));
+  const fp = path.join(AVATAR_DIR, name);
+  if (!fp.startsWith(AVATAR_DIR) || !fs.existsSync(fp)) return res.status(404).end();
+  res.setHeader("Cache-Control", "public, max-age=86400");
+  res.sendFile(fp);
 });
 
 // Grupos (solo lectura, público) — para el selector "Transferir a grupo" del popup.

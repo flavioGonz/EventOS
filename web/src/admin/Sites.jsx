@@ -12,10 +12,13 @@ export default function Sites() {
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState('all') // all | with | without
   const [devices, setDevices] = useState([])
+  const [groups, setGroups] = useState([])
 
   useEffect(() => {
     collectionApi('devices').list().then((d) => setDevices(unwrap(d, 'devices'))).catch(() => {})
+    collectionApi('clientGroups').list().then((d) => setGroups(unwrap(d, 'clientGroups'))).catch(() => {})
   }, [])
+  const groupById = useMemo(() => Object.fromEntries(groups.map((g) => [g.id, g])), [groups])
   const deviceCount = useMemo(() => {
     const m = {}
     for (const d of devices) if (d.siteId) m[d.siteId] = (m[d.siteId] || 0) + 1
@@ -65,6 +68,7 @@ export default function Sites() {
           <th><span className="th-ic"><Icon name="building" size={13} />Cliente / Sitio</span></th>
           <th><span className="th-ic"><Icon name="pin" size={13} />Dirección</span></th>
           <th><span className="th-ic"><Icon name="hash" size={13} />Cuenta</span></th>
+          <th><span className="th-ic"><Icon name="building" size={13} />Grupo</span></th>
           <th><span className="th-ic"><Icon name="device" size={13} />Disp.</span></th>
           <th><span className="th-ic"><Icon name="phone" size={13} />Contactos</span></th>
           <th><span className="th-ic"><Icon name="speaker" size={13} />Parlantes</span></th>
@@ -80,6 +84,7 @@ export default function Sites() {
                 <td className="cell-name">{s.name}</td>
                 <td className="cell-dim">{s.address || '—'}</td>
                 <td className="cell-mono">{s.account || '—'}</td>
+                <td>{(() => { const g = groupById[s.clientGroupId]; return g ? <span className="cgbadge" style={{ '--cg': g.color || '#64748b' }}>{g.name}</span> : <span className="muted">—</span> })()}</td>
                 <td>{n > 0 ? <Badge tone="accent">{n}</Badge> : <span className="muted">0</span>}</td>
                 <td className="cell-dim">{(s.contacts && s.contacts.length) || 0}</td>
                 <td className="cell-dim">{(s.speakers && s.speakers.length) || 0}</td>

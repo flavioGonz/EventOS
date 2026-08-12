@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { sim } from '../lib/socket.js'
 import { Button, Glass, Icon, PriorityDot, StatusDot, ThemeToggle } from '../ui/primitives.jsx'
 import { PAUSE_REASONS, pauseReasonLabel, operatorStatusLabel } from '../lib/labels.js'
+import OperatorMenu from './OperatorMenu.jsx'
 
 function initials(name = '') {
   return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0] || '').join('').toUpperCase() || '·'
@@ -108,8 +109,26 @@ export default function OperatorBar({ operator, onChangeOperator, viewToggle, st
   }
   const doResume = () => actions?.resume?.()
 
+  // --- Auto-ocultar la barra + pantalla completa ---
+  const [tucked, setTucked] = useState(false)
+  const [fs, setFs] = useState(false)
+  const hideTimer = useRef(null)
+  const menuOpenRef = useRef(false); menuOpenRef.current = menuOpen
+  const armHide = () => { clearTimeout(hideTimer.current); hideTimer.current = setTimeout(() => { if (!menuOpenRef.current) setTucked(true) }, 6000) }
+  useEffect(() => { armHide(); return () => clearTimeout(hideTimer.current) }, [])
+  useEffect(() => {
+    const on = () => setFs(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', on); on()
+    return () => document.removeEventListener('fullscreenchange', on)
+  }, [])
+  const toggleFs = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen() } catch { /* noop */ } }
+
   return (
-    <Glass as="header" className={`opbar ${paused ? 'opbar--paused' : ''}`}>
+    <>
+    <div className="opbar-reveal" onMouseEnter={() => { setTucked(false); armHide() }} aria-hidden="true" />
+    <Glass as="header" className={`opbar ${paused ? 'opbar--paused' : ''} ${tucked ? 'is-tucked' : ''}`}
+      onMouseEnter={() => { setTucked(false); clearTimeout(hideTimer.current) }}
+      onMouseLeave={armHide}>
       <nav className="opbar__nav">
         <a href="/" className={`opbar__navlink${(typeof window !== 'undefined' && window.location.pathname === '/') ? ' is-active' : ''}`}><Icon name="console" size={15} /><span>Consola</span></a>
         <a href="/center" className={`opbar__navlink${(typeof window !== 'undefined' && window.location.pathname.startsWith('/center')) ? ' is-active' : ''}`}><Icon name="bell" size={15} /><span>Centro</span></a>
@@ -263,18 +282,16 @@ export default function OperatorBar({ operator, onChangeOperator, viewToggle, st
             )}
           </>
         })()}
+        <button type="button" className="op-wall" onClick={toggleFs} title={fs ? 'Salir de pantalla completa' : 'Pantalla completa'} aria-label="Pantalla completa">
+          <Icon name="expand" size={16} />
+        </button>
+        <button type="button" className="op-wall" onClick={() => setTucked(true)} title="Ocultar barra (reaparece al pasar el mouse arriba)" aria-label="Ocultar barra">
+          <Icon name="chevron" size={16} />
+        </button>
         <ThemeToggle />
-        {operator && (
-          <button type="button" className="op-chip" onClick={onChangeOperator}
-                  title="Cambiar operario" aria-label={`Operario ${operator.name}. Pulsa para cambiar`}>
-            <span className="op-chip__av">{initials(operator.name)}</span>
-            <span className="op-chip__name">{operator.name}</span>
-            {operator.role && operator.role !== 'agente' && (
-              <span className={`op-role op-role--${operator.role}`}>{operator.role === 'admin' ? 'Admin' : 'Supervisor'}</span>
-            )}
-          </button>
-        )}
+        {operator && <OperatorMenu operator={operator} onChangeOperator={onChangeOperator} />}
       </div>
     </Glass>
+    </>
   )
 }

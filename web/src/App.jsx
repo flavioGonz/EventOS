@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import OperatorBar from './components/OperatorBar.jsx'
+import OthersWorking from './components/OthersWorking.jsx'
 import LiveBoard from './components/LiveBoard.jsx'
 import OperativeMap from './components/OperativeMap.jsx'
 import EventPopup from './components/EventPopup.jsx'
@@ -85,6 +86,8 @@ function ConsoleView({ operator, onConfirmIdentity, onChangeOperator, console: c
       <main className="console__work">
         <LiveBoard events={events} operator={operator} onOpen={handleOpen} />
       </main>
+
+      <OthersWorking events={events} operators={operators} me={operator} />
 
       {openEvent && (
         <EventPopup event={openEvent} operator={operator} actions={actions} onClose={handleClose} />

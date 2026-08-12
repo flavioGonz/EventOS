@@ -228,6 +228,18 @@ function seedGroups() {
   ];
 }
 
+function seedClientGroups() {
+  return [
+    { id: genId("cgroup"), name: "Edificios",      color: "#3b82f6" },
+    { id: genId("cgroup"), name: "Obras",          color: "#f59e0b" },
+    { id: genId("cgroup"), name: "Casas",          color: "#10b981" },
+    { id: genId("cgroup"), name: "Industria",      color: "#8b5cf6" },
+    { id: genId("cgroup"), name: "Campo",          color: "#84cc16" },
+    { id: genId("cgroup"), name: "Barrio Privado", color: "#06b6d4" },
+    { id: genId("cgroup"), name: "Residencias",    color: "#ec4899" },
+  ];
+}
+
 function buildSeed() {
   const sites = seedSites();
   return {
@@ -235,6 +247,7 @@ function buildSeed() {
     devices: seedDevices(sites),
     operators: seedOperators(),
     groups: seedGroups(),
+    clientGroups: seedClientGroups(),
     procedures: seedProcedures(),
     rules: seedRules(),
     dispatch: seedDispatch(),
@@ -251,7 +264,7 @@ function normalizeDoc(doc) {
   const out = { ...seed, ...(doc || {}) };
   // dispatch: mezclar defaults para campos faltantes
   out.dispatch = { ...seed.dispatch, ...(doc?.dispatch || {}) };
-  for (const k of ["sites", "devices", "operators", "groups", "procedures", "rules"]) {
+  for (const k of ["sites", "devices", "operators", "groups", "procedures", "rules", "clientGroups"]) {
     if (!Array.isArray(out[k])) out[k] = seed[k];
   }
   return out;
@@ -386,6 +399,7 @@ const ID_PREFIX = {
   groups: "group",
   rules: "rule",
   procedures: "proc",
+  clientGroups: "cgroup",
 };
 
 const COLLECTIONS = Object.keys(ID_PREFIX);

@@ -24,6 +24,32 @@ import https from "node:https";
 import { list as listConfig } from "../config/store.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
 import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
+import crypto from "node:crypto";
+
+// Digest auth para el alertStream de paneles Hik AX: exigen Digest, no Basic.
+const _md5 = (s) => crypto.createHash("md5").update(s).digest("hex");
+function _parseAuth(header) {
+  const out = {};
+  const re = /(\w+)=(?:"([^"]*)"|([^,\s]+))/g;
+  let m;
+  while ((m = re.exec(header))) out[m[1].toLowerCase()] = m[2] !== undefined ? m[2] : m[3];
+  return out;
+}
+function _digestAuth({ user, pass, method, uri, auth }) {
+  const { realm = "", nonce = "", qop, opaque } = auth;
+  const nc = "00000001";
+  const cnonce = crypto.randomBytes(8).toString("hex");
+  const ha1 = _md5(`${user}:${realm}:${pass}`);
+  const ha2 = _md5(`${method}:${uri}`);
+  const useQop = qop ? (qop.split(",")[0] || "auth").trim() : null;
+  const response = useQop
+    ? _md5(`${ha1}:${nonce}:${nc}:${cnonce}:${useQop}:${ha2}`)
+    : _md5(`${ha1}:${nonce}:${ha2}`);
+  let h = `Digest username="${user}", realm="${realm}", nonce="${nonce}", uri="${uri}", response="${response}"`;
+  if (useQop) h += `, qop=${useQop}, nc=${nc}, cnonce="${cnonce}"`;
+  if (opaque) h += `, opaque="${opaque}"`;
+  return h;
+}
 
 const RECONNECT_MS = 10_000;
 const DEDUP_MS = Number(process.env.EVENTOS_PANEL_DEDUP_MS || 5_000);
@@ -96,17 +122,29 @@ function runAlertStream(panel, stop) {
   }
   let buf = "";
   const mod = panel.https ? https : http;
-  const connect = () => {
+  const ALERT_PATH = "/ISAPI/Event/notification/alertStream";
+  const connect = (authHeader) => {
     if (stop.done) return;
+    const headers = { Connection: "keep-alive", Accept: "*/*" };
+    if (authHeader) headers.Authorization = authHeader;
     const req = mod.request({
-      host: panel.host, port: panel.port, path: "/ISAPI/Event/notification/alertStream",
-      method: "GET", headers: { Connection: "keep-alive", Accept: "*/*" },
-      auth: `${panel.user}:${panel.pass}`,   // digest lo reintenta abajo
+      host: panel.host, port: panel.port, path: ALERT_PATH,
+      method: "GET", headers,
     }, (res) => {
+      // Los AX exigen Digest: primer intento sin auth → 401 con el challenge →
+      // recomputamos y reconectamos con la cabecera Authorization.
+      if (res.statusCode === 401 && !authHeader) {
+        const wa = res.headers["www-authenticate"] || "";
+        res.resume();
+        const authz = /digest/i.test(wa)
+          ? _digestAuth({ user: panel.user, pass: panel.pass, method: "GET", uri: ALERT_PATH, auth: _parseAuth(wa) })
+          : "Basic " + Buffer.from(`${panel.user}:${panel.pass}`).toString("base64");
+        return connect(authz);
+      }
       if (res.statusCode !== 200) {
         log.error(`${panel.name}: alertStream HTTP ${res.statusCode}, reintento en ${RECONNECT_MS / 1000}s`);
         res.resume();
-        return setTimeout(connect, RECONNECT_MS).unref?.();
+        return setTimeout(() => connect(), RECONNECT_MS).unref?.();
       }
       log.info(`${panel.name}: alertStream conectado (${panel.host}:${panel.port})`);
       res.setEncoding("utf8");
@@ -121,11 +159,12 @@ function runAlertStream(panel, stop) {
         // el buffer no puede crecer sin techo.
         if (buf.length > 1_000_000) buf = buf.slice(-100_000);
       });
-      res.on("end", () => setTimeout(connect, RECONNECT_MS).unref?.());
+      // Reconexión fresca (sin auth) para renovar el nonce del digest.
+      res.on("end", () => setTimeout(() => connect(), RECONNECT_MS).unref?.());
     });
     req.on("error", (e) => {
       log.error(`${panel.name}: ${e.message}, reintento en ${RECONNECT_MS / 1000}s`);
-      setTimeout(connect, RECONNECT_MS).unref?.();
+      setTimeout(() => connect(), RECONNECT_MS).unref?.();
     });
     req.end();
   };

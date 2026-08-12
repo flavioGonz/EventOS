@@ -1,9 +1,9 @@
 {
   "name": "eventos-desktop",
-  "version": "1.0.0",
-  "description": "EventOS · ARC — consola de escritorio (Electron) con decode por GPU, multi-monitor, bandeja y hotkeys.",
+  "version": "1.1.0",
+  "description": "EventOS · ARC — consola de escritorio (Electron): splash animado, login nativo, popup de alarma con sonido, decode por GPU, multi-monitor, bandeja, hotkeys y auto-arranque.",
   "main": "main.js",
-  "author": "EventOS",
+  "author": "EventOS / Infratec",
   "license": "UNLICENSED",
   "scripts": {
     "start": "electron .",
@@ -19,11 +19,8 @@
     "appId": "uy.eventos.arc.desktop",
     "productName": "EventOS ARC",
     "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "config.json", "assets/**/*"],
-    "win": {
-      "target": ["nsis"],
-      "icon": "assets/icon.png"
-    },
+    "files": ["main.js", "preload.js", "preload-popup.js", "config.json", "ui/**/*", "assets/**/*"],
+    "win": { "target": ["nsis"], "icon": "assets/icon.png" },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
@@ -32,10 +29,6 @@
       "createStartMenuShortcut": true,
       "shortcutName": "EventOS ARC"
     },
-    "linux": {
-      "target": ["AppImage"],
-      "icon": "assets/icon.png",
-      "category": "Utility"
-    }
+    "linux": { "target": ["AppImage"], "icon": "assets/icon.png", "category": "Utility" }
   }
 }

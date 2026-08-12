@@ -22,6 +22,7 @@ import {
   registerSocket,
   removeSocket,
   socketsOf,
+  availableOperators,
 } from "../dispatch/store.js";
 import {
   routeNewEvent,
@@ -188,6 +189,8 @@ export function attachConsole(io) {
       const name = (session && session.name) || payload.name;
       const skills = payload.skills;
       if (!id) return;
+      // Storm-fix: capturar si YA había operarios disponibles antes de este hello.
+      const hadAvailableBefore = availableOperators().length > 0;
       operatorId = id;
       registerOperator({ operatorId: id, name, skills });
       registerSocket(id, socket.id); // mapeo para emisión dirigida
@@ -198,10 +201,13 @@ export function attachConsole(io) {
       });
       broadcastOperators();
       emitSelf(id); // contador propio inicial
-      // No perder alertas (a): ahora que hay un operario disponible, re-enrutar
-      // las alarmas que habían quedado `new` sin dueño (llegaron con la consola
-      // vacía, o fueron liberadas por caídas / reinicios anteriores).
-      try { redispatchOrphans(io); } catch (e) { log.warn(`redispatchOrphans (hello ${id}): ${e.message}`); }
+      // No perder alertas (a): SÓLO si la consola estaba SIN operarios disponibles
+      // (transición 0→1). Cuando un operario recarga la página / abre otra pestaña y
+      // YA hay otros online, NO se re-enruta nada → no se re-emite event:new a todos
+      // (fix del storm de popups+sonidos para el resto de los operarios).
+      if (!hadAvailableBefore) {
+        try { redispatchOrphans(io); } catch (e) { log.warn(`redispatchOrphans (hello ${id}): ${e.message}`); }
+      }
     });
 
     // ── Presencia: pausa / reanudar (CONTRACT-V3 §1) ─────────────────────

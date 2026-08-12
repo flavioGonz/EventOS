@@ -158,8 +158,11 @@ export default function CameraWall({ event }) {
           </EmptyState>
         </div>
       ) : view === 'hero' ? (
-        <div className="camwall__hero-wrap">
-          <div className="camwall__hero">
+        // Escenario: la cámara del evento OCUPA todo el recuadro; las demás cámaras
+        // del sitio son mini-canales fijados contra el borde inferior (overlay),
+        // en fila con scroll horizontal. Clic en una mini la sube al recuadro grande.
+        <div className="camwall__stage">
+          <div className="camwall__big">
             <CameraTile
               camera={heroCam}
               isSource={heroCam.id === sourceId}
@@ -172,12 +175,12 @@ export default function CameraWall({ event }) {
           </div>
 
           {ordered.length > 1 ? (
-            <div className="camwall__strip">
+            <div className="camwall__rail">
               {ordered.map((cam) => (
                 <button
                   key={cam.id}
                   type="button"
-                  className={`camwall__thumb ${cam.id === heroId ? 'is-active' : ''} ${
+                  className={`camwall__mini ${cam.id === heroId ? 'is-active' : ''} ${
                     cam.id === sourceId ? 'is-source' : ''
                   }`}
                   onClick={() => setSpotId(cam.id)}
@@ -190,6 +193,8 @@ export default function CameraWall({ event }) {
                     size="sm"
                     priority={p}
                   />
+                  {cam.id === sourceId ? <span className="camwall__mini-tag">EVENTO</span> : null}
+                  <span className="camwall__mini-name">{cam.name}</span>
                 </button>
               ))}
             </div>

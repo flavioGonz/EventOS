@@ -14,10 +14,12 @@ import { listOperators } from "../dispatch/store.js";
 import { discover as discoverHik } from "../discovery/hikvision.js";
 import { discover as discoverOnvif } from "../discovery/onvif.js";
 import { discover as discoverRtsp } from "../discovery/rtsp.js";
+import { discover as discoverAkuvox } from "../discovery/akuvox.js";
 import { scan } from "../discovery/netscan.js";
 import { saveAnalytics, SMART } from "../discovery/analyticsWrite.js";
 import { digestGetBuffer } from "../util/digestFetch.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
+import { akuvoxActionUrlsHandler } from "./akuvoxActionUrls.js";
 import { sessionFromReq } from "../auth/session.js";
 
 const router = Router();
@@ -51,10 +53,13 @@ router.post("/discover", async (req, res) => {
   if (!host || !user) return res.status(400).json({ error: "bad_request", message: "host y usuario son requeridos" });
   // Protocolo por fabricante: hikvision (ISAPI) · onvif · rtsp (Tiandy y equipos
   // que no exponen ISAPI/ONVIF: se enumeran los canales por RTSP con ffprobe).
-  const proto = ["onvif", "rtsp"].includes(protocol) ? protocol : "hikvision";
+  const proto = ["onvif", "rtsp", "akuvox"].includes(protocol)
+    ? protocol
+    : (/akuvox|intercom/i.test(String(vendor || "")) ? "akuvox" : "hikvision");
   try {
     let result;
-    if (proto === "rtsp") result = await discoverRtsp({ host, port, user, pass, vendor, rtspPort });
+    if (proto === "akuvox") result = await discoverAkuvox({ host, port, rtspPort, user, pass, https });
+    else if (proto === "rtsp") result = await discoverRtsp({ host, port, user, pass, vendor, rtspPort });
     else if (proto === "onvif") result = await discoverOnvif({ host, port, user, pass, https });
     else result = await discoverHik({ host, port, user, pass, https, type });
     log.info(`discover[${proto}]: ${host} → ${result.channels.length} canales, ${result.analytics.length} analíticas${result.zones?.length ? `, ${result.zones.length} zonas` : ""}`);
@@ -138,7 +143,7 @@ router.get("/config", (req, res) => {
 
 // ── CRUD genérico por colección ─────────────────────────────────────────────
 // Colecciones array: devices, sites, operators, rules, procedures.
-const COLLECTIONS = ["devices", "sites", "operators", "groups", "rules", "procedures"];
+const COLLECTIONS = ["devices", "sites", "operators", "groups", "rules", "procedures", "clientGroups"];
 
 for (const name of COLLECTIONS) {
   // Listar
@@ -664,5 +669,8 @@ router.get("/analytics/flow", (req, res) => {
     byVendor,
   });
 });
+
+// Akuvox: auto-configurar Action URLs (probe/apply).
+router.post("/devices/:id/akuvox/action-urls", akuvoxActionUrlsHandler);
 
 export default router;

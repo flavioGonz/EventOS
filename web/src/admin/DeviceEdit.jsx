@@ -10,9 +10,11 @@ import AnalyticsEditor from './AnalyticsEditor.jsx'
 import DeviceCaptures from './DeviceCaptures.jsx'
 import { EventTypeGrid } from './EventTypeGrid.jsx'
 import DeviceHealth from './DeviceHealth.jsx'
+import DeviceLogs from './DeviceLogs.jsx'
 import DeviceProbe from './DeviceProbe.jsx'
 import AlarmPanel from './AlarmPanel.jsx'
 import { VendorLogo, VENDOR_BRANDS } from '../ui/vendorLogos.jsx'
+import AkuvoxActionUrls from './AkuvoxActionUrls.jsx'
 
 // Encabezado de sección con chip de icono de color, título, subtítulo y tooltip.
 function SecHead({ icon, tone, title, sub, hint, action }) {
@@ -387,6 +389,7 @@ export default function DeviceEdit() {
     { k: 'alertas', icon: 'bell', label: 'Alertas' },
     { k: 'medios', icon: 'video', label: isNvr ? 'Canales' : 'Medios de video', hide: isAlarm },
     { k: 'salud', icon: 'gauge', label: 'Salud' },
+    { k: 'logs', icon: 'rules', label: 'Logs' },
   ]
 
   const tabsEl = (
@@ -752,14 +755,21 @@ export default function DeviceEdit() {
               </div>
             </div>
           ) : (
-            <>
+            <div className={isIntercom && !isNew ? 'dev-alerts2' : undefined}>
+              <div>
               <p className="section-label"><Icon name="bell" size={14} /> Alertas — cómo alerta este dispositivo
                 <InfoHint side="right" content={<>Definí qué eventos de este equipo interrumpen al operador, con qué prioridad, con qué filtro de objetivo y en qué horario. Lo que apagues queda solo en analítica (no molesta). Probá que llega bien con «Probar alerta».<span className="tt__eg">Ej.: solo «Cruce de línea» + «Intrusión», solo personas, de noche.</span></>} /></p>
               <p className="help-block">Qué eventos disparan alerta, con qué prioridad, filtro por objetivo y en qué horario. Probá que llega bien a la consola con «Probar alerta».</p>
               <AlertsConfig deviceType={form.type} alerts={form.alerts}
                 onChange={(alerts) => setForm((f) => ({ ...f, alerts }))}
                 deviceId={id} isNew={isNew} toast={toast} />
-            </>
+              </div>
+              {isIntercom && !isNew && (
+                <div className="dev-alerts2__side">
+                  <AkuvoxActionUrls deviceId={id} />
+                </div>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -771,6 +781,16 @@ export default function DeviceEdit() {
             <InfoHint side="right" content={<>Estado en vivo consultado por ISAPI. En NVR: uptime, CPU, memoria y estado de discos (RAID). En cámaras: conexión, modelo, resolución, FPS, bitrate y última alerta.<span className="tt__eg">Útil para detectar un disco degradado o una cámara caída antes de que falte grabación.</span></>} /></p>
           <p className="help-block">Estado en vivo por ISAPI. Para NVR: uptime, CPU, memoria y discos. Para cámaras: conexión, modelo, resolución, FPS, bitrate y última alerta.</p>
           <DeviceHealth device={form} isNew={isNew} />
+        </div>
+      )}
+
+      {/* ===== Pestaña LOGS ===== */}
+      {tab === 'logs' && (
+        <div key="logs" className="dev-tabpane anim-rise">
+          <p className="section-label"><Icon name="rules" size={14} /> Logs — registro del dispositivo
+            <InfoHint side="right" content={<>Linea de tiempo del equipo: en porteros Akuvox, las aperturas (tarjeta/PIN/rostro/QR) y llamadas leidas por su HTTP API; en todos, los eventos de EventOS de este dispositivo, fusionados en una sola vista.</>} /></p>
+          <p className="help-block">Movimientos del equipo (aperturas, llamadas) fusionados con los eventos de EventOS de este dispositivo.</p>
+          <DeviceLogs device={form} isNew={isNew} />
         </div>
       )}
 
@@ -804,6 +824,7 @@ export default function DeviceEdit() {
           </div>
         </div>
       )}
+      {/* AkuvoxActionUrls vive ahora en la pestana Alertas (columna derecha) */}
     </EditPage>
   )
 }

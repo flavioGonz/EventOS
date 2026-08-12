@@ -45,6 +45,50 @@ export default function DeviceHealth({ device, isNew }) {
 
   // Cámara
   if (info === undefined) return <div className="admin-center"><Spinner size={20} /><span>Consultando la cámara…</span></div>
+  // Portero/intercom Akuvox: salud propia (modelo/FW/SIP/LAN) por su HTTP API.
+  const ak = info && info.akuvox
+  if (ak) {
+    const sipTone = (st) => (st === 'registered' ? 'is-on' : st === 'registering' ? 'is-warn' : 'is-off')
+    const sipLbl = (st) => (st === 'registered' ? 'Registrado' : st === 'registering' ? 'Registrando' : 'Sin registro')
+    return (
+      <div className="devhealth">
+        <div className="devhealth__snap">
+          <img src={`/api/camera/${device.id}/snapshot?t=${snapT}`} alt="" onError={(e) => { e.currentTarget.style.opacity = .12 }} />
+          <span className="devhealth__live is-on">EN LÍNEA</span>
+        </div>
+        <div className="devhealth__info">
+          <div className="devhealth__status">
+            <span className="campremium__dot is-on" />
+            <strong>Portero en línea</strong>
+            <span className="devhealth__srcbadge">Akuvox · HTTP API</span>
+            {info.lastEvent && <span className="devhealth__lastev">Últ. evento {fmtRel(info.lastEvent.ts)}</span>}
+          </div>
+          <div className="caminfo">
+            <HRow k="Modelo" v={ak.model} />
+            <HRow k="Firmware" v={ak.firmware} />
+            <HRow k="Hardware" v={ak.hardware} />
+            <HRow k="MAC" v={ak.mac} />
+            <HRow k="Uptime" v={ak.uptimeSec != null ? fmtUptime(ak.uptimeSec) : ak.uptime} />
+            <HRow k="IP" v={(ak.lan && ak.lan.ip) || (info && info.ip) || device.ip} />
+            {ak.lan && <HRow k="Gateway" v={ak.lan.gateway} />}
+            {ak.lan && <HRow k="Máscara" v={ak.lan.mask} />}
+            {ak.lan && <HRow k="DNS" v={ak.lan.dns} />}
+          </div>
+          <p className="section-label u-mt-12"><Icon name="phone" size={13} /> Cuentas SIP</p>
+          {(ak.sip && ak.sip.length) ? (
+            <div className="caminfo">
+              {ak.sip.map((a) => (
+                <div key={a.account} className="caminfo__row">
+                  <span className="caminfo__k">Cuenta {a.account}{a.user ? ` · ${a.user}` : ''}</span>
+                  <span className="caminfo__v"><span className="devhealth__srv">{a.server || '—'}</span> <span className={`sipbadge ${sipTone(a.state)}`}>{sipLbl(a.state)}</span></span>
+                </div>
+              ))}
+            </div>
+          ) : <p className="help-block">Sin cuentas SIP configuradas en el portero.</p>}
+        </div>
+      </div>
+    )
+  }
   const online = !!(info && info.online)
   // Fuente de la salud: 'isapi' = métricas completas (Hikvision); 'rtsp' = solo
   // confirmamos alcance (Tiandy/ONVIF/otros que no exponen ISAPI); null = sin señal.

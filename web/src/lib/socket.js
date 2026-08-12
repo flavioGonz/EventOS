@@ -28,12 +28,9 @@ export function saveOperator(op) {
 // --- Ordenamiento de eventos: por prioridad y luego recencia -----------------
 
 export function sortEvents(events) {
-  return [...events].sort((a, b) => {
-    const pa = a.priority ?? 5
-    const pb = b.priority ?? 5
-    if (pa !== pb) return pa - pb
-    return new Date(b.ts).getTime() - new Date(a.ts).getTime()
-  })
+  // Orden por HORA DE LLEGADA: el más reciente arriba (desc por ts). La prioridad
+  // se comunica por color/insignia, no reordena la cola.
+  return [...events].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
 }
 
 function upsert(list, event) {
@@ -78,6 +75,10 @@ function playAlert(priority = 5) {
 // snapshot / event:new / event:update / queue:state / operators:state,
 // y expone emisores de acciones (claim, ack, progress, note, resolve,
 // escalate, hello).
+
+// Estado del popup nativo de escritorio: dedup por id + throttle (anti-tormenta).
+const _natSeen = new Set()
+let _natLast = 0
 
 export function useConsole(operator) {
   const socketRef = useRef(null)
@@ -130,8 +131,21 @@ export function useConsole(operator) {
       setEvents((prev) => sortEvents(upsert(prev, event)))
       // Auto-alerta para prioridad alta sin asignar: abre popup + bip sonoro.
       if ((event.priority ?? 5) <= 2 && !event.assignedTo && event.status === 'new') {
-        setAlertEvent(event)
-        playAlert(event.priority)
+        // Anti-tormenta UNIFICADO: el sonido, el popup web y el popup nativo SÓLO
+        // se disparan para eventos FRESCOS (<60s), deduplicados por id y con throttle.
+        // Así al loguear / reconectar / cambiar de pestaña, el backlog de eventos NO
+        // vuelve a sonar ni re-abre popups (ya no son frescos o ya se vieron).
+        try {
+          const t = new Date(event.ts).getTime()
+          const fresh = Number.isFinite(t) ? (Date.now() - t < 60000) : true
+          if (fresh && !_natSeen.has(event.id) && Date.now() - _natLast > 4000) {
+            _natLast = Date.now(); _natSeen.add(event.id)
+            if (_natSeen.size > 800) _natSeen.clear()
+            setAlertEvent(event)
+            playAlert(event.priority)
+            if (window.eventosDesktop?.alert) window.eventosDesktop.alert(event)
+          }
+        } catch { /* noop */ }
       }
     })
 

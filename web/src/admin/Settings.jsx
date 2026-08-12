@@ -5,6 +5,7 @@ import { Panel, Button, Icon, Segmented, Field, TextInput, Spinner } from '../ui
 import { PageHead, useToast } from './_shared.jsx'
 import { getVideoCfg, putVideoCfg } from '../lib/adminApi.js'
 import IngestEndpoints from './IngestEndpoints.jsx'
+import ClientGroups from './ClientGroups.jsx'
 
 const MODE_OPTS = [
   { value: 'mjpeg', label: 'MJPEG (snapshots)' },
@@ -142,6 +143,7 @@ export default function Settings() {
     { k: 'playback', icon: 'video', label: 'Reproducción en vivo' },
     { k: 'templates', icon: 'link', label: 'Plantillas RTSP' },
     { k: 'ingest', icon: 'reception', label: 'Endpoints de ingesta' },
+    { k: 'cgroups', icon: 'building', label: 'Grupos de clientes' },
   ]
   return (
     <div className="anim-rise">
@@ -156,12 +158,13 @@ export default function Settings() {
       </div>
 
       {/* VideoSettings queda montado en las dos primeras pestañas para no perder ediciones sin guardar */}
-      <div style={{ display: tab === 'ingest' ? 'none' : undefined }}>
+      <div style={{ display: (tab === 'ingest' || tab === 'cgroups') ? 'none' : undefined }}>
         <VideoSettings view={tab === 'templates' ? 'templates' : 'playback'} />
       </div>
       <div style={{ display: tab === 'ingest' ? undefined : 'none' }}>
         <IngestEndpoints />
       </div>
+      {tab === 'cgroups' && <ClientGroups />}
     </div>
   )
 }

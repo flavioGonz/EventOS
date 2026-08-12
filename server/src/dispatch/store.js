@@ -345,7 +345,9 @@ export function disconnectOperator(operatorId) {
 // Proyección pública de un operario (sin el marcador interno stateSince).
 function publicOperator(op) {
   const { stateSince, ...rest } = op;
-  return { ...rest, load: operatorLoad(op.id) };
+  let avatarUrl = null;
+  try { const cfg = (listConfig("operators") || []).find((o) => o.id === op.id); avatarUrl = (cfg && cfg.avatarUrl) || null; } catch { /* store */ }
+  return { ...rest, avatarUrl, load: operatorLoad(op.id) };
 }
 
 // Lista de operarios con carga recalculada (campos de presencia incluidos).

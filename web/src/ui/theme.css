@@ -9,6 +9,7 @@
   --bg-2:      #eceef1;
   --bg-elev:   #ffffff;
   --surface:   #ffffff;
+  --surface-1: #f7f8fa;
   --surface-2: #f1f3f6;
   --accent-glow: 0 0 0 1px rgba(0,113,227,.25), 0 6px 18px rgba(0,113,227,.20);
   --text:      #0a0c10;
@@ -64,6 +65,7 @@
   --bg-2:      #0d131c;
   --bg-elev:   #121a25;
   --surface:   #111824;        /* tarjetas/paneles */
+  --surface-1: #0f1722;        /* header de tabla / sutil */
   --surface-2: #16202d;        /* hover / elevación */
   --text:      #e9eef5;
   --text-dim:  #93a1b5;

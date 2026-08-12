@@ -1,0 +1,88 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:;"/>
+<style>
+  *{margin:0;box-sizing:border-box;font-family:Segoe UI,system-ui,Arial,sans-serif}
+  html,body{height:100%}
+  body{background:radial-gradient(130% 100% at 50% -10%,#122036 0%,#0a0d12 58%);color:#e6edf6;
+    display:grid;place-items:center;overflow:hidden;user-select:none;-webkit-app-region:drag}
+  .bg{position:fixed;inset:0;overflow:hidden;z-index:0}
+  .bg span{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.20),transparent 70%);animation:float 14s ease-in-out infinite}
+  .bg span:nth-child(1){width:340px;height:340px;left:-80px;top:-60px}
+  .bg span:nth-child(2){width:260px;height:260px;right:-60px;bottom:-40px;animation-delay:-5s;background:radial-gradient(circle,rgba(34,211,238,.16),transparent 70%)}
+  @keyframes float{0%,100%{transform:translate(0,0)}50%{transform:translate(18px,26px)}}
+  .card{position:relative;z-index:1;width:372px;padding:30px 30px 26px;border-radius:18px;
+    background:rgba(17,24,34,.86);border:1px solid rgba(255,255,255,.08);
+    box-shadow:0 24px 70px rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-app-region:no-drag;
+    animation:in .5s cubic-bezier(.2,.8,.2,1)}
+  @keyframes in{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+  .logo{display:flex;flex-direction:column;align-items:center;gap:9px;margin-bottom:20px}
+  .logo svg{width:60px;height:60px;filter:drop-shadow(0 4px 14px rgba(59,130,246,.4))}
+  .logo .t{font-size:20px;font-weight:800}.logo .t b{color:#22d3ee}
+  .logo .s{font-size:10.5px;color:#8b97a8;letter-spacing:.18em;text-transform:uppercase;margin-top:-4px}
+  label{display:block;font-size:11.5px;color:#93a1b4;font-weight:600;margin:14px 0 6px;letter-spacing:.02em}
+  .fld{display:flex;align-items:center;gap:9px;background:#0c1119;border:1px solid rgba(255,255,255,.10);
+    border-radius:11px;padding:0 12px;transition:.18s}
+  .fld:focus-within{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.18)}
+  .fld svg{width:16px;height:16px;color:#6b7788;flex-shrink:0}
+  .fld input{flex:1;background:none;border:none;outline:none;color:#e6edf6;font-size:14px;padding:12px 0}
+  .fld input::placeholder{color:#5c677a}
+  .eye{cursor:pointer;color:#6b7788}.eye:hover{color:#cdd7e4}
+  .adv{margin-top:12px;font-size:11.5px;color:#6b7788;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px}
+  .adv:hover{color:#9fb0c4}
+  #srvWrap{display:none}
+  .btn{width:100%;margin-top:22px;border:none;border-radius:11px;padding:13px;font-size:14.5px;font-weight:700;
+    color:#fff;background:linear-gradient(135deg,#3b82f6,#22d3ee);cursor:pointer;letter-spacing:.02em;
+    display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
+  .btn:hover{filter:brightness(1.07)}.btn:disabled{opacity:.65;cursor:default}
+  .sp{width:16px;height:16px;border:2px solid rgba(255,255,255,.5);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:none}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  .err{margin-top:14px;font-size:12.5px;color:#fca5a5;background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.3);
+    border-radius:9px;padding:9px 11px;display:none;animation:in .3s}
+  .foot{margin-top:16px;text-align:center;font-size:10.5px;color:#5c677a;letter-spacing:.06em}
+</style></head><body>
+  <div class="bg"><span></span><span></span></div>
+  <form class="card" id="f" autocomplete="off">
+    <div class="logo">
+      <svg viewBox="0 0 66 66"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
+        <path d="M33 8 L54 18 V36 C54 50 45 59 33 64 C21 59 12 50 12 36 V18 Z" fill="none" stroke="url(#g)" stroke-width="3.2" stroke-linejoin="round"/>
+        <path d="M25 34 l6 7 l12 -15" fill="none" stroke="url(#g)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="t">EventOS <b>ARC</b></div>
+      <div class="s">Central de Monitoreo</div>
+    </div>
+    <label>Usuario</label>
+    <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+      <input id="u" type="text" placeholder="operador" autofocus/></div>
+    <label>Contraseña</label>
+    <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+      <input id="p" type="password" placeholder="••••••••"/>
+      <svg class="eye" id="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+    <span class="adv" id="advT">⚙ Servidor</span>
+    <div id="srvWrap"><label>Dirección del servidor</label>
+      <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>
+        <input id="srv" type="text" placeholder="http://192.168.99.6"/></div></div>
+    <button class="btn" id="go" type="submit"><span class="sp" id="sp"></span><span id="goT">Ingresar</span></button>
+    <div class="err" id="err"></div>
+    <div class="foot">Infratec · EventOS · acceso seguro</div>
+  </form>
+<script>
+  const $=(id)=>document.getElementById(id);
+  const D=window.eventosDesktop;
+  (async()=>{ try{ const c=await (D&&D.getConfig&&D.getConfig()); if(c&&c.url) $('srv').value=c.url; }catch{} })();
+  $('eye').onclick=()=>{ const p=$('p'); p.type=p.type==='password'?'text':'password'; };
+  $('advT').onclick=()=>{ const w=$('srvWrap'); w.style.display=w.style.display==='block'?'none':'block'; };
+  function fail(msg){ const e=$('err'); e.textContent=msg; e.style.display='block'; setBusy(false); }
+  function setBusy(b){ $('go').disabled=b; $('sp').style.display=b?'inline-block':'none'; $('goT').textContent=b?'Ingresando…':'Ingresar'; }
+  const MSG={bad_credentials:'Usuario o contraseña incorrectos.',missing_credentials:'Completá usuario y contraseña.',network:'No se pudo conectar con el servidor. Verificá la dirección y la red.'};
+  $('f').addEventListener('submit', async (ev)=>{
+    ev.preventDefault(); $('err').style.display='none';
+    const username=$('u').value.trim(), password=$('p').value, server=$('srv').value.trim();
+    if(!username||!password){ return fail('Completá usuario y contraseña.'); }
+    if(!D||!D.auth){ return fail('Puente de escritorio no disponible.'); }
+    setBusy(true);
+    try{
+      const r=await D.auth.login({server,username,password});
+      if(r&&r.ok){ $('goT').textContent='Bienvenido'; /* main cierra esta ventana */ }
+      else{ fail(MSG[(r&&r.error)]||('No se pudo ingresar ('+((r&&r.error)||'error')+').')); }
+    }catch(e){ fail('Error inesperado: '+(e&&e.message||e)); }
+  });
+</script></body></html>

@@ -57,12 +57,13 @@ export default function DeviceProbe({ device, onClose, onImport, onProbed, onCre
     //  Tiandy    → RTSP (no expone ISAPI ni ONVIF): enumera canales por ffprobe.
     //  Dahua/Uniview/Siera/Intelbras/ONVIF/genérico → ONVIF, con RTSP de respaldo.
     const V = (device.vendor || '').toLowerCase()
-    const chain = /hik/.test(V) ? ['hikvision', 'onvif', 'rtsp']
-      : /tiandy/.test(V) ? ['rtsp']
-        : ['onvif', 'rtsp']
+    const chain = /akuvox|intercom/.test(V) ? ['akuvox']
+      : /hik/.test(V) ? ['hikvision', 'onvif', 'rtsp']
+        : /tiandy/.test(V) ? ['rtsp']
+          : ['onvif', 'rtsp']
     const attempt = (protocol) => api.post('/discover', {
       protocol, host: device.ip, port: device.isapiPort || undefined,
-      user: device.username, pass: device.password, https: !!device.https,
+      user: device.username, pass: device.password, https: !!(device.isapiHttps ?? device.https),
       vendor: device.vendor || undefined, rtspPort: device.rtspPort || undefined,
       type: device.type || undefined,
     })

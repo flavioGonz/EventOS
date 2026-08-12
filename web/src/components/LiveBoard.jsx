@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Badge, EmptyState, Icon, Segmented } from '../ui/primitives.jsx'
+import BoardTabs from './BoardTabs.jsx'
 import { eventTypeLabel, EVENT_TYPE_ICON, TARGET_ICON, targetLabel } from '../lib/labels.js'
 import {
   STATUS_LABEL,
@@ -40,6 +41,7 @@ const STATUS_TONE = {
 
 export default function LiveBoard({ events, operator, onOpen }) {
   const [filter, setFilter] = useState('active')
+  const [tabPred, setTabPred] = useState(null)
 
   // Recalcular "time-ago" cada 10s sin tocar la fuente de datos.
   const [, setTick] = useState(0)
@@ -52,11 +54,12 @@ export default function LiveBoard({ events, operator, onOpen }) {
     const opId = operator && operator.operatorId
     return events.filter((e) => {
       const active = e.status !== 'resolved' && e.status !== 'escalated'
-      if (filter === 'active') return active
-      if (filter === 'mine') return e.assignedTo && e.assignedTo === opId
+      if (filter === 'active' && !active) return false
+      if (filter === 'mine' && !(e.assignedTo && e.assignedTo === opId)) return false
+      if (tabPred && !tabPred(e)) return false
       return true
     })
-  }, [events, filter, operator])
+  }, [events, filter, operator, tabPred])
 
   // Reparte en columnas por prioridad y, dentro, agrupa por tipo (orden: grupo
   // con el evento más reciente primero; dentro del grupo, por recencia desc).
@@ -92,6 +95,8 @@ export default function LiveBoard({ events, operator, onOpen }) {
         </div>
         <Segmented value={filter} onChange={setFilter} options={FILTERS} />
       </header>
+
+      <BoardTabs operator={operator} events={events} onChange={(p) => setTabPred(() => p)} />
 
       {filtered.length === 0 ? (
         <EmptyState icon="bell" title="Sin eventos">

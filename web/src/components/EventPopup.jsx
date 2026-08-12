@@ -176,9 +176,7 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
       if (!k || !k.actions) return
       const key = (e.key || '').toLowerCase()
       const note = ((k.getNote && k.getNote()) || '').trim() || undefined
-      if (key === 't' && !k.closed && !k.mine && !k.assignedToOther) { e.preventDefault(); k.actions.claim(k.id) }
-      else if (key === 'a' && !k.closed) { e.preventDefault(); k.actions.ack(k.id) }
-      else if (key === 'p' && !k.closed) { e.preventDefault(); k.actions.progress(k.id, note) }
+      if (key === 't' && !k.closed && !k.mine && !k.assignedToOther) { e.preventDefault(); k.actions.claim(k.id); k.actions.progress(k.id) }
       else if (key === 'e' && !k.closed) { e.preventDefault(); k.actions.escalate(k.id, note) }
     }
     window.addEventListener('keydown', onKey)
@@ -241,6 +239,8 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
               : mode === 'evidence'
                 ? <EvidenceView event={event} url={evidenceUrl} />
                 : <CameraWall event={event} />}
+            {!supervise && <RelayBar deviceId={event.source && event.source.deviceId} closed={closed}
+              operatorId={(operator && operator.id) || 'operator'} />}
           </div>
 
           {/* DERECHA — Operación */}
@@ -276,29 +276,18 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
 
             {!supervise && (<>
             <p className="evpopup__sec-lbl"><Icon name="bolt" size={13} /> Gestión del evento
-              <span className="evpopup__kbdhint" title="Atajos: T Tomar · A Acuse · P En curso · E Escalar · Esc Cerrar"><b>T</b><b>A</b><b>P</b><b>E</b></span>
+              <span className="evpopup__kbdhint" title="Atajos: T Tomar (pasa a en curso) · E Escalar · Esc Cerrar"><b>T</b><b>E</b></span>
             </p>
             <div className={`evpopup__actions${(!mine && !assignedToOther && !closed) ? ' evpopup__actions--take' : ''}`}>
               <Button
                 variant="primary"
                 icon="check"
                 className="evpopup__take"
-                data-tip="Te asignás el evento y empezás a gestionarlo · atajo T"
+                data-tip="Te asignás el evento y pasa a EN CURSO · atajo T"
                 disabled={closed || mine || assignedToOther}
-                onClick={() => actions.claim(event.id)}
+                onClick={() => { actions.claim(event.id); actions.progress(event.id, note.trim() || undefined) }}
               >
-                {mine ? 'Tomado' : assignedToOther ? 'Tomado por otro' : 'Tomar'}
-              </Button>
-              <Button variant="secondary" data-tip="Acuse de recibo: confirmás que viste la alarma, sin resolverla · atajo A" disabled={closed} onClick={() => actions.ack(event.id)}>
-                Acuse
-              </Button>
-              <Button
-                variant="secondary"
-                data-tip="Marcás que estás trabajando el evento (en curso) · atajo P"
-                disabled={closed}
-                onClick={() => actions.progress(event.id, note.trim() || undefined)}
-              >
-                En curso
+                {mine ? 'En curso' : assignedToOther ? 'Tomado por otro' : 'Tomar'}
               </Button>
               <Button
                 variant="danger"
@@ -341,9 +330,6 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
                 </div>
               </div>
             )}
-
-            <RelayBar deviceId={event.source && event.source.deviceId} closed={closed}
-              operatorId={(operator && operator.id) || 'operator'} />
 
             {!supervise && (
               <Procedures

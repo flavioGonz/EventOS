@@ -1,5 +1,7 @@
 {
-  "url": "http://172.26.20.247",
+  "url": "https://eventos.infratec.com.uy",
   "kiosk": false,
-  "startMaximized": true
+  "startMaximized": true,
+  "popupMinPriority": 3,
+  "popupSound": true
 }

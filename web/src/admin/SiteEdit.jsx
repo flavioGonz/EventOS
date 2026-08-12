@@ -1,8 +1,8 @@
 // Sitio — página de edición dedicada (cliente + lista de llamada + parlantes SIP + mapa).
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, IconButton, Field, TextInput, Textarea, Icon, Glass, Spinner } from '../ui/primitives.jsx'
-import { collectionApi } from '../lib/adminApi.js'
+import { Button, IconButton, Field, TextInput, Textarea, Icon, Glass, Spinner, Select } from '../ui/primitives.jsx'
+import { collectionApi, unwrap } from '../lib/adminApi.js'
 import { Loading, useToast } from './_shared.jsx'
 import SiteMap from '../components/SiteMap.jsx'
 import SiteDevices from './SiteDevices.jsx'
@@ -37,6 +37,7 @@ export default function SiteEdit() {
   const [loading, setLoading] = useState(!isNew)
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState('ficha')
+  const [groups, setGroups] = useState([])
 
   useEffect(() => {
     if (isNew) return
@@ -47,6 +48,12 @@ export default function SiteEdit() {
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [id, isNew]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    let alive = true
+    collectionApi('clientGroups').list().then((d) => { if (alive) setGroups(unwrap(d, 'clientGroups')) }).catch(() => {})
+    return () => { alive = false }
+  }, [])
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
@@ -155,6 +162,12 @@ export default function SiteEdit() {
             </Field>
             <Field label={<><Icon name="hash" size={14} /> Nº de cuenta</>} hint="Cuenta del cliente (tarjeta de evidencia).">
               <TextInput value={form.account} onChange={set('account')} placeholder="CLI-1006" />
+            </Field>
+            <Field label={<><Icon name="building" size={14} /> Grupo de cliente</>} hint="Clasificacion del cliente (Edificios, Obras, Casas...).">
+              <Select value={form.clientGroupId || ''} onChange={set('clientGroupId')}>
+                <option value="">— Sin grupo —</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </Select>
             </Field>
             <Field label={<><Icon name="pin" size={14} /> Dirección</>}>
               <TextInput value={form.address} onChange={set('address')} placeholder="Pasaje Las Lomas 120" />
