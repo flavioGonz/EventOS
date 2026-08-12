@@ -289,88 +289,65 @@ export async function logs(opt, limit = 200) {
   const lib = useHttps ? https : http;
   const uri = "/ISAPI/ContentMgmt/logSearch";
   const end = endMs ? new Date(endMs) : new Date();
-  const start = startMs ? new Date(startMs) : new Date(end.getTime() - 7 * 24 * 3600 * 1000);
+  const start = startMs ? new Date(startMs) : new Date(end.getTime() - 48 * 3600 * 1000);
   const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
   const base = { host, port, timeout: 12000, rejectUnauthorized: false };
   const startISO = iso(start), endISO = iso(new Date(end.getTime() + 60000));
   const probe = await _rawReq(lib, { ...base, path: "/ISAPI/System/time", method: "GET" });
   const wa = probe.headers["www-authenticate"] || "";
   if (!/digest/i.test(wa)) return [];
-  const ch = parseAuthHeader(wa);
-  // El log del equipo viene AGRUPADO por clase (Alarm/Exception/Operation/Infomation)
-  // y dentro de cada clase, ASCENDENTE por tiempo. La motion domina y es ruido para
-  // una bitácora, y las detecciones reales ya llegan por alertStream (eventos EventOS).
-  // Acá traemos lo que EventOS NO tiene: Excepciones (salud: disco/red/pérdida video)
-  // y Operaciones humanas (login/config/playback/export/reboot). Cada clase es
-  // consultable por separado con <metaId>, y como es time-ascending por clase, la cola
-  // (posición final) = lo más reciente.
-  const fetchClass = async (metaId, pos, max) => {
-    const body = `<CMSearchDescription><searchID>${crypto.randomUUID()}</searchID><metaId>${metaId}</metaId><timeSpanList><timeSpan><startTime>${startISO}</startTime><endTime>${endISO}</endTime></timeSpan></timeSpanList><maxResults>${max}</maxResults><searchResultPostion>${pos}</searchResultPostion></CMSearchDescription>`;
-    const auth = digestAuth({ user, pass, method: "POST", uri, auth: ch });
+  const challenge = parseAuthHeader(wa);
+  const fetchPage = async (pos, max) => {
+    const body = `<CMSearchDescription><searchID>${crypto.randomUUID()}</searchID><metaId>log.hikvision.com</metaId><timeSpanList><timeSpan><startTime>${startISO}</startTime><endTime>${endISO}</endTime></timeSpan></timeSpanList><maxResults>${max}</maxResults><searchResultPostion>${pos}</searchResultPostion></CMSearchDescription>`;
+    const auth = digestAuth({ user, pass, method: "POST", uri, auth: challenge });
     try { return await _rawReq(lib, { ...base, path: uri, method: "POST", headers: { Authorization: auth, "Content-Type": "application/xml", "Content-Length": Buffer.byteLength(body) } }, body); }
     catch { return null; }
   };
-  const itemsOf = (r) => (r && r.status === 200 ? (r.text.match(/<searchMatchItem>[\s\S]*?<\/searchMatchItem>/g) || []) : []);
-  // Todas las de una clase poco poblada (varias páginas hasta agotar).
-  const allItems = async (metaId, capPages) => {
-    const acc = []; let pos = 0;
-    for (let p = 0; p < capPages; p++) {
-      const r = await fetchClass(metaId, pos, 100);
-      const its = itemsOf(r);
-      if (!its.length) break;
-      acc.push(...its); pos += its.length;
-      if (!/MORE/i.test((r.text.match(/<responseStatusStrg>([^<]*)/) || [])[1] || "")) break;
-    }
-    return acc;
-  };
-  // Cola (más reciente) de una clase muy poblada, vía sondeo exponencial+binario.
-  const tailItems = async (metaId, want) => {
-    const has = async (pos) => { const r = await fetchClass(metaId, pos, 1); return itemsOf(r).length > 0; };
-    let probes = 0;
-    if (!(await has(0))) return [];
-    probes++;
-    let lo = 0, hi = 256;
-    while (probes < 14) { if (await has(hi)) { probes++; lo = hi; hi *= 2; if (hi > 131072) break; } else { probes++; break; } }
-    while (hi - lo > want && probes < 20) { const mid = Math.floor((lo + hi) / 2); if (await has(mid)) lo = mid; else hi = mid; probes++; }
-    return itemsOf(await fetchClass(metaId, Math.max(0, lo), want + 40));
-  };
-  const raw = [];
-  raw.push(...await allItems("log.hikvision.com/Exception", 3));
-  raw.push(...await tailItems("log.hikvision.com/Operation", limit * 2));
-  const OP_KEEP = /login|logout|reboot|shutdown|startup|upgrade|format|export|playBy|manualRec|remoteArm|remoteDisarm|resetPass|addUser|delUser|modifyUser|localCfg|restore|factory/i;
+  const has = async (pos) => { const r = await fetchPage(pos, 1); return !!r && r.status === 200 && /<searchMatchItem>/.test(r.text); };
+  // El equipo devuelve el log ASCENDENTE desde startTime. Para traer lo más
+  // RECIENTE buscamos la cola (posición final) con sondeo exponencial + binario,
+  // y luego pedimos un bloque generoso desde ahí. Acotado a ~20 sondeos.
+  let probes = 0;
+  if (!(await has(0))) return [];
+  probes++;
+  let lo = 0, hi = 256;
+  while (probes < 14) {
+    if (await has(hi)) { probes++; lo = hi; hi *= 2; if (hi > 131072) break; }
+    else { probes++; break; }
+  }
+  while (hi - lo > limit && probes < 20) { const mid = Math.floor((lo + hi) / 2); if (await has(mid)) lo = mid; else hi = mid; probes++; }
+  const r = await fetchPage(Math.max(0, lo), limit * 2 + 20);
   const chWant = channel != null && channel !== "" ? String(channel).replace(/\D/g, "") : null;
   const out = [];
-  const seen = new Set();
-  for (const it of raw) {
-    const meta = _ltag(it, "metaId");
-    const parts = meta.split("/");
-    const cls = parts[1] || "";
-    const typ = parts[2] || "";
-    if (cls === "Operation" && !OP_KEEP.test(typ)) continue; // descartar polling
-    const ts = _ltag(it, "StartDateTime") || _ltag(it, "startDateTime");
-    if (!ts) continue;
-    const localId = _ltag(it, "localID") || _ltag(it, "localId");
-    const chNum = (localId.match(/\d+/) || [])[0] || parts[3] || "";
-    if (chWant && chNum && chNum !== chWant) continue;
-    const userName = _ltag(it, "userName");
-    const ip = _ltag(it, "ipAddress");
-    let addl = _ltag(it, "additionInformation").replace(/\s+/g, " ").trim();
-    // El additionInformation de excepciones trae "N.º de canal: Dn · IP · Nombre de
-    // cámara: X"; nos quedamos con el nombre de la cámara si viene (lo demás ya está).
-    const camName = (addl.match(/[Nn]ombre de c[aá]mara:?\s*([^·]+)/) || [])[1];
-    if (camName) addl = camName.trim();
-    else if (/N\.?.?\s*de canal|Direcci[oó]n IP/i.test(addl)) addl = "";
-    const kind = HIK_KIND[cls] || "event";
-    const key = ts + "|" + typ + "|" + chNum + "|" + userName;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const detail = [
-      chNum ? `Canal ${chNum}` : null,
-      userName ? `usuario ${userName}` : null,
-      ip && ip !== "::" && ip !== "0.0.0.0" ? ip : null,
-      addl ? (addl.length > 70 ? addl.slice(0, 70) + "…" : addl) : null,
-    ].filter(Boolean).join(" · ");
-    out.push({ ts, source: "device", kind, title: HIK_LABEL[typ] || typ || cls, status: null, detail });
+  if (r && r.status === 200) {
+    const items = r.text.match(/<searchMatchItem>[\s\S]*?<\/searchMatchItem>/g) || [];
+    for (const it of items) {
+      const meta = _ltag(it, "metaId");
+      const parts = meta.split("/");
+      const cls = parts[1] || "";
+      const typ = parts[2] || "";
+      if (cls === "Infomation" && typ === "runStatusInfo") continue;
+      const ts = _ltag(it, "StartDateTime") || _ltag(it, "startDateTime");
+      if (!ts) continue;
+      const localId = _ltag(it, "localID") || _ltag(it, "localId");
+      const chNum = (localId.match(/\d+/) || [])[0] || parts[3] || "";
+      if (chWant && chNum && chNum !== chWant) continue;
+      const userName = _ltag(it, "userName");
+      const ip = _ltag(it, "ipAddress");
+      const addl = _ltag(it, "additionInformation");
+      let kind = HIK_KIND[cls] || "event";
+      if (/^motion/i.test(typ)) kind = "motion";
+      else if (/lineDetection|fieldDetection|intrusion|regionEnter|regionExit/i.test(typ)) kind = "alarm";
+      let status = null;
+      if (cls === "Alarm" && addl && addl.length <= 16 && !addl.includes(",")) status = addl;
+      const detail = [
+        chNum ? `Canal ${chNum}` : null,
+        userName ? `usuario ${userName}` : null,
+        ip && ip !== "::" && ip !== "0.0.0.0" ? ip : null,
+        addl && !status ? (addl.length > 70 ? addl.slice(0, 70) + "…" : addl) : null,
+      ].filter(Boolean).join(" · ");
+      out.push({ ts, source: "device", kind, title: HIK_LABEL[typ] || typ || cls, status, detail });
+    }
   }
   out.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
   return out.slice(0, limit);

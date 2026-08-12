@@ -10,11 +10,6 @@ const KIND = {
   door:  { icon: 'route', tone: 'ok',     label: 'Apertura' },
   call:  { icon: 'phone', tone: 'accent', label: 'Llamada' },
   event: { icon: 'bell',  tone: 'warn',   label: 'Evento' },
-  alarm:     { icon: 'bell',  tone: 'warn',   label: 'Alarma' },
-  motion:    { icon: 'video', tone: 'warn',   label: 'Movimiento' },
-  system:    { icon: 'rules', tone: 'accent', label: 'Sistema' },
-  operation: { icon: 'route', tone: 'accent', label: 'Operación' },
-  exception: { icon: 'alert', tone: 'warn',   label: 'Excepción' },
 }
 const okStatus = (s) => /succ|éxito|exito|ok|received|dial/i.test(String(s || ''))
 

@@ -154,27 +154,17 @@ function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAsp
     if (!el || !streamName) return
     setState('connecting')
     const url = `/go2rtc/api/stream.mp4?src=${encodeURIComponent(streamName)}`
-    let retry, wd, lastT = 0, lastAdvance = Date.now()
-    const arm = () => { lastT = 0; lastAdvance = Date.now(); try { el.src = url; el.load && el.load(); const p = el.play && el.play(); if (p && p.catch) p.catch(() => {}) } catch { /* noop */ } }
+    let retry
+    const arm = () => { try { el.src = url; el.load && el.load(); const p = el.play && el.play(); if (p && p.catch) p.catch(() => {}) } catch { /* noop */ } }
     const onMeta = () => { if (onAspect && el.videoWidth && el.videoHeight) onAspect(`${el.videoWidth} / ${el.videoHeight}`) }
-    const onPlay = () => { setState('playing'); lastAdvance = Date.now(); onMeta() }
+    const onPlay = () => { setState('playing'); onMeta() }
     const onErr = () => { setState((s) => (s === 'playing' ? s : 'error')); clearTimeout(retry); retry = setTimeout(arm, 2500) }
-    // Watchdog anti-congelamiento: el fMP4/MSE progresivo puede TRABARSE sin emitir
-    // 'error' ni 'ended' (currentTime deja de avanzar). Si no avanza ~4.5 s estando
-    // en marcha, recargamos el stream. También recorta la latencia acumulada.
-    const check = () => {
-      if (!el) return
-      const now = Date.now()
-      if (el.currentTime > lastT + 0.05) { lastT = el.currentTime; lastAdvance = now }
-      else if (!el.paused && !el.ended && el.readyState >= 1 && now - lastAdvance > 4500) { arm() }
-    }
     el.addEventListener('playing', onPlay); el.addEventListener('loadeddata', onPlay)
     el.addEventListener('loadedmetadata', onMeta)
     el.addEventListener('error', onErr); el.addEventListener('ended', onErr)
     arm()
-    wd = setInterval(check, 1500)
     return () => {
-      clearTimeout(retry); clearInterval(wd)
+      clearTimeout(retry)
       el.removeEventListener('playing', onPlay); el.removeEventListener('loadeddata', onPlay)
       el.removeEventListener('loadedmetadata', onMeta); el.removeEventListener('error', onErr); el.removeEventListener('ended', onErr)
       try { el.src = ''; el.removeAttribute('src'); el.load && el.load() } catch { /* noop */ }

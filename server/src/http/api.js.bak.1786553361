@@ -12,7 +12,6 @@ import { startHls, startHlsFromStream, sessionFile, stopHls, keepAlive } from ".
 import { searchSegment, openDownload, compactToMs, deviceTimeOffsetMs } from "../playback/contentmgmt.js";
 import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
 import { health as akuvoxHealth, logs as akuvoxLogs } from "../discovery/akuvox.js";
-import { logs as hikLogs } from "../discovery/hikvision.js";
 import { openDoor, listOutputs, outputStatus } from "../ingest/doors.js";
 import { verifyPin, hashPin } from "../auth/pin.js";
 import { createSession, destroySession, sessionFromReq, cookieOptions, SESSION_COOKIE } from "../auth/session.js";
@@ -770,20 +769,6 @@ router.get("/device/:id/logs", async (req, res) => {
       let nat;
       if (cached && Date.now() - cached.ts < 60000) nat = cached.entries;
       else { nat = await akuvoxLogs({ host: dev.camIp || dev.ip, port: Number(dev.isapiPort) || 443, user: dev.username, pass: dev.password || "", https: dev.isapiHttps !== false }, 150); _deviceLogCache.set(id, { ts: Date.now(), entries: nat }); }
-      out.native = true;
-      out.entries.push(...nat);
-    } catch (e) { out.error = e.message; }
-  }
-  const isHik = /hik/i.test(String(dev.vendor || "")) && !isAkuvox;
-  if (isHik && (dev.ip || dev.camIp) && dev.username) {
-    try {
-      const cached = _deviceLogCache.get(id);
-      let nat;
-      if (cached && Date.now() - cached.ts < 60000) nat = cached.entries;
-      else {
-        nat = await hikLogs({ host: dev.ip || dev.camIp, port: Number(dev.isapiPort) || 80, user: dev.username, pass: dev.password || "", https: !!dev.isapiHttps, channel: /nvr|dvr/i.test(String(dev.type || "")) ? null : (dev.channel ?? null) }, 200);
-        _deviceLogCache.set(id, { ts: Date.now(), entries: nat });
-      }
       out.native = true;
       out.entries.push(...nat);
     } catch (e) { out.error = e.message; }

@@ -461,8 +461,8 @@
 .evpopup {
   --accent-prio: var(--p5);
   width: 100%;
-  max-width: min(1024px, 82vw);
-  max-height: 78vh;
+  max-width: min(1180px, 90vw);
+  max-height: 86vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;

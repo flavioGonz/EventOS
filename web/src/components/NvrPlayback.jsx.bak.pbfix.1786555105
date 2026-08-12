@@ -43,9 +43,6 @@ export default function NvrPlayback({ event, onClose }) {
   const videoRef = useRef(null)
   const hlsRef = useRef(null)
   const sidRef = useRef(null)
-  const segStartRef = useRef(null)   // instante REAL (UTC ms) de currentTime=0 del video
-  const seekOffRef = useRef(0)       // seg a saltar para arrancar en el instante pedido
-  const seekedRef = useRef(false)
   const [hlsUrl, setHlsUrl] = useState(null)
   const [seekKey, setSeekKey] = useState(0)
   const [playFrom, setPlayFrom] = useState(eventT - 15000)
@@ -96,7 +93,7 @@ export default function NvrPlayback({ event, onClose }) {
       body: JSON.stringify({ deviceId, start: hikTime(clamped), end: hikTime(range.end) }),
     })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('playback'))))
-      .then((d) => { sidRef.current = d.id; segStartRef.current = (typeof d.segStartMs === 'number') ? d.segStartMs : null; seekOffRef.current = Math.max(0, Number(d.seekOffsetSec) || 0); seekedRef.current = false; setHlsUrl(d.url); setSeekKey((k) => k + 1) })
+      .then((d) => { sidRef.current = d.id; setHlsUrl(d.url); setSeekKey((k) => k + 1) })
       .catch(() => { setError(true); setLoading(false) })
   }, [deviceId, range.start, range.end])
 
@@ -124,16 +121,7 @@ export default function NvrPlayback({ event, onClose }) {
         hlsRef.current = hls
         hls.loadSource(hlsUrl); hls.attachMedia(v)
         hls.on(Hls.Events.MANIFEST_PARSED, () => v.play().catch(() => {}))
-        hls.on(Hls.Events.FRAG_BUFFERED, () => {
-          if (cancelled) return
-          setLoading(false)
-          // El video arranca al INICIO del archivo del segmento, no en el instante
-          // pedido; saltamos una sola vez a seekOffset para que empiece en el evento.
-          if (!seekedRef.current && seekOffRef.current > 0.5 && v.duration && seekOffRef.current < v.duration - 0.5) {
-            try { v.currentTime = seekOffRef.current } catch { /* noop */ }
-            seekedRef.current = true
-          }
-        })
+        hls.on(Hls.Events.FRAG_BUFFERED, () => { if (!cancelled) setLoading(false) })
         hls.on(Hls.Events.ERROR, (_e, d) => {
           if (!d.fatal) return
           if (d.type === Hls.ErrorTypes.NETWORK_ERROR) { try { hls.startLoad() } catch { /* noop */ } }
@@ -141,14 +129,7 @@ export default function NvrPlayback({ event, onClose }) {
           else setError(true)
         })
       } else if (v.canPlayType('application/vnd.apple.mpegurl')) {
-        v.src = hlsUrl; v.play().catch(() => {}); v.addEventListener('loadeddata', () => {
-          if (cancelled) return
-          setLoading(false)
-          if (!seekedRef.current && seekOffRef.current > 0.5 && v.duration && seekOffRef.current < v.duration - 0.5) {
-            try { v.currentTime = seekOffRef.current } catch { /* noop */ }
-            seekedRef.current = true
-          }
-        }, { once: true })
+        v.src = hlsUrl; v.play().catch(() => {}); v.addEventListener('loadeddata', () => { if (!cancelled) setLoading(false) }, { once: true })
       } else setError(true)
     }
 
@@ -177,15 +158,13 @@ export default function NvrPlayback({ event, onClose }) {
   // El playhead avanza ~tiempo real mientras reproduce.
   useEffect(() => {
     if (!hlsUrl) return
+    const p0 = playFrom; const t0 = Date.now()
     const id = setInterval(() => {
       if (draggingRef.current) return
       const v = videoRef.current
-      // currentTime=0 corresponde a segStartRef (instante REAL del inicio del archivo).
-      // El horario del playhead = segStart + currentTime. Mientras no arrancó, se
-      // muestra el instante pedido (playFrom) para no saltar al inicio del segmento.
-      const base = segStartRef.current != null ? segStartRef.current : playFrom
-      const ct = v && v.currentTime > 0 ? v.currentTime * 1000 : null
-      setPlayhead(Math.min(range.end, ct != null ? base + ct : playFrom))
+      // Sigue el tiempo REAL del video (currentTime); cae a reloj de pared si aún no arrancó.
+      const elapsed = v && v.currentTime > 0 ? v.currentTime * 1000 : (Date.now() - t0)
+      setPlayhead(Math.min(range.end, p0 + elapsed))
     }, 400)
     return () => clearInterval(id)
   }, [hlsUrl, seekKey]) // eslint-disable-line react-hooks/exhaustive-deps
