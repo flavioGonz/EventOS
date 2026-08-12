@@ -34,3 +34,9 @@ isapi/reports/
 
 # Regenerable: cd isapi/tools ; make catalog
 isapi/openapi/catalog.sqlite
+
+# backups con sufijo por fecha (Claude/deploy)
+*.bak.*
+*.bak2.*
+*.bak3.*
+*.bak4.*
