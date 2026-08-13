@@ -213,4 +213,50 @@ export async function logs({ host, port, user, pass, https: secure = true }, lim
   return out;
 }
 
-export default { discover, health, logs };
+
+// ── Usuarios cargados en el portero (SmartPlus user/get) ─────────────────────
+// Lee TODO lo que el equipo tiene dentro por persona: nombre, tarjeta (CardCode),
+// PIN privado (PrivatePIN), rostro (FaceUrl), grupo, tipo, teléfono, web relay.
+// Verificado 2026-08-12 contra E16C (87 usuarios). Ojo: en este firmware el
+// endpoint es `user/get` (minúscula); `User/get`, `rfkey/get` y `privatekey/get`
+// devuelven "No handlers" — user/get unifica tarjeta+PIN+rostro por persona.
+export async function users(opt) {
+  const r = await apiGet(opt, "/api/user/get");
+  const items = (r.json && r.json.data && Array.isArray(r.json.data.item)) ? r.json.data.item : [];
+  return items.map((u) => ({
+    userId: String(u.UserID || u.ID || ""),
+    name: (u.Name || "").trim(),
+    card: (u.CardCode || "").trim(),
+    pin: (u.PrivatePIN || "").trim(),
+    face: (u.FaceUrl || "").trim(),
+    group: (u.Group || "").trim(),
+    type: String(u.Type == null ? "" : u.Type),
+    phone: (u.PhoneNumber || "").trim(),
+    webRelay: (u.WebRelay || "").trim(),
+  }));
+}
+
+// Descarga la imagen del rostro (FaceUrl) del equipo, con la misma auth (Basic→Digest).
+// Devuelve { contentType, buffer } o null. Self-contained para poder pedir binario.
+export async function faceImage(opt, faceUrl) {
+  if (!faceUrl) return null;
+  let path = faceUrl;
+  try { if (/^https?:\/\//i.test(faceUrl)) { const u = new URL(faceUrl); path = u.pathname + (u.search || ""); } } catch { /* usar tal cual */ }
+  const lib = opt.secure ? (await import("node:https")).default : (await import("node:http")).default;
+  const doReq = (headers) => new Promise((resolve) => {
+    const req = lib.request({ host: opt.host, port: opt.port, path, method: "GET", headers, rejectUnauthorized: false, timeout: 8000 }, (res) => {
+      const ch = []; res.on("data", (c) => ch.push(c)); res.on("end", () => resolve({ status: res.statusCode, headers: res.headers, buffer: Buffer.concat(ch) }));
+    });
+    req.on("error", () => resolve({ status: 0 })); req.on("timeout", () => req.destroy()); req.end();
+  });
+  const basic = "Basic " + Buffer.from(`${opt.user}:${opt.pass}`).toString("base64");
+  let res = await doReq({ Authorization: basic });
+  if (res.status === 401) {
+    const wa = (res.headers && res.headers["www-authenticate"]) || "";
+    if (/digest/i.test(wa)) res = await doReq({ Authorization: digestAuth({ user: opt.user, pass: opt.pass, method: "GET", uri: path, auth: parseAuthHeader(wa) }) });
+  }
+  if (res.status !== 200 || !res.buffer || res.buffer.length < 100) return null;
+  return { contentType: (res.headers && res.headers["content-type"]) || "image/jpeg", buffer: res.buffer };
+}
+
+export default { discover, health, logs, users, faceImage };

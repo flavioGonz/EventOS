@@ -11,7 +11,7 @@ import { getDispatch, list as listConfig, update as updateConfig, getProcedure, 
 import { startHls, startHlsFromStream, sessionFile, stopHls, keepAlive } from "../playback/hls.js";
 import { searchSegment, openDownload, compactToMs, deviceTimeOffsetMs } from "../playback/contentmgmt.js";
 import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
-import { health as akuvoxHealth, logs as akuvoxLogs } from "../discovery/akuvox.js";
+import { health as akuvoxHealth, logs as akuvoxLogs, users as akuvoxUsers, faceImage as akuvoxFace } from "../discovery/akuvox.js";
 import { logs as hikLogs } from "../discovery/hikvision.js";
 import { openDoor, listOutputs, outputStatus } from "../ingest/doors.js";
 import { verifyPin, hashPin } from "../auth/pin.js";
@@ -859,6 +859,40 @@ router.get("/device/:id/logs", async (req, res) => {
   out.entries.sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime());
   out.entries = out.entries.slice(0, limit);
   res.json(out);
+});
+
+// Usuarios/accesos cargados en un portero Akuvox (tarjetas, PIN, rostros).
+router.get("/device/:id/akuvox-users", async (req, res) => {
+  const id = String(req.params.id || "");
+  let devices = [];
+  try { devices = listConfig("devices"); } catch { /* store */ }
+  const dev = devices.find((d) => d.id === id);
+  if (!dev) return res.status(404).json({ error: "no_device" });
+  const isAkuvox = /akuvox|intercom/i.test(String(dev.vendor || "") + " " + String(dev.type || ""));
+  if (!isAkuvox) return res.status(400).json({ error: "no_akuvox" });
+  try {
+    const opt = { host: dev.camIp || dev.ip, port: Number(dev.isapiPort) || 8082, secure: dev.isapiHttps !== false, user: dev.username, pass: dev.password || "" };
+    const list = await akuvoxUsers(opt);
+    res.json({ deviceName: dev.name, count: list.length, users: list });
+  } catch (e) { res.status(502).json({ error: "akuvox_users", message: e.message }); }
+});
+
+// Proxy del rostro (FaceUrl) de un usuario del portero → la UI muestra la cara.
+router.get("/device/:id/akuvox-face", async (req, res) => {
+  const id = String(req.params.id || "");
+  const url = String(req.query.url || "");
+  if (!url) return res.status(400).end();
+  let devices = [];
+  try { devices = listConfig("devices"); } catch { /* store */ }
+  const dev = devices.find((d) => d.id === id);
+  if (!dev) return res.status(404).end();
+  try {
+    const opt = { host: dev.camIp || dev.ip, port: Number(dev.isapiPort) || 8082, secure: dev.isapiHttps !== false, user: dev.username, pass: dev.password || "" };
+    const img = await akuvoxFace(opt, url);
+    if (!img) return res.status(404).end();
+    res.set("Content-Type", img.contentType); res.set("Cache-Control", "private, max-age=300");
+    res.end(img.buffer);
+  } catch { res.status(502).end(); }
 });
 
 // Ajustes de video (público, solo lectura): el visor en vivo lee el modo/calidad.

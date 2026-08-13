@@ -2626,3 +2626,17 @@
   .alertcfg--3col { grid-template-columns: minmax(0,1fr) minmax(258px,288px); }
   .alertcfg--3col .alertcfg__preview { grid-column: 1 / -1; position: static; }
 }
+
+
+/* ===== Portero Akuvox: tabla de usuarios (tarjeta/PIN/rostro) ===== */
+.akusers__stat { margin-left: 12px; display: inline-flex; align-items: center; gap: 4px; color: var(--text-2, #9aa4b2); font-weight: 600; }
+.akutable { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+.akutable th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-2, #9aa4b2); font-weight: 700; padding: 7px 10px; border-bottom: 1px solid var(--line); }
+.akutable td { padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.akutable tbody tr:hover td { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.akutable__face { width: 46px; }
+.akutable__face img { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; display: block; background: #0b0f1a; }
+.akutable__noface { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 8%, transparent); color: var(--text-2, #9aa4b2); }
+.akutable__name { font-weight: 600; }
+.akutable__uid { color: var(--text-2, #9aa4b2); font-weight: 400; font-size: 11px; margin-left: 2px; }
+.akutable .muted { color: var(--text-2, #9aa4b2); }

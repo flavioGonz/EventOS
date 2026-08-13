@@ -16,6 +16,7 @@ import DeviceProbe from './DeviceProbe.jsx'
 import AlarmPanel from './AlarmPanel.jsx'
 import { VendorLogo, VENDOR_BRANDS } from '../ui/vendorLogos.jsx'
 import AkuvoxActionUrls from './AkuvoxActionUrls.jsx'
+import AkuvoxUsers from './AkuvoxUsers.jsx'
 
 // Encabezado de sección con chip de icono de color, título, subtítulo y tooltip.
 function SecHead({ icon, tone, title, sub, hint, action }) {
@@ -418,6 +419,7 @@ export default function DeviceEdit() {
     { k: 'medios', icon: 'video', label: isNvr ? 'Canales' : 'Medios de video', hide: isAlarm },
     { k: 'salud', icon: 'gauge', label: 'Salud' },
     { k: 'logs', icon: 'rules', label: 'Logs' },
+    { k: 'usuarios', icon: 'operators', label: 'Usuarios', hide: !isIntercom },
   ]
 
   const tabsEl = (
@@ -819,6 +821,16 @@ export default function DeviceEdit() {
             <InfoHint side="right" content={<>Linea de tiempo del equipo: en porteros Akuvox, las aperturas (tarjeta/PIN/rostro/QR) y llamadas leidas por su HTTP API; en todos, los eventos de EventOS de este dispositivo, fusionados en una sola vista.</>} /></p>
           <p className="help-block">Movimientos del equipo (aperturas, llamadas) fusionados con los eventos de EventOS de este dispositivo.</p>
           <DeviceLogs device={form} isNew={isNew} />
+        </div>
+      )}
+
+      {/* ===== Pestaña USUARIOS (portero Akuvox) ===== */}
+      {tab === 'usuarios' && isIntercom && (
+        <div key="usuarios" className="dev-tabpane anim-rise">
+          <p className="section-label"><Icon name="operators" size={14} /> Usuarios cargados en el portero
+            <InfoHint side="right" content={<>Todo lo que el portero tiene dentro por persona: nombre, tarjeta RFID, PIN privado y rostro. Se lee directo del equipo por su HTTP API (user/get). Los rostros se muestran vía proxy del server.</>} /></p>
+          <p className="help-block">Nombre, tarjeta, PIN y rostro de cada usuario, leídos directo del equipo. Buscá, paginá y revelá los PIN cuando lo necesites.</p>
+          <AkuvoxUsers deviceId={id} isNew={isNew} />
         </div>
       )}
 
