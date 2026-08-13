@@ -9,6 +9,7 @@ import { Go2RtcView, AnalyticsLabels, useCameraAnalytics, refreshCameraAnalytics
 import AnalyticsEditor from './AnalyticsEditor.jsx'
 import DeviceCaptures from './DeviceCaptures.jsx'
 import { EventTypeGrid } from './EventTypeGrid.jsx'
+import { EVENT_TYPE_ICON } from '../lib/labels.js'
 import DeviceHealth from './DeviceHealth.jsx'
 import DeviceLogs from './DeviceLogs.jsx'
 import DeviceProbe from './DeviceProbe.jsx'
@@ -108,15 +109,18 @@ const DAYS = [[1, 'L'], [2, 'M'], [3, 'X'], [4, 'J'], [5, 'V'], [6, 'S'], [0, 'D
 const fmtRel = (ts) => { if (!ts) return null; const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000); if (m < 1) return 'recién'; if (m < 60) return `hace ${m} min`; const h = Math.floor(m / 60); return h < 24 ? `hace ${h} h` : `hace ${Math.floor(h / 24)} d` }
 
 // Sección "Alertas": qué eventos disparan, prioridad, objetivo, horario, + prueba.
-function AlertsConfig({ deviceType, alerts, onChange, deviceId, isNew, toast }) {
+function AlertsConfig({ deviceType, alerts, onChange, deviceId, isNew, toast, split = false }) {
   const [lastEv, setLastEv] = useState(null)
   const [testing, setTesting] = useState(false)
+  const [previewAspect, setPreviewAspect] = useState(null)
   const anaEnabled = !isNew && deviceType !== 'alarm' && deviceType !== 'nvr' && !!deviceId
   const ana = useCameraAnalytics(deviceId, anaEnabled)
   const ANA_MAP = { line: ['line_crossing', 'Cruce de línea'], field: ['intrusion', 'Intrusión'], entrance: ['region_entrance', 'Entrada a zona'], exiting: ['region_exit', 'Salida de zona'], baggage: ['abandoned_object', 'Objeto abandonado'], takenaway: ['object_removal', 'Objeto retirado'] }
-  const detected = ana && ana.rules ? [...new Set(ana.rules.map((r) => r.type))].map((tp) => ANA_MAP[tp]).filter(Boolean) : []
-  // Catálogo de tipos que SON analíticas de cámara (se dibujan en el equipo) y set
-  // de los que están realmente dibujados → distingue "configurada" de "sin dibujar".
+  const anaRules = (ana && ana.rules) || []
+  // Analíticas detectadas en el equipo, con conteo por tipo.
+  const detected = [...new Set(anaRules.map((r) => r.type))]
+    .map((tp) => (ANA_MAP[tp] ? [ANA_MAP[tp][0], ANA_MAP[tp][1], anaRules.filter((r) => r.type === tp).length] : null))
+    .filter(Boolean)
   const ANALYTIC_CATALOG = new Set(['line_crossing', 'intrusion', 'region_entrance', 'region_exit', 'abandoned_object', 'object_removal'])
   const configuredSet = new Set(detected.map(([k]) => k))
   const anaStatus = (val) => {
@@ -148,8 +152,74 @@ function AlertsConfig({ deviceType, alerts, onChange, deviceId, isNew, toast }) 
     finally { setTesting(false) }
   }
 
+  const aside = (
+    <aside className="alertcfg__aside">
+      {detected.length > 0 && (
+        <div className="anapanel">
+          <div className="anapanel__hd"><Icon name="filter" size={14} /> Analíticas en el dispositivo <span className="anapanel__n">{detected.length}</span></div>
+          <ul className="anapanel__list">
+            {detected.map(([k, l, n]) => (
+              <li key={k} className="anapanel__it">
+                <span className="anapanel__ic"><Icon name={EVENT_TYPE_ICON[k] || 'bolt'} size={15} /></span>
+                <span className="anapanel__lbl">{l}</span>
+                {n > 1 ? <span className="anapanel__cnt" title={`${n} reglas`}>{n}</span> : null}
+                <span className="anapanel__ok" title="Dibujada en el equipo"><Icon name="check" size={12} /></span>
+              </li>
+            ))}
+          </ul>
+          <p className="anapanel__hint">Dibujadas hoy en el equipo. Marcá en la tabla cuáles alertan al operador.</p>
+        </div>
+      )}
+      <div className="anapanel anapanel--cfg">
+        <Field label={<><Icon name="flag" size={14} /> Prioridad de las alertas
+          <InfoHint side="left" content={<>Con qué urgencia entra a la consola cada alerta de este dispositivo. Sobreescribe la del catálogo/regla.<span className="tt__eg">Ej.: una cámara de bóveda en P1 (crítico) encabeza la cola; una de pasillo en P4.</span></>} /></>}
+          hint="Sobreescribe la de la regla/catálogo.">
+          <Select value={A.priority || ''} onChange={(e) => set({ priority: e.target.value ? Number(e.target.value) : null })}>
+            <option value="">— Según regla —</option>
+            {[1, 2, 3, 4, 5].map((p) => <option key={p} value={p}>{`P${p} · ${priorityLabel(p)}`}</option>)}
+          </Select>
+        </Field>
+        {showTargetFilter && (
+          <Field label={<><Icon name="filter" size={14} /> Filtro por objetivo
+            <InfoHint side="left" content={<>Descarta lo que la IA de la cámara no clasifique como persona o vehículo. Reduce muchísimo las falsas alarmas (ramas, sombras, animales).<span className="tt__eg">Ej.: «Solo personas» en un cruce de línea perimetral nocturno.</span></>} /></>}
+            hint="Descarta lo que no sea persona/vehículo.">
+            <Select value={target} onChange={(e) => set({ target: e.target.value })}>
+              {TARGET_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </Select>
+          </Field>
+        )}
+        <p className="section-label u-mt-6"><Icon name="clock" size={14} /> Horario del alertado
+          <InfoHint side="left" content={<>En qué días y franja horaria este dispositivo genera alertas. Fuera de la ventana, los eventos se registran pero no alertan. La ventana puede cruzar medianoche.<span className="tt__eg">Ej.: perímetro que solo alerta de 20:00 a 08:00, L a D.</span></>} /></p>
+        <div className="alertcfg__sched">
+          <Select value={sched.mode || 'always'} onChange={(e) => setSched({ mode: e.target.value })} className="alertcfg__mode">
+            <option value="always">Siempre activo</option>
+            <option value="window">Solo en una ventana horaria</option>
+          </Select>
+          {sched.mode === 'window' && (
+            <div className="alertcfg__win">
+              <div className="alertcfg__days">
+                {DAYS.map(([dd, l]) => {
+                  const on = schedDays.includes(dd)
+                  return <button type="button" key={dd} className={`daybtn ${on ? 'is-on' : ''}`} aria-pressed={on}
+                    onClick={() => setSched({ days: on ? schedDays.filter((x) => x !== dd) : [...schedDays, dd] })}>{l}</button>
+                })}
+              </div>
+              <div className="alertcfg__range">
+                <span>De</span>
+                <input type="time" className="input alertcfg__time" value={sched.from || '20:00'} onChange={(e) => setSched({ from: e.target.value })} />
+                <span>a</span>
+                <input type="time" className="input alertcfg__time" value={sched.to || '08:00'} onChange={(e) => setSched({ to: e.target.value })} />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </aside>
+  )
+
+  const showPreview = split && !isNew && !!deviceId && deviceType === 'camera'
   return (
-    <div className="alertcfg">
+    <div className={`alertcfg ${enabled && split ? 'alertcfg--split' : ''} ${enabled && showPreview ? 'alertcfg--3col' : ''}`}>
       <div className="alertcfg__head">
         <Switch checked={enabled} onChange={(v) => set({ enabled: v })} label={enabled ? 'Alertado activo' : 'Alertado desactivado'} />
         {!isNew && (
@@ -164,65 +234,23 @@ function AlertsConfig({ deviceType, alerts, onChange, deviceId, isNew, toast }) 
 
       {enabled && (
         <>
-          {detected.length > 0 && (
-            <div className="alertcfg__detected">
-              <span className="alertcfg__detected-lbl"><Icon name="filter" size={13} /> Analíticas dibujadas hoy en la cámara ({detected.length}):</span>
-              {detected.map(([k, l]) => <span key={k} className="badge badge--accent">{l}</span>)}
+          <div className="alertcfg__main">
+            <p className="help-block">
+              Marcá qué eventos de este equipo <b>alertan al operador</b>. Es distinto de lo que la cámara tiene <b>dibujado</b>:
+              una analítica <span className="etrow__tag t-warn" style={{ position: 'static' }}>○ sin dibujar</span> no
+              generará eventos hasta que la dibujes en la cámara (botón <b>«Editar»</b> sobre el video, en la pestaña Datos).
+              Pasá el mouse por cada fila para ver cómo funciona.
+            </p>
+            <EventTypeGrid layout="table" types={TYPES.map((t) => t[0])} isOn={(v) => types[v] !== false} status={anaStatus}
+              onToggle={(v) => set({ types: { ...types, [v]: !(types[v] !== false) } })} />
+          </div>
+          {aside}
+          {showPreview && (
+            <div className="alertcfg__preview" style={previewAspect ? { aspectRatio: previewAspect } : undefined}>
+              <Go2RtcView deviceId={deviceId} rules={anaRules.length ? anaRules : null} space={(ana && ana.space) || 1000} onAspect={setPreviewAspect} />
+              <span className="alertcfg__preview-tag"><Icon name="video" size={11} /> Vivo · analíticas</span>
             </div>
           )}
-          <p className="help-block u-mt-10">
-            Marcá qué eventos de este equipo <b>alertan al operador</b>. Es distinto de lo que la cámara tiene <b>dibujado</b>:
-            una analítica marcada como <span className="etcard__tag etcard__tag--warn" style={{ position: 'static' }}>○ sin dibujar</span> no
-            generará eventos hasta que la dibujes en la cámara (botón <b>«Editar»</b> sobre el video, en la pestaña Datos).
-          </p>
-          <EventTypeGrid types={TYPES.map((t) => t[0])} isOn={(v) => types[v] !== false} status={anaStatus}
-            onToggle={(v) => set({ types: { ...types, [v]: !(types[v] !== false) } })} />
-
-          <div className="form-grid form-grid--2 u-mt-14">
-            <Field label={<><Icon name="flag" size={14} /> Prioridad de las alertas
-              <InfoHint side="right" content={<>Con qué urgencia entra a la consola cada alerta de este dispositivo. Sobreescribe la del catálogo/regla.<span className="tt__eg">Ej.: una cámara de bóveda en P1 (crítico) suena y encabeza la cola; una de pasillo en P4.</span></>} /></>}
-              hint="Sobreescribe la de la regla/catálogo.">
-              <Select value={A.priority || ''} onChange={(e) => set({ priority: e.target.value ? Number(e.target.value) : null })}>
-                <option value="">— Según regla —</option>
-                {[1, 2, 3, 4, 5].map((p) => <option key={p} value={p}>{`P${p} · ${priorityLabel(p)}`}</option>)}
-              </Select>
-            </Field>
-            {showTargetFilter && (
-              <Field label={<><Icon name="filter" size={14} /> Filtro por objetivo
-                <InfoHint side="right" content={<>Descarta lo que la IA de la cámara no clasifique como persona o vehículo. Reduce muchísimo las falsas alarmas (ramas, sombras, animales).<span className="tt__eg">Ej.: «Solo personas» en un cruce de línea perimetral nocturno.</span></>} /></>}
-                hint="Descarta lo que no sea persona/vehículo (menos falsas alarmas).">
-                <Select value={target} onChange={(e) => set({ target: e.target.value })}>
-                  {TARGET_OPTS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </Select>
-              </Field>
-            )}
-          </div>
-
-          <p className="section-label u-mt-14"><Icon name="clock" size={14} /> Horario del alertado
-            <InfoHint side="right" content={<>En qué días y franja horaria este dispositivo genera alertas. Fuera de la ventana, los eventos se registran pero no alertan al operador. La ventana puede cruzar medianoche.<span className="tt__eg">Ej.: perímetro que solo alerta de 20:00 a 08:00, L a D.</span></>} /></p>
-          <div className="alertcfg__sched">
-            <Select value={sched.mode || 'always'} onChange={(e) => setSched({ mode: e.target.value })} className="alertcfg__mode">
-              <option value="always">Siempre activo</option>
-              <option value="window">Solo en una ventana horaria</option>
-            </Select>
-            {sched.mode === 'window' && (
-              <div className="alertcfg__win">
-                <div className="alertcfg__days">
-                  {DAYS.map(([d, l]) => {
-                    const on = schedDays.includes(d)
-                    return <button type="button" key={d} className={`daybtn ${on ? 'is-on' : ''}`} aria-pressed={on}
-                      onClick={() => setSched({ days: on ? schedDays.filter((x) => x !== d) : [...schedDays, d] })}>{l}</button>
-                  })}
-                </div>
-                <div className="alertcfg__range">
-                  <span>De</span>
-                  <input type="time" className="input alertcfg__time" value={sched.from || '20:00'} onChange={(e) => setSched({ from: e.target.value })} />
-                  <span>a</span>
-                  <input type="time" className="input alertcfg__time" value={sched.to || '08:00'} onChange={(e) => setSched({ to: e.target.value })} />
-                </div>
-              </div>
-            )}
-          </div>
         </>
       )}
     </div>
@@ -762,7 +790,7 @@ export default function DeviceEdit() {
               <p className="help-block">Qué eventos disparan alerta, con qué prioridad, filtro por objetivo y en qué horario. Probá que llega bien a la consola con «Probar alerta».</p>
               <AlertsConfig deviceType={form.type} alerts={form.alerts}
                 onChange={(alerts) => setForm((f) => ({ ...f, alerts }))}
-                deviceId={id} isNew={isNew} toast={toast} />
+                deviceId={id} isNew={isNew} toast={toast} split={!isIntercom} />
               </div>
               {isIntercom && !isNew && (
                 <div className="dev-alerts2__side">

@@ -276,7 +276,10 @@ function deviceDirectRtsp(dev, quality) {
   // NVR sin camIp iría al restream corrupto → null para que caiga a MJPEG).
   const host = dev.camIp || (proxied ? null : dev.ip);
   if (!host) return null;
-  const port = dev.camIp ? 554 : (Number(dev.rtspPort) || 554);
+  // camIp = IP DIRECTA de la cámara (red interna vía VPN) → RTSP estándar 554.
+  // Pero si camIp coincide con la ip pública (equipo con NAT, p. ej. un portero
+  // Akuvox mapeado a :10554), hay que usar el rtspPort configurado, no 554.
+  const port = (dev.camIp && dev.camIp !== dev.ip) ? 554 : (Number(dev.rtspPort) || 554);
   const suffix = quality === "main" ? "01" : "02";
   const u = encodeURIComponent(dev.username);
   const p = encodeURIComponent(dev.password || "");
@@ -554,42 +557,107 @@ router.get("/playback-clip", async (req, res) => {
 // El server pide la imagen al NVR con Digest y la sirve; caché corta en memoria
 // para no machacar al NVR cuando hay muchas tiles.
 const SNAP_CACHE = new Map(); // deviceId → { ts, buf }
-const SNAP_TTL = 500; // corto → near-live más fluido (~varios fps en el visor)
+const SNAP_TTL = 1500; // TTL del snapshot cacheado (ms). Sube = menos carga al NVR.
+const SNAP_FAIL = new Map();      // id → ts del último fallo (backoff negativo)
+const SNAP_FAIL_TTL = 4000;       // no re-pegar a un canal caído por este tiempo
+const SNAP_INFLIGHT = new Map();  // id → Promise<Buffer> (dedup de capturas en curso)
+// Semáforo por HOST: los canales de un NVR comparten IP; si el muro de evidencia
+// dispara ~17 capturas a la vez el NVR se satura (504) y devuelve 503 en canales
+// ocupados. Limitamos las capturas concurrentes por equipo.
+const _snapHostSem = new Map();   // host → { active, queue: [] }
+const SNAP_HOST_MAX = 3;
+function snapHostAcquire(host) {
+  let s = _snapHostSem.get(host);
+  if (!s) { s = { active: 0, queue: [] }; _snapHostSem.set(host, s); }
+  return new Promise((resolve) => {
+    const go = () => { if (s.active < SNAP_HOST_MAX) { s.active++; resolve(); } else { s.queue.push(go); } };
+    go();
+  });
+}
+function snapHostRelease(host) {
+  const s = _snapHostSem.get(host);
+  if (!s) return;
+  s.active = Math.max(0, s.active - 1);
+  const n = s.queue.shift();
+  if (n) n();
+}
+
+// Placeholder "SIN SEÑAL" (SVG): se sirve con 200 cuando un canal está caído y no
+// hay último frame bueno, en vez de 502 → el visor muestra un estado limpio y no
+// spamea errores ni imágenes rotas.
+const NOSIGNAL_SVG = Buffer.from(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180" viewBox="0 0 320 180">' +
+  '<rect width="320" height="180" fill="#0b0f16"/>' +
+  '<g fill="none" stroke="#3a4658" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+  '<rect x="126" y="74" width="56" height="32" rx="6"/>' +
+  '<path d="M182 84l16-7v26l-16-7z"/>' +
+  '<line x1="116" y1="62" x2="206" y2="120"/></g>' +
+  '<text x="160" y="140" fill="#5b6b82" font-family="system-ui,Segoe UI,sans-serif" font-size="13" font-weight="600" text-anchor="middle" letter-spacing="1.5">SIN SEÑAL</text></svg>'
+);
+function serveNoSignal(res) {
+  res.set("Content-Type", "image/svg+xml"); res.set("Cache-Control", "no-store");
+  res.status(200).end(NOSIGNAL_SVG);
+}
 router.get("/camera/:id/snapshot", async (req, res) => {
   const id = String(req.params.id || "");
   let devices = [];
   try { devices = listConfig("devices"); } catch { /* store */ }
   const dev = devices.find((d) => d.id === id);
   if (!dev) return res.status(404).end();
+  const serve = (buf) => { res.set("Content-Type", "image/jpeg"); res.set("Cache-Control", "no-store"); res.end(buf); };
   const cached = SNAP_CACHE.get(id);
-  if (cached && Date.now() - cached.ts < SNAP_TTL) {
-    res.set("Content-Type", "image/jpeg"); res.set("Cache-Control", "no-store");
-    return res.end(cached.buf);
+  if (cached && Date.now() - cached.ts < SNAP_TTL) return serve(cached.buf);
+  // Backoff negativo: si falló recién, no re-pegamos al equipo; servimos el último
+  // frame bueno (si hay) para no romper el visor con imágenes rotas ni spamear el NVR.
+  const failTs = SNAP_FAIL.get(id);
+  if (failTs && Date.now() - failTs < SNAP_FAIL_TTL) {
+    if (cached) return serve(cached.buf);
+    return serveNoSignal(res);
   }
-  // Equipos SIN ISAPI (Tiandy/ONVIF/Dahua): snapshot desde el frame de go2rtc.
-  if (rtspTemplateFor(dev.vendor)) {
-    const buf = await fetchGo2rtcFrame(dev);
-    if (!buf) return res.status(502).end();
-    SNAP_CACHE.set(id, { ts: Date.now(), buf });
-    res.set("Content-Type", "image/jpeg"); res.set("Cache-Control", "no-store");
-    return res.end(buf);
+  // Dedup: si ya hay una captura en curso para este equipo, esperamos ESA.
+  if (SNAP_INFLIGHT.has(id)) {
+    const buf = await SNAP_INFLIGHT.get(id).catch(() => null);
+    if (buf) return serve(buf);
+    const c2 = SNAP_CACHE.get(id); if (c2) return serve(c2.buf);
+    return serveNoSignal(res);
   }
-  if (!dev.ip || !dev.isapiPort || !dev.username) return res.status(404).end();
-  const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
-  try {
-    const r = await digestGetBuffer({
-      host: dev.ip, port: Number(dev.isapiPort), https: !!dev.isapiHttps,
-      path: `/ISAPI/Streaming/channels/${ch}01/picture`,
-      user: dev.username, pass: dev.password || "", timeoutMs: 6000,
-    });
-    if (r.status !== 200 || !r.buffer || r.buffer.length < 200 || !/image/i.test(r.contentType)) {
-      return res.status(502).end();
+  const fetchOne = (async () => {
+    // Equipos SIN ISAPI (Tiandy/ONVIF/Dahua): snapshot desde el frame de go2rtc.
+    if (rtspTemplateFor(dev.vendor)) {
+      const buf = await fetchGo2rtcFrame(dev);
+      if (!buf) throw new Error("go2rtc_frame");
+      SNAP_CACHE.set(id, { ts: Date.now(), buf }); SNAP_FAIL.delete(id);
+      return buf;
     }
-    SNAP_CACHE.set(id, { ts: Date.now(), buf: r.buffer });
-    res.set("Content-Type", "image/jpeg"); res.set("Cache-Control", "no-store");
-    res.end(r.buffer);
+    if (!dev.ip || !dev.isapiPort || !dev.username) throw Object.assign(new Error("sin_isapi"), { code: 404 });
+    const ch = Number(dev.channel) > 0 ? Number(dev.channel) : 1;
+    const host = dev.ip;
+    await snapHostAcquire(host);
+    try {
+      const r = await digestGetBuffer({
+        host, port: Number(dev.isapiPort), https: !!dev.isapiHttps,
+        path: `/ISAPI/Streaming/channels/${ch}01/picture`,
+        user: dev.username, pass: dev.password || "", timeoutMs: 8000,
+      });
+      if (r.status !== 200 || !r.buffer || r.buffer.length < 200 || !/image/i.test(r.contentType || "")) {
+        throw Object.assign(new Error(`snap_${r.status}`), { code: r.status === 503 ? 503 : 502 });
+      }
+      SNAP_CACHE.set(id, { ts: Date.now(), buf: r.buffer }); SNAP_FAIL.delete(id);
+      return r.buffer;
+    } finally { snapHostRelease(host); }
+  })();
+  SNAP_INFLIGHT.set(id, fetchOne);
+  try {
+    serve(await fetchOne);
   } catch (e) {
-    res.status(504).end();
+    if (e && e.code === 404) return res.status(404).end();
+    SNAP_FAIL.set(id, Date.now());
+    const c3 = SNAP_CACHE.get(id);
+    if (c3) return serve(c3.buf); // último frame bueno: mejor stale que roto
+    serveNoSignal(res); // canal caído sin frame → placeholder limpio, no 502
+    void e;
+  } finally {
+    SNAP_INFLIGHT.delete(id);
   }
 });
 
