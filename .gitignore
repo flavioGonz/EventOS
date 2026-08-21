@@ -40,3 +40,4 @@ isapi/openapi/catalog.sqlite
 *.bak2.*
 *.bak3.*
 *.bak4.*
+desktop/build/

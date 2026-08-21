@@ -7,12 +7,14 @@ import { fileURLToPath } from "node:url";
 import { Router } from "express";
 import { bus } from "../bus/redisBus.js";
 import { listEvents, getEvent, listOperators, queueState } from "../dispatch/store.js";
+import { listHistory } from "../db/eventsRepo.js";
 import { getDispatch, list as listConfig, update as updateConfig, getProcedure, getVideo } from "../config/store.js";
 import { startHls, startHlsFromStream, sessionFile, stopHls, keepAlive } from "../playback/hls.js";
-import { searchSegment, openDownload, compactToMs, deviceTimeOffsetMs } from "../playback/contentmgmt.js";
+import { searchSegment, openDownload, compactToMs, deviceTimeOffsetMs, deviceGopMs } from "../playback/contentmgmt.js";
 import { digestGetBuffer, digestRequest } from "../util/digestFetch.js";
-import { health as akuvoxHealth, logs as akuvoxLogs, users as akuvoxUsers, faceImage as akuvoxFace } from "../discovery/akuvox.js";
-import { logs as hikLogs } from "../discovery/hikvision.js";
+import { health as akuvoxHealth, logs as akuvoxLogs, users as akuvoxUsers, faceImage as akuvoxFace, userSave as akuvoxUserSave, userDel as akuvoxUserDel, rawDump as akuvoxRawDump } from "../discovery/akuvox.js";
+import { deviceOnline } from "../health/status.js";
+import { logs as hikLogs, axStatus as hikAxStatus } from "../discovery/hikvision.js";
 import { openDoor, listOutputs, outputStatus } from "../ingest/doors.js";
 import { verifyPin, hashPin } from "../auth/pin.js";
 import { createSession, destroySession, sessionFromReq, cookieOptions, SESSION_COOKIE } from "../auth/session.js";
@@ -31,6 +33,9 @@ const startedAt = Date.now();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const EVIDENCE_DIR = path.resolve(__dirname, "..", "..", "data", "evidence");
 const AVATAR_DIR = path.resolve(__dirname, "..", "..", "data", "avatars");
+// Instalador de la app de escritorio (Electron/Windows). Se publica dejando el
+// .exe en data/desktop/ — el endpoint descubre automáticamente el más reciente.
+const DESKTOP_DIR = path.resolve(__dirname, "..", "..", "data", "desktop");
 
 // ── Guardia de sesión de operario ───────────────────────────────────────────
 // La instancia es pública (internet) con login: las ACCIONES FÍSICAS y el VIDEO
@@ -41,19 +46,31 @@ const AVATAR_DIR = path.resolve(__dirname, "..", "..", "data", "avatars");
 const PROTECTED = [
   /^\/device\/[^/]+\/relay$/,
   /^\/device\/[^/]+\/outputs/,
+  /^\/device\/[^/]+\/ax-status$/,
   /^\/live(\/|$|-direct)/,
   /^\/playback/,
   /^\/snapshot/,
   /^\/mjpeg/,
   /^\/cameras$/,
   /^\/camera\/[^/]+\/(snapshot|mjpeg|live)/,
+  /^\/events$/,          // la cola en vivo — no exponer eventos (con datos de sitios) público
+  /^\/events\/history$/, // el historial COMPLETO (PG) exige sesión — no exponerlo público
+  /^\/events\/[^/]+\/evidence(\/capture)?$/, // metadata de evidencia + captura on-demand
+  // (POST con efecto). Las FOTOS en sí siguen en /api/evidence/:file, público (van por <img src>).
 ];
 router.use((req, res, next) => {
   if (!PROTECTED.some((rx) => rx.test(req.path))) return next();
   const s = sessionFromReq(req);
-  if (!s) return res.status(401).json({ error: "auth_required" });
-  req.operator = { id: s.operatorId, name: s.name, role: s.role };
-  next();
+  if (s) { req.operator = { id: s.operatorId, name: s.name, role: s.role }; return next(); }
+  // Alternativa: el token de admin (el panel admin usa X-Admin-Token, no cookie de
+  // sesión). Es el privilegio más alto y ya ve todo el inventario, así que vale para
+  // leer el historial de eventos. Video/<img> sigue exigiendo cookie (el header no viaja).
+  const tok = req.headers["x-admin-token"];
+  if (config.adminToken && tok && tok === config.adminToken) {
+    req.operator = { id: "admin", name: "Admin", role: "admin" };
+    return next();
+  }
+  return res.status(401).json({ error: "auth_required" });
 });
 
 // ── Puertas y relés ────────────────────────────────────────────────────────
@@ -116,6 +133,47 @@ router.get("/device/:id/outputs/:out/status", async (req, res) => {
   }
 });
 
+// Estado en vivo de un panel de alarma AX (SecurityCP): salud del host
+// (batería / red / corriente / sabotaje), subsistemas (armado), zonas (apertura
+// de puerta/ventana, alarma, sabotaje, batería) y relés (on/off real). SOLO
+// LECTURA — no acciona nada físico. La UI del panel lo consulta en intervalos.
+router.get("/device/:id/ax-status", async (req, res) => {
+  const id = String(req.params.id || "");
+  let devices = []; try { devices = listConfig("devices"); } catch {}
+  const dev = devices.find((d) => d.id === id);
+  if (!dev) return res.status(404).json({ error: "no_device" });
+  if (!dev.ip || !dev.username) return res.status(400).json({ error: "no_creds" });
+  try {
+    const st = await hikAxStatus({
+      host: dev.ip, port: Number(dev.isapiPort) || 80, https: !!dev.isapiHttps,
+      user: dev.username, pass: dev.password || "",
+    });
+    res.json(st);
+  } catch (e) {
+    res.status(502).json({ error: "ax_status_failed", message: e.message });
+  }
+});
+
+// Eventos de puerta/apertura recientes de un dispositivo de alarma, tomados del
+// registro de eventos de EventOS (lo que ya llegó por alertStream/webhook). La
+// UI del panel los muestra como "eventos de puerta abierta".
+router.get("/device/:id/door-events", (req, res) => {
+  const id = String(req.params.id || "");
+  let devices = []; try { devices = listConfig("devices"); } catch {}
+  const dev = devices.find((d) => d.id === id);
+  if (!dev) return res.status(404).json({ error: "no_device" });
+  const limit = Math.min(50, Math.max(1, Number(req.query.limit) || 12));
+  const DOOR_RE = /door|puerta|magnet|contact|open|apertura|zone|zona|intrus|tamper|sabot/i;
+  let list = [];
+  try { list = listEvents({ limit: 300 }); } catch { list = []; }
+  if (!Array.isArray(list)) list = (list && list.events) || [];
+  const mine = list.filter((e) => e && (e.deviceId === id || (e.source && (e.source.deviceId === id || e.source.id === id)) || (dev.name && e.source && e.source.name === dev.name)))
+    .filter((e) => DOOR_RE.test(`${e.type || ""} ${e.category || ""} ${(e.source && e.source.name) || ""}`))
+    .slice(0, limit)
+    .map((e) => ({ id: e.id, type: e.type, ts: e.deviceTs || e.ts, status: e.status, priority: e.priority, name: e.source && e.source.name }));
+  res.json({ events: mine });
+});
+
 // Evidencia: galeria por caso (lista de frames del evento).
 router.get("/events/:id/evidence", (req, res) => {
   const id = String(req.params.id || "");
@@ -174,6 +232,15 @@ router.get("/evidence/:file", (req, res) => {
 // Inicia una sesión de reproducción. La URL RTSP la CONSTRUYE el server desde la
 // config del dispositivo (no se acepta del cliente) + tiempos saneados.
 const HIK_TIME = /^\d{8}T\d{6}Z$/; // YYYYMMDDThhmmssZ (formato ISAPI)
+// Reescribe starttime/endtime de un playbackURI de ISAPI (reloj LOCAL del NVR con
+// `Z` engañoso) para que el download arranque en el instante deseado, no al inicio
+// del archivo. `ms` son ms "local-as-UTC" (mismo espacio que devuelve compactToMs).
+const msToHik = (ms) => new Date(ms).toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+function withPbTimes(uri, startMs, endMs) {
+  return String(uri)
+    .replace(/starttime=\d{8}T\d{6}Z/i, `starttime=${msToHik(startMs)}`)
+    .replace(/endtime=\d{8}T\d{6}Z/i, `endtime=${msToHik(endMs)}`);
+}
 router.post("/playback", (req, res) => {
   const body = req.body || {};
   const deviceId = String(body.deviceId || "");
@@ -286,16 +353,22 @@ function deviceDirectRtsp(dev, quality) {
   const root = `rtsp://${u}:${p}@${host}:${port}`;
   // Fabricante con plantilla propia (p. ej. Tiandy `/{ch}/1`): usarla con el
   // canal del equipo (si es acceso directo a la cámara, canal = 1).
+  // Canal: si `camIp` es una IP DISTINTA a la del device, es acceso directo a la
+  // cámara (1 solo canal → 1). En cambio, si el host es el propio NVR (camIp
+  // ausente o == ip), hay que pedir el CANAL del device — si no, todos los
+  // canales del NVR devuelven el mismo (canal 1) y se ve la misma imagen repetida.
+  const directCam = dev.camIp && dev.camIp !== dev.ip;
+  const ch = directCam ? 1 : (Number(dev.channel) > 0 ? Number(dev.channel) : 1);
   const tpl = rtspTemplateFor(dev.vendor);
   if (tpl) {
-    const ch = dev.camIp ? 1 : (Number(dev.channel) > 0 ? Number(dev.channel) : 1);
     const raw = (quality === "main" ? tpl.main : (tpl.sub || tpl.main)) || "";
     return root + raw.replace(/\{ch\}/g, String(ch));
   }
-  return `${root}/Streaming/Channels/1${suffix}`; // cámara = 1 canal
+  return `${root}/Streaming/Channels/${ch}${suffix}`;
 }
-// Vivo DIRECTO por go2rtc (MSE), sin transcode (stream limpio). 404 si no hay
-// camIp → el front cae al MJPEG por el NVR.
+// Vivo por go2rtc (MSE). Elige un RTSP alcanzable (directo si la camIp responde,
+// si no por el NVR). Antes devolvía 404 sin camIp y el front caía a MJPEG (fotos).
+// (tcpReachable está definida más abajo en este módulo.)
 router.post("/live-direct", async (req, res) => {
   const body = req.body || {};
   const deviceId = String(body.deviceId || "");
@@ -304,15 +377,65 @@ router.post("/live-direct", async (req, res) => {
   try { devices = listConfig("devices"); } catch { /* store */ }
   const dev = devices.find((d) => d.id === deviceId);
   if (!dev) return res.status(404).json({ error: "no_device" });
-  const rtsp = deviceDirectRtsp(dev, quality);
-  if (!rtsp) return res.status(404).json({ error: "no_direct" });
+  // VIVO FLUIDO SIEMPRE por RTSP → go2rtc (MSE). Si hay IP directa a la cámara, se
+  // usa (stream más limpio); si no, se usa el RTSP del NVR con el CANAL del device.
+  // Antes, sin camIp, esto devolvía 404 y el front caía a MJPEG (fotos): por eso
+  // "no era fluido". Ahora el NVR también sale por go2rtc = flujo real, no fotos.
+  // VIVO FLUIDO: elegir un RTSP que el server REALMENTE alcance. La `camIp`
+  // (acceso directo a la cámara) suele ser una IP LAN detrás del NVR que el
+  // server NO rutea → ffmpeg se cuelga y el vivo cae a fotos. Antes de usarla,
+  // probamos TCP a su puerto; si no responde, usamos el RTSP por el NVR (dev.ip,
+  // que es la IP alcanzable — la misma del snapshot) con el canal del device.
+  // FUENTE DE VIDEO (por cámara): 'direct' fuerza acceso directo, 'nvr' fuerza el
+  // restream del NVR, 'auto' (default) sondea camIp y cae al NVR si no responde.
+  const liveSource = String(dev.liveSource || "auto").toLowerCase();
+  const direct = deviceDirectRtsp(dev, quality);
+  let rtsp = null, useAudio = false;
+  if (liveSource === "direct") {
+    rtsp = direct; useAudio = !!direct;                 // directo explícito
+  } else if (liveSource === "nvr") {
+    rtsp = deviceLiveRtsp(dev, quality); useAudio = false; // por NVR explícito
+  } else {
+    // AUTO: la camIp suele ser una IP LAN detrás del NVR que el server NO rutea →
+    // ffmpeg se cuelga y el vivo cae a fotos. Sondeamos TCP antes de usarla; si no
+    // responde, vamos por el NVR (dev.ip alcanzable — la misma del snapshot).
+    if (direct && dev.camIp) {
+      const camPort = (dev.camIp !== dev.ip) ? 554 : (Number(dev.rtspPort) || 554);
+      if (await tcpReachable(dev.camIp, camPort, 1500)) { rtsp = direct; useAudio = true; }
+    } else if (direct && !dev.camIp) {
+      rtsp = direct; useAudio = true; // directo sin camIp (cámara standalone por su ip)
+    }
+    if (!rtsp) rtsp = deviceLiveRtsp(dev, quality); // camino por NVR (video-only)
+  }
+  if (!rtsp) return res.status(404).json({ error: "no_rtsp" });
   try {
     // El nombre incluye la CALIDAD → main y sub son streams separados (permite
     // alternar en vivo sin pisar uno con otro).
     // Transcodificar (re-encode) en vez de copy: las cámaras H.264+/SmartCodec
     // de cesimco emiten un SPS que el navegador rechaza por MSE ([VideoRTC] Video
     // error). ffmpeg reescribe un SPS válido → vivo limpio. (copy fallaba en ellas.)
-    const name = await registerGo2rtc(`cam_${deviceId}_${quality}`, go2rtcTranscodeSrc(rtsp));
+    // Acceso directo a cámara (alcanzable) → con audio (probado). Restream por NVR
+    // → video-only (robusto: no se cuelga si el canal no tiene audio).
+    // MODO DE PROCESAMIENTO (por cámara): 'copy' = go2rtc reenvía el RTSP nativo SIN
+    // ffmpeg (CPU ~0, menor latencia, más canales simultáneos) — ideal para cámaras
+    // que decodifican bien por MSE. 'transcode' (default) = ffmpeg reescribe el SPS
+    // (necesario en fisheye/H.264+ que el navegador rechaza). Fine-tuning de escala.
+    const videoMode = String(dev.videoMode || "transcode").toLowerCase();
+    // VAAPI (iGPU) decodifica bien el MAINSTREAM, pero el decodificador HW de HEVC
+    // de la Gen9 se cuelga con algunos SUBFLUJOS H.265 (PPS id out of range / "hardware
+    // accelerator failed to decode picture") → go2rtc devuelve 500. El subflujo es de
+    // baja resolución: transcodificarlo por SOFTWARE es barato y tolera esos glitches.
+    // Por eso: hw='vaapi' solo en main; el sub usa transcode por software.
+    const useHw = videoMode === "hw" && quality === "main";
+    const src = videoMode === "copy" ? rtsp
+      : useHw ? go2rtcTranscodeSrc(rtsp, { audio: useAudio, hw: "vaapi" })
+      : go2rtcTranscodeSrc(rtsp, { audio: useAudio });
+    const name = await registerGo2rtc(`cam_${deviceId}_${quality}`, src);
+    // Al cambiar de calidad (main↔sub), liberar el stream de la OTRA calidad: si no,
+    // go2rtc deja vivo el ffmpeg anterior consumiendo una conexión RTSP del NVR (que
+    // limita conexiones concurrentes) → el switch "no cambia" o satura el grabador.
+    const other = quality === "main" ? "sub" : "main";
+    try { await fetch(`http://127.0.0.1:1984/api/streams?src=${encodeURIComponent(`cam_${deviceId}_${other}`)}`, { method: "DELETE" }); } catch { /* no existía */ }
     res.json({ name });
   } catch (e) {
     res.status(502).json({ error: "go2rtc_failed", message: e.message });
@@ -344,11 +467,28 @@ router.post("/live", (req, res) => {
 // ffmpeg decodifica y RE-ENCODA con un SPS válido → reproduce limpio por MSE
 // (que viaja por WebSocket/HTTP, sin depender de ICE/UDP). Registramos un stream
 // `live_<deviceId>` on-demand (go2rtc solo lanza ffmpeg cuando hay consumidor).
-function go2rtcTranscodeSrc(rtsp) {
-  // #video=h264 (libx264) reescribe el SPS; #audio=aac para que MSE pueda mux.
-  return `ffmpeg:${rtsp}#video=h264#audio=aac`;
+function go2rtcTranscodeSrc(rtsp, { audio = true, hw = null } = {}) {
+  // #video=h264 (libx264) reescribe el SPS. El audio es OPCIONAL: en el restream
+  // del NVR muchos canales NO traen pista de audio, y pedir #audio=aac puede
+  // COLGAR el arranque de ffmpeg esperando un stream que no existe → el vivo
+  // "no arranca". Video-only es más robusto y de menor latencia para cámaras de
+  // seguridad. Se mantiene el audio solo donde se sabe que ayuda (acceso directo).
+  //
+  // hw = 'vaapi' → go2rtc transcodifica por la iGPU (decode+encode en GPU): CPU ~0
+  // y escala a muchos más canales. Requiere /dev/dri en el CT + driver (iHD) +
+  // LIBVA_DRIVER_NAME en el servicio go2rtc. NO usar en cámaras con SPS roto
+  // (fisheye) — esas quedan en 'transcode' (libx264 en CPU, que sanea el SPS).
+  const hwTag = hw ? `#hardware=${hw}` : "";
+  return audio ? `ffmpeg:${rtsp}#video=h264#audio=aac${hwTag}` : `ffmpeg:${rtsp}#video=h264${hwTag}`;
 }
 async function registerGo2rtc(name, src) {
+  // IMPORTANTE: go2rtc ACUMULA fuentes en cada PUT y NO se reinicia en cada deploy.
+  // Si el stream ya existía con una fuente vieja/fallida (p. ej. una directa que
+  // daba 404, o audio que colgaba), un PUT nuevo agrega la fuente actual PERO
+  // go2rtc puede seguir intentando la vieja primero → "no arranca / no fluido".
+  // Borrar el stream antes de crearlo garantiza que tenga EXACTAMENTE la fuente
+  // actual. Si no existía, el DELETE es un no-op inocuo.
+  try { await fetch(`http://127.0.0.1:1984/api/streams?src=${encodeURIComponent(name)}`, { method: "DELETE" }); } catch { /* no existía */ }
   const r = await fetch(`http://127.0.0.1:1984/api/streams?name=${encodeURIComponent(name)}&src=${encodeURIComponent(src)}`, { method: "PUT" });
   if (!r.ok) throw new Error(`go2rtc ${r.status}`);
   return name;
@@ -398,6 +538,15 @@ router.post("/live-stream", async (req, res) => {
   }
 });
 
+// FUENTE DE PLAYBACK (por cámara): 'nvr' (default) → las grabaciones se leen del
+// NVR (dev.ip, alcanzable). 'direct' → de la propia cámara (SD/edge) por su camIp.
+// Devuelve una COPIA con el host correcto (nunca muta el objeto del store).
+function playbackDev(dev) {
+  const src = String(dev.playbackSource || "nvr").toLowerCase();
+  if (src === "direct" && dev.camIp) return { ...dev, ip: dev.camIp };
+  return dev;
+}
+
 // ── Playback de grabación vía go2rtc ────────────────────────────────────────
 // Registra (o actualiza) un stream `pb_<deviceId>` en go2rtc con el RTSP de la
 // grabación (subflujo + starttime/endtime, UTC con Z) y devuelve su nombre para
@@ -410,8 +559,9 @@ router.post("/playback-stream", async (req, res) => {
   if (!HIK_TIME.test(start) || !HIK_TIME.test(end)) return res.status(400).json({ error: "bad_time" });
   let devices = [];
   try { devices = listConfig("devices"); } catch { /* store */ }
-  const dev = devices.find((d) => d.id === deviceId);
-  if (!dev) return res.status(404).json({ error: "no_device" });
+  const found = devices.find((d) => d.id === deviceId);
+  if (!found) return res.status(404).json({ error: "no_device" });
+  const dev = playbackDev(found);
   const base = deviceLiveRtsp(dev, "main");
   if (!base) return res.status(400).json({ error: "sin_rtsp" });
   const root = (base.match(/^(rtsps?:\/\/[^/]+)/i) || [, base])[1];
@@ -435,8 +585,9 @@ router.post("/playback-hls", async (req, res) => {
   if (!HIK_TIME.test(start) || !HIK_TIME.test(end)) return res.status(400).json({ error: "bad_time" });
   let devices = [];
   try { devices = listConfig("devices"); } catch { /* store */ }
-  const dev = devices.find((d) => d.id === deviceId);
-  if (!dev) return res.status(404).json({ error: "no_device" });
+  const found = devices.find((d) => d.id === deviceId);
+  if (!found) return res.status(404).json({ error: "no_device" });
+  const dev = playbackDev(found);
   // Playback de equipos SIN ISAPI (Tiandy/ONVIF): el NVR reproduce por RTSP con
   // rango ?begin&end en HORA LOCAL del equipo. startHls re-encoda a H264 → el H265
   // de Tiandy reproduce en el navegador. Devuelve {id,url} como el playback Hik.
@@ -462,40 +613,36 @@ router.post("/playback-hls", async (req, res) => {
   const startMs = compactToMs(start), endMs = compactToMs(end);
   if (!Number.isFinite(startMs)) return res.status(400).json({ error: "bad_time" });
   try {
-    // Grabación H.264+: el restream RTSP del NVR es indecodificable, pero el DOWNLOAD
-    // de ContentMgmt entrega MPEG-PS limpio. El NVR graba el MAIN → track ch*100+1.
-    // Buscamos el segmento que cubre el instante, lo bajamos y hacemos input-seek (ss).
-    // ZONA HORARIA: el NVR etiqueta grabaciones en hora LOCAL (no UTC). Convertimos
-    // el instante UTC pedido al reloj local del equipo antes de buscar/acotar.
+    // SEEK EXACTO SERVER-SIDE (como iVMS). Verificado en campo (DS-7616 Delbau):
+    //  · El DOWNLOAD de ContentMgmt IGNORA el `starttime` → siempre arranca al INICIO
+    //    del archivo (probado: frame pedido a 12:45 devolvía 12:41 = inicio de archivo).
+    //    Por eso la línea de tiempo quedaba corrida por TODO el offset dentro del
+    //    archivo (minutos), no por 1 GOP.
+    //  · El RTSP de `Streaming/channels/<ch>0X` llega indecodificable (SPS roto).
+    //  · PERO `Streaming/tracks/<ch>01?starttime&endtime` HONRA el starttime: el NVR
+    //    hace el seek server-side y entrega el flujo DESDE ese instante, y decodifica
+    //    limpio (frame pedido a 12:57 devolvía 12:57). Ese es el camino de precisión.
+    // ZONA HORARIA: las grabaciones se direccionan en hora LOCAL del NVR → convertimos
+    // el instante UTC pedido con el offset del equipo (deviceTimeOffsetMs).
     const off = await deviceTimeOffsetMs(dev);
     const sMs = startMs + off, eMs = endMs + off;
+    // Verificación liviana de que hay grabación (para un "no_recording" claro).
     const seg = await searchSegment(dev, ch * 100 + 1, sMs - 60000, eMs);
     if (!seg) return res.status(404).json({ error: "no_recording", message: "No hay grabación en ese instante." });
-    // El download arranca SIEMPRE al inicio del archivo del segmento (el NVR ignora
-    // Range y no recorta por tiempo). El input-seek de ffmpeg no funciona sobre un
-    // pipe → reproducimos como VOD desde el inicio del archivo y el reproductor
-    // hace seek dentro de lo producido. Acotamos cuánto producir (hasta el fin de
-    // la ventana pedida, máx 20 min) para no copiar archivos de ~80 min enteros.
-    const dur = Math.min(1200, Math.max(60, (eMs - seg.segStartMs) / 1000));
-    const s = await startHlsFromStream({ key: `pb:${deviceId}:${start}`, vod: true, dur, open: () => openDownload(dev, seg.uri) });
-    // ⚠️ EL VIDEO NO EMPIEZA EN EL INSTANTE PEDIDO, empieza al principio del
-    // archivo del segmento (arriba se explica por que: el NVR ignora Range y no
-    // se puede input-seek un pipe). Hay que DECIRSELO al cliente.
-    //
-    // Sin esto, el front asume `currentTime 0 === instante pedido` y la etiqueta
-    // de la linea de tiempo queda adelantada exactamente lo que el instante
-    // pedido cae DENTRO del archivo. No es un desfase fijo: cambia con cada
-    // evento segun donde caiga en la grabacion, y por eso ningun horario del
-    // popup coincidia con el reloj quemado en la imagen.
-    //
-    // `segStartMs` se devuelve en UTC (se le resta el offset local del NVR, que
-    // es el mismo que se le sumo para buscar).
-    const segStartUtcMs = seg.segStartMs - off;
+    const baseRtsp = deviceLiveRtsp(dev, "main");
+    if (!baseRtsp) return res.status(400).json({ error: "sin_rtsp" });
+    const root = (baseRtsp.match(/^(rtsps?:\/\/[^/]+)/i) || [, baseRtsp])[1];
+    const winMs = Math.min(30 * 60000, Math.max(60000, eMs - sMs));
+    const sLoc = msToHik(sMs), eLoc = msToHik(sMs + winMs);
+    const rtsp = `${root}/Streaming/tracks/${ch * 100 + 1}?starttime=${sLoc}&endtime=${eLoc}`;
+    const s = startHls(rtsp, { key: `pb:${deviceId}:${start}`, transport: "tcp" });
+    // El NVR arranca EXACTO en el instante pedido → currentTime 0 = T (sin seek fino).
     res.json({
       id: s.id, url: s.url,
-      segStartMs: segStartUtcMs,                 // a que instante REAL corresponde currentTime 0
-      requestedMs: startMs,                      // lo que se pidio
-      seekOffsetSec: Math.max(0, (startMs - segStartUtcMs) / 1000),
+      segStartMs: startMs,          // currentTime 0 = instante pedido (UTC)
+      requestedMs: startMs,
+      seekOffsetSec: 0,
+      coverEndMs: startMs + winMs,
     });
   } catch (e) {
     res.status(502).json({ error: "pb_failed", message: e.message });
@@ -842,14 +989,20 @@ router.get("/device/:id/logs", async (req, res) => {
       out.entries.push(...nat);
     } catch (e) { out.error = e.message; }
   }
-  const isHik = /hik/i.test(String(dev.vendor || "")) && !isAkuvox;
+  // Cualquier equipo Hik con ISAPI (cámara, NVR, central AX) trae su registro
+  // nativo por logSearch. Antes exigíamos vendor~/hik/, dejando fuera cámaras y
+  // alarmas sin ese campo; ahora lo intentamos para cámara/nvr/alarma con
+  // credenciales (si no es Hik, el probe digest falla y devuelve [] sin ruido).
+  const looksHik = /hik/i.test(String(dev.vendor || "") + " " + String(dev.model || ""));
+  const hikCandidate = ["camera", "nvr", "dvr", "alarm"].includes(String(dev.type || "").toLowerCase());
+  const isHik = !isAkuvox && (looksHik || hikCandidate);
   if (isHik && (dev.ip || dev.camIp) && dev.username) {
     try {
       const cached = _deviceLogCache.get(id);
       let nat;
       if (cached && Date.now() - cached.ts < 60000) nat = cached.entries;
       else {
-        nat = await hikLogs({ host: dev.ip || dev.camIp, port: Number(dev.isapiPort) || 80, user: dev.username, pass: dev.password || "", https: !!dev.isapiHttps, channel: /nvr|dvr/i.test(String(dev.type || "")) ? null : (dev.channel ?? null) }, 200);
+        nat = await hikLogs({ host: dev.ip || dev.camIp, port: Number(dev.isapiPort) || 80, user: dev.username, pass: dev.password || "", https: !!dev.isapiHttps, all: true, channel: /nvr|dvr/i.test(String(dev.type || "")) ? null : (dev.channel ?? null) }, 250);
         _deviceLogCache.set(id, { ts: Date.now(), entries: nat });
       }
       out.native = true;
@@ -895,6 +1048,55 @@ router.get("/device/:id/akuvox-face", async (req, res) => {
   } catch { res.status(502).end(); }
 });
 
+// Helper: opciones de conexión Akuvox desde el dispositivo.
+function akuvoxOpt(dev) {
+  return { host: dev.camIp || dev.ip, port: Number(dev.isapiPort) || 8082, secure: dev.isapiHttps !== false, user: dev.username, pass: dev.password || "" };
+}
+function findAkuvox(id) {
+  let devices = [];
+  try { devices = listConfig("devices"); } catch { /* store */ }
+  const dev = devices.find((d) => d.id === id);
+  if (!dev) return { err: 404, code: "no_device" };
+  const isAkuvox = /akuvox|intercom/i.test(String(dev.vendor || "") + " " + String(dev.type || ""));
+  if (!isAkuvox) return { err: 400, code: "no_akuvox" };
+  return { dev };
+}
+
+// Aprovisionamiento Akuvox: alta/edición de usuario (nombre, tarjeta, PIN, grupo).
+// CONFIGURACIÓN iniciada por el operador — nunca abre puertas ni dispara relés.
+router.post("/device/:id/akuvox-user", async (req, res) => {
+  const { dev, err, code } = findAkuvox(String(req.params.id || ""));
+  if (err) return res.status(err).json({ error: code });
+  const b = req.body || {};
+  if (!b.name && !b.userId) return res.status(400).json({ error: "name_required" });
+  try {
+    const mode = b.userId ? "set" : "add";
+    const r = await akuvoxUserSave(akuvoxOpt(dev), { userId: b.userId, name: b.name, card: b.card, pin: b.pin, group: b.group, doorNum: b.doorNum, phone: b.phone }, mode);
+    if (!r.ok) return res.status(502).json({ error: "akuvox_write", retcode: r.retcode, message: r.message || `retcode ${r.retcode}` });
+    res.json({ ok: true, mode });
+  } catch (e) { res.status(502).json({ error: "akuvox_write", message: e.message }); }
+});
+
+// Baja de usuario del portero.
+router.delete("/device/:id/akuvox-user/:userId", async (req, res) => {
+  const { dev, err, code } = findAkuvox(String(req.params.id || ""));
+  if (err) return res.status(err).json({ error: code });
+  try {
+    const r = await akuvoxUserDel(akuvoxOpt(dev), String(req.params.userId || ""));
+    if (!r.ok) return res.status(502).json({ error: "akuvox_del", retcode: r.retcode, message: r.message || `retcode ${r.retcode}` });
+    res.json({ ok: true });
+  } catch (e) { res.status(502).json({ error: "akuvox_del", message: e.message }); }
+});
+
+// Diagnóstico (read-only): volcado crudo de user/get + endpoints candidatos de
+// rostro, para descubrir dónde vive el FaceUrl en este firmware.
+router.get("/device/:id/akuvox-raw", async (req, res) => {
+  const { dev, err, code } = findAkuvox(String(req.params.id || ""));
+  if (err) return res.status(err).json({ error: code });
+  try { res.json(await akuvoxRawDump(akuvoxOpt(dev))); }
+  catch (e) { res.status(502).json({ error: "akuvox_raw", message: e.message }); }
+});
+
 // Ajustes de video (público, solo lectura): el visor en vivo lee el modo/calidad.
 router.get("/video-settings", (req, res) => {
   try { res.json(getVideo()); } catch { res.json({ liveMode: "mjpeg", quality: "sub" }); }
@@ -930,6 +1132,24 @@ router.get("/events", (req, res) => {
   const status = req.query.status || undefined;
   const limit = Math.max(1, Math.min(Number(req.query.limit) || 50, 500));
   res.json({ events: listEvents({ status, limit }) });
+});
+
+// Historial PAGINADO desde Postgres (keyset por ts). A diferencia de /events (cola en
+// vivo en memoria, acotada), sirve el histórico COMPLETO sin cargarlo en RAM: filtros
+// status/site/deviceId y cursor `before` (ISO). Si PG no está, devuelve { events: [] }.
+router.get("/events/history", async (req, res) => {
+  try {
+    const out = await listHistory({
+      limit: req.query.limit,
+      before: req.query.before || null,
+      status: req.query.status || null,
+      site: req.query.site || null,
+      deviceId: req.query.deviceId || null,
+    });
+    res.json(out);
+  } catch (e) {
+    res.status(500).json({ error: "history_failed", message: e.message });
+  }
 });
 
 router.get("/events/:id", (req, res) => {
@@ -969,8 +1189,10 @@ router.get("/cameras", (req, res) => {
       channel: d.channel ?? null,
       ip: d.ip || null,
       zone: d.zone || null,
+      area: d.area || null, // 'interior' | 'perimeter' — etiqueta de ubicación para el muro
       siteId: d.siteId || null,
       site: siteName(d.siteId),
+      online: deviceOnline(d.id), // true/false/null — reachability cacheada (status sampler)
       streamUrl: d.streamUrl || null, // HLS/WebRTC/MJPEG (gateway) — opcional
       snapshotUrl: d.snapshotUrl || null, // imagen fija refrescable — opcional
       wallLinks: Array.isArray(d.wallLinks) ? d.wallLinks : [], // hotspots de seguimiento (visual tracking)
@@ -1318,6 +1540,42 @@ router.get("/avatars/:file", (req, res) => {
   const fp = path.join(AVATAR_DIR, name);
   if (!fp.startsWith(AVATAR_DIR) || !fs.existsSync(fp)) return res.status(404).end();
   res.setHeader("Cache-Control", "public, max-age=86400");
+  res.sendFile(fp);
+});
+
+// ── App de escritorio (Windows/Electron): descarga del instalador ────────────
+// Publicar una versión nueva = dejar el .exe en server/data/desktop/. El endpoint
+// toma automáticamente el .exe más reciente; el número de versión sale del nombre.
+function desktopInstaller() {
+  try {
+    if (!fs.existsSync(DESKTOP_DIR)) return null;
+    const exes = fs.readdirSync(DESKTOP_DIR).filter((f) => f.toLowerCase().endsWith(".exe"));
+    if (!exes.length) return null;
+    const withStat = exes.map((f) => ({ f, st: fs.statSync(path.join(DESKTOP_DIR, f)) }));
+    withStat.sort((a, b) => b.st.mtimeMs - a.st.mtimeMs); // más reciente primero
+    const top = withStat[0];
+    const m = top.f.match(/(\d+\.\d+\.\d+)/);
+    return { file: top.f, sizeBytes: top.st.size, builtAt: top.st.mtime.toISOString(), version: m ? m[1] : null };
+  } catch { return null; }
+}
+
+// Metadatos del último instalador (para pintar el botón en la web).
+router.get("/desktop/latest", (req, res) => {
+  const info = desktopInstaller();
+  if (!info) return res.json({ available: false });
+  res.json({ available: true, version: info.version, filename: info.file, sizeBytes: info.sizeBytes, builtAt: info.builtAt, url: "/api/desktop/download" });
+});
+
+// Descarga del instalador (público, como evidencia/avatares).
+router.get("/desktop/download", (req, res) => {
+  const info = desktopInstaller();
+  if (!info) return res.status(404).json({ error: "installer_not_available" });
+  const fp = path.join(DESKTOP_DIR, info.file);
+  if (!fp.startsWith(DESKTOP_DIR) || !fs.existsSync(fp)) return res.status(404).end();
+  const safe = info.file.replace(/[^\w .()-]/g, "_");
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Content-Disposition", `attachment; filename="${safe}"`);
+  res.setHeader("Content-Length", String(info.sizeBytes));
   res.sendFile(fp);
 });
 

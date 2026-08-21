@@ -129,10 +129,7 @@ export default function OperatorBar({ operator, onChangeOperator, viewToggle, st
     <Glass as="header" className={`opbar ${paused ? 'opbar--paused' : ''} ${tucked ? 'is-tucked' : ''}`}
       onMouseEnter={() => { setTucked(false); clearTimeout(hideTimer.current) }}
       onMouseLeave={armHide}>
-      <nav className="opbar__nav">
-        <a href="/" className={`opbar__navlink${(typeof window !== 'undefined' && window.location.pathname === '/') ? ' is-active' : ''}`}><Icon name="console" size={15} /><span>Consola</span></a>
-        <a href="/center" className={`opbar__navlink${(typeof window !== 'undefined' && window.location.pathname.startsWith('/center')) ? ' is-active' : ''}`}><Icon name="bell" size={15} /><span>Centro</span></a>
-      </nav>
+      {/* Switch Consola/Centro retirado: el operador tiene una sola vista (Centro). */}
       {viewToggle && <div className="opbar__view">{viewToggle}</div>}
       <div className="opbar__chips">
         <span className={`qchip ${critical > 0 ? 'qchip--crit' : ''}`} title="Eventos críticos activos">
@@ -151,14 +148,7 @@ export default function OperatorBar({ operator, onChangeOperator, viewToggle, st
         </span>
       </div>
 
-      {onToggleAutoPopup && (
-        <button type="button" role="switch" aria-checked={!!autoPopup} className={`opbar__sw ${autoPopup ? 'is-on' : ''}`} onClick={onToggleAutoPopup}
-          title={autoPopup ? 'Pop-up automático de alarmas: activado' : 'Pop-up automático de alarmas: desactivado'}>
-          <Icon name="bell" size={14} />
-          <span className="opbar__sw-label">Pop-up</span>
-          <span className="opbar__sw-track"><span className="opbar__sw-knob" /></span>
-        </button>
-      )}
+      {/* El toggle de Pop-up automático se movió a la barra del Centro, junto a Sonido. */}
       <div className="opbar__spacer" />
 
       {/* --- Presencia / pausa / tiempo del operario (CONTRACT-V3 §1) --- */}

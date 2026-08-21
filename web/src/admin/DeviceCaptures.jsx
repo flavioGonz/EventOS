@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Icon, Spinner } from '../ui/primitives.jsx'
 import { EvidenceModal } from './EvidenceSearch.jsx'
 import { EVENT_TYPE_ICON, eventTypeLabel } from '../lib/labels.js'
+import { apiFetch } from '../lib/eventsApi.js'
 
 const capSrc = (ev) => { const m = ev.media || {}; return m.evidenceUrl || m.snapshotUrl || null }
 const rel = (ts) => { const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000); if (m < 1) return 'recién'; if (m < 60) return `${m}m`; const h = Math.floor(m / 60); return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d` }
@@ -25,7 +26,7 @@ export default function DeviceCaptures({ deviceId }) {
   useEffect(() => {
     if (!deviceId) return
     let alive = true
-    const load = () => fetch('/api/events?limit=400').then((r) => (r.ok ? r.json() : []))
+    const load = () => apiFetch('/api/events?limit=400').then((r) => (r.ok ? r.json() : []))
       .then((d) => {
         if (!alive) return
         const arr = Array.isArray(d) ? d : (d.events || [])

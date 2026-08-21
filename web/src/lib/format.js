@@ -46,17 +46,27 @@ export const LOG_ACTION_LABEL = {
 
 // Estado del SLA de un evento (a partir de slaDeadline/slaSeconds sellados en el
 // server). Devuelve null si el evento no tiene SLA. tone: ok | warn | crit.
+//
+// El contador cuenta HACIA ARRIBA (0:00 → límite): muestra el tiempo transcurrido
+// sobre el total (p.ej. "SLA 0:45 / 2:00") y va cambiando de color a medida que se
+// acerca al límite (verde → ámbar → rojo), y "SLA vencido +m:ss" al pasarse.
+function fmtMMSS(ms) {
+  const s = Math.max(0, Math.round(ms / 1000))
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+}
 export function slaInfo(event) {
   if (!event || !event.slaDeadline) return null
-  const ms = new Date(event.slaDeadline).getTime() - Date.now()
   const total = (event.slaSeconds || 0) * 1000
-  const breached = ms <= 0
-  const tone = breached ? 'crit' : (total && ms < total * 0.25) ? 'warn' : 'ok'
-  const secs = Math.max(0, Math.round(ms / 1000))
-  const mm = Math.floor(secs / 60)
-  const ss = secs % 60
-  const label = breached ? 'SLA vencido' : `SLA ${mm}:${String(ss).padStart(2, '0')}`
-  return { breached, tone, label, secs }
+  const remaining = new Date(event.slaDeadline).getTime() - Date.now()
+  const breached = remaining <= 0
+  const elapsed = Math.max(0, total - Math.max(0, remaining)) // tiempo transcurrido
+  const frac = total > 0 ? Math.min(1, elapsed / total) : (breached ? 1 : 0)
+  // Escalón de color: verde (<50%) → ámbar (50–85%) → rojo (≥85% o vencido).
+  const tone = breached || frac >= 0.85 ? 'crit' : frac >= 0.5 ? 'warn' : 'ok'
+  const label = breached
+    ? `SLA vencido +${fmtMMSS(-remaining)}`
+    : (total > 0 ? `SLA ${fmtMMSS(elapsed)} / ${fmtMMSS(total)}` : `SLA ${fmtMMSS(elapsed)}`)
+  return { breached, tone, label, secs: Math.round(elapsed / 1000), frac }
 }
 
 export function priorityClass(priority) {

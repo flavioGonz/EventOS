@@ -1,26 +1,20 @@
 import { useEffect, useState } from 'react'
-import { DISPOSITION_LABEL } from '../lib/format.js'
-import { Badge, Button, Field, Icon, Select, TextInput } from '../ui/primitives.jsx'
+import { Badge, Icon } from '../ui/primitives.jsx'
 
 // Checklist reutilizable del procedimiento, usado dentro del EventPopup.
-// Renderiza los pasos con casillas estilo iOS, lleva el avance localmente,
-// ofrece campo de notas, selector de disposición y botón de resolver. Al
+// Renderiza los pasos con casillas estilo iOS y lleva el avance localmente. Al
 // marcar un paso emite una nota a la bitácora (event:note) vía onStepNote.
+// NOTA: la disposición + botón "Resolver" se movieron al grupo "Gestión del
+// evento" del popup; acá queda solo el checklist.
 
-const DISPOSITIONS = ['real', 'false_alarm', 'test', 'no_action']
-
-export default function Procedures({ procedure, eventId, onStepNote, onResolve }) {
+export default function Procedures({ procedure, eventId, onStepNote }) {
   const steps = (procedure && procedure.steps) || []
 
   const [checked, setChecked] = useState(() => steps.map(() => false))
-  const [disposition, setDisposition] = useState('')
-  const [closeNote, setCloseNote] = useState('')
 
   // Reiniciar el avance cuando cambia el evento/procedimiento.
   useEffect(() => {
     setChecked(steps.map(() => false))
-    setDisposition('')
-    setCloseNote('')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId, procedure && procedure.id])
 
@@ -38,11 +32,6 @@ export default function Procedures({ procedure, eventId, onStepNote, onResolve }
       }
       return next
     })
-  }
-
-  function submitResolve() {
-    if (!disposition) return
-    onResolve(disposition, closeNote)
   }
 
   return (
@@ -87,39 +76,6 @@ export default function Procedures({ procedure, eventId, onStepNote, onResolve }
           <li className="proc__step proc__step--empty">Sin procedimiento asociado.</li>
         ) : null}
       </ol>
-
-      <div className="proc__close">
-        <Field label="Disposición">
-          <Select value={disposition} onChange={(e) => setDisposition(e.target.value)}>
-            <option value="">— Seleccionar —</option>
-            {DISPOSITIONS.map((d) => (
-              <option key={d} value={d}>
-                {DISPOSITION_LABEL[d]}
-              </option>
-            ))}
-          </Select>
-        </Field>
-
-        <Field label="Nota de cierre">
-          <TextInput
-            type="text"
-            placeholder="Observaciones del cierre…"
-            value={closeNote}
-            onChange={(e) => setCloseNote(e.target.value)}
-          />
-        </Field>
-
-        <Button
-          variant="danger"
-          className="proc__resolve"
-          icon="check"
-          disabled={!disposition}
-          onClick={submitResolve}
-          title={!disposition ? 'Selecciona una disposición' : 'Resolver evento'}
-        >
-          Resolver
-        </Button>
-      </div>
     </div>
   )
 }

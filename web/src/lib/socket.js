@@ -27,10 +27,18 @@ export function saveOperator(op) {
 
 // --- Ordenamiento de eventos: por prioridad y luego recencia -----------------
 
+// Tope de eventos que el cliente MANTIENE en memoria. Sin esto, en una lluvia de
+// alarmas (o con muchas escaladas acumuladas) el array crece sin límite y re-ordenarlo
+// en cada evento vuelve todo O(N²) → se cuelga. 3000 cubre de sobra la operación viva;
+// el histórico completo se consulta en Evidencias, no en la cola en vivo.
+const MAX_EVENTS = 3000
+
 export function sortEvents(events) {
   // Orden por HORA DE LLEGADA: el más reciente arriba (desc por ts). La prioridad
-  // se comunica por color/insignia, no reordena la cola.
-  return [...events].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+  // se comunica por color/insignia, no reordena la cola. Se recorta a MAX_EVENTS
+  // (los más nuevos) para acotar memoria y costo de orden ante tormentas.
+  const sorted = [...events].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+  return sorted.length > MAX_EVENTS ? sorted.slice(0, MAX_EVENTS) : sorted
 }
 
 function upsert(list, event) {
@@ -275,6 +283,12 @@ export function useConsole(operator) {
       active: counts.total ?? active.length,
     }
   }, [queue, events])
+
+  // Integración Windows (app de escritorio): informa el conteo de alarmas
+  // pendientes para la INSIGNIA de la barra de tareas. Sin efecto en el navegador.
+  useEffect(() => {
+    try { window.eventosDesktop && window.eventosDesktop.setBadge && window.eventosDesktop.setBadge(Number(summary.active) || 0) } catch { /* noop */ }
+  }, [summary.active])
 
   return {
     status,

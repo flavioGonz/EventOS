@@ -11,13 +11,14 @@ import { log } from "../logger.js";
 import * as store from "../config/store.js";
 import { readJsonl } from "../util/jsonl.js";
 import { listOperators } from "../dispatch/store.js";
-import { discover as discoverHik } from "../discovery/hikvision.js";
+import { discover as discoverHik, logs as hikLogs } from "../discovery/hikvision.js";
 import { discover as discoverOnvif } from "../discovery/onvif.js";
 import { discover as discoverRtsp } from "../discovery/rtsp.js";
 import { discover as discoverAkuvox } from "../discovery/akuvox.js";
 import { scan } from "../discovery/netscan.js";
 import { saveAnalytics, SMART } from "../discovery/analyticsWrite.js";
 import { digestGetBuffer } from "../util/digestFetch.js";
+import { readHistory } from "../health/history.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
 import { akuvoxActionUrlsHandler } from "./akuvoxActionUrls.js";
 import { sessionFromReq } from "../auth/session.js";
@@ -301,6 +302,187 @@ router.get("/nvr-health", async (req, res) => {
   res.json({ nvrs: nvrsHealth });
 });
 
+// ── Panel de salud de UN NVR: grilla de canales + discos/SMART + logs críticos ──
+router.get("/nvr/:id/panel", async (req, res) => {
+  let devices = [];
+  try { devices = store.list("devices"); } catch { /* store */ }
+  const nvr = devices.find((d) => d.id === req.params.id);
+  if (!nvr) return res.status(404).json({ error: "no_device" });
+  const base = { host: nvr.ip, port: Number(nvr.isapiPort) || 80, https: !!nvr.isapiHttps, user: nvr.username, pass: nvr.password || "" };
+  const get = async (path) => {
+    try { const r = await digestGetBuffer({ ...base, path, timeoutMs: 6000 }); if (r.status === 200 && r.buffer) return r.buffer.toString("utf8"); } catch { /* off */ }
+    return null;
+  };
+  // Cámaras EventOS detrás de este NVR (por IP), indexadas por canal.
+  const byCh = {};
+  devices.forEach((d) => { if (d.type !== "nvr" && (d.ip === nvr.ip || d.camIp === nvr.ip) && d.channel != null && d.channel !== "") byCh[String(d.channel)] = d; });
+
+  // RED: medimos la latencia (RTT) del propio pedido ISAPI a deviceInfo.
+  const t0 = Date.now();
+  const [di, chXml, stStorage, stStatus, netXml, hddXml, recXml] = await Promise.all([
+    get("/ISAPI/System/deviceInfo"),
+    get("/ISAPI/ContentMgmt/InputProxy/channels"),
+    get("/ISAPI/ContentMgmt/Storage"),
+    get("/ISAPI/System/status"),
+    get("/ISAPI/System/Network/interfaces"),
+    get("/ISAPI/ContentMgmt/Storage/hdd"),
+    get("/ISAPI/ContentMgmt/record/tracks"),
+  ]);
+  const rttMs = di ? (Date.now() - t0) : null;
+
+  // Identidad + métricas base.
+  const info = { model: null, firmware: null, uptime: null, cpu: null, memUsed: null, memTotal: null };
+  if (di) { info.model = xtag(di, "model"); info.firmware = xtag(di, "firmwareVersion"); }
+  if (stStatus) {
+    const up = Number(xtag(stStatus, "deviceUpTime")); if (Number.isFinite(up)) info.uptime = up;
+    const cpu = Number(xtag(stStatus, "cpuUtilization")); if (Number.isFinite(cpu)) info.cpu = cpu;
+    const mu = Number(xtag(stStatus, "memoryUsage")); const ma = Number(xtag(stStatus, "memoryAvailable"));
+    if (Number.isFinite(mu)) info.memUsed = mu;
+    if (Number.isFinite(mu) && Number.isFinite(ma)) info.memTotal = mu + ma;
+  }
+  // RED: velocidad de enlace (Mbps) de la primera interfaz, si la expone.
+  let linkMbps = null;
+  if (netXml) { const s = Number(xtag(netXml, "speed")); if (Number.isFinite(s) && s > 0) linkMbps = s; }
+  const net = { rttMs, linkMbps };
+
+  // Nº total de canales del grabador (para dibujar 8/16/32 slots).
+  let total = Number(nvr.channels) || 0;
+  if (di) { const m = /<videoInputPortNums>(\d+)/.exec(di) || /<videoInputChannels>(\d+)/.exec(di); if (m) total = Number(m[1]); }
+  // Canales conectados (InputProxy): id, nombre, online.
+  const proxied = chXml ? [...chXml.matchAll(/<InputProxyChannel>([\s\S]*?)<\/InputProxyChannel>/g)].map((m) => ({
+    id: (xtag(m[1], "id") || "").replace(/\D/g, ""), name: xtag(m[1], "name"), online: /true|online/i.test(xtag(m[1], "online") || ""),
+  })).filter((c) => c.id) : [];
+  if (!total) total = Math.max(proxied.length, Object.keys(byCh).reduce((mx, k) => Math.max(mx, Number(k) || 0), 0));
+  const nSlots = total > 0 ? total : proxied.length;
+
+  // GRABACIÓN por canal (record/tracks): tomamos el track MAIN de cada canal
+  // (id = canal*100 + 1). Enable dice si graba; el modo sale de DefaultRecordingMode /
+  // ActionRecordingMode (CMR=continua, EMR=evento, MMR=movimiento, AMR=alarma).
+  const REC_MODE = { CMR: "continua", EMR: "evento", MMR: "movimiento", AMR: "alarma", SMR: "comando", HMR: "híbrida" };
+  const recByCh = {};
+  if (recXml) {
+    for (const m of recXml.matchAll(/<Track\b[^>]*>([\s\S]*?)<\/Track>/gi)) {
+      const b = m[1];
+      const tid = Number(xtag(b, "id") || xtag(b, "Channel") || 0);
+      if (!tid || tid % 100 !== 1) continue; // solo el stream principal (…01)
+      const ch = Math.floor(tid / 100);
+      // El <Enable> del Track NO es fiable (suele venir false aunque grabe). Lo real
+      // es que algún bloque de agenda tenga <Record>true</Record>: eso confirma grabación.
+      const records = /<Record>\s*true\s*<\/Record>/i.test(b) || /true/i.test(xtag(b, "Enable") || "");
+      // Modo: el ActionRecordingMode del primer bloque que graba, o DefaultRecordingMode.
+      let mode = null;
+      const am = b.match(/<ActionRecordingMode>\s*([A-Z]{3})\s*<\/ActionRecordingMode>/i);
+      if (am) mode = am[1]; else mode = xtag(b, "DefaultRecordingMode");
+      const desc = (xtag(b, "Description") || "").replace(/\s+/g, " ").trim();
+      const codec = (/codecType=([^,]+)/i.exec(desc) || [])[1] || null;
+      const resolution = (/resolution=([^,]+)/i.exec(desc) || [])[1] || null;
+      recByCh[ch] = {
+        enabled: records,
+        mode: records ? (REC_MODE[String(mode || "").toUpperCase()] || "programada") : "sin grabación",
+        codec, resolution,
+      };
+    }
+  }
+
+  const channels = [];
+  for (let i = 1; i <= nSlots; i++) {
+    const p = proxied.find((x) => Number(x.id) === i);
+    const dev = byCh[String(i)];
+    channels.push({
+      ch: i,
+      name: (p && p.name) || (dev && dev.name) || null,
+      occupied: !!(p || dev),
+      online: p ? !!p.online : (dev ? true : false),
+      deviceId: dev ? dev.id : null,
+      rec: recByCh[i] || null,
+    });
+  }
+  // DISCOS: probamos varias fuentes (Storage y Storage/hdd) y parseo tolerante.
+  // OJO: el <hdd> real trae atributos (<hdd version="1.0" xmlns="…">), por eso el
+  // regex debe aceptar atributos (\b[^>]*), no un <hdd> pelado.
+  const parseHdds = (xml) => {
+    if (!xml) return [];
+    // workMode "quota": el grabador administra el espacio por sobrescritura y
+    // reporta freeSpace=0 aunque el disco esté sano. No es 100% de uso real.
+    const quota = /<workMode>\s*quota\s*<\/workMode>/i.test(xml);
+    return [...xml.matchAll(/<hdd\b[^>]*>([\s\S]*?)<\/hdd>/gi)].map((m, i) => {
+      const b = m[1];
+      return {
+        name: xtag(b, "hddName") || (xtag(b, "id") ? `Disco ${xtag(b, "id")}` : `Disco ${i + 1}`),
+        status: xtag(b, "status") || xtag(b, "hddStatus") || null,
+        capacity: Number(xtag(b, "capacity")) || 0,
+        free: Number(xtag(b, "freeSpace")) || 0,
+        temperature: Number(xtag(b, "temperature")) || null,
+        hddType: xtag(b, "hddType") || null,
+        property: xtag(b, "property") || null,
+        quota,
+        // SMART (best-effort): varios DVR no lo exponen por ISAPI (statusCode notSupport).
+        // Si el bloque <hdd> trae campos SMART, los mostramos; si no, smart=null.
+        smart: (() => {
+          const st = xtag(b, "smartStatus") || xtag(b, "smartEvaluation") || xtag(b, "selfEvaluation");
+          const poh = Number(xtag(b, "powerOnHours") || xtag(b, "hddPowerOnTime"));
+          const bad = Number(xtag(b, "badSector") || xtag(b, "reallocatedSector"));
+          if (!st && !Number.isFinite(poh) && !Number.isFinite(bad)) return null;
+          return { status: st || null, powerOnHours: Number.isFinite(poh) ? poh : null, badSectors: Number.isFinite(bad) ? bad : null };
+        })(),
+      };
+    });
+  };
+  let hdds = parseHdds(stStorage);
+  if (!hdds.length) hdds = parseHdds(hddXml);
+
+  // Logs CRÍTICOS del equipo (excepciones de salud + eventos fuertes).
+  let logs = [];
+  try {
+    const l = await hikLogs({ host: nvr.ip, port: Number(nvr.isapiPort) || 80, user: nvr.username, pass: nvr.password || "", https: !!nvr.isapiHttps }, 120);
+    logs = l.filter((x) => x.kind === "exception" || /disco|hdd|red desconect|p[eé]rdida de video|ilegal|illegal|conflicto de ip|sabotaje|tamper|forzada|p[aá]nico|no autoriz|unauthor/i.test(x.title || "")).slice(0, 40);
+  } catch { /* sin logs */ }
+
+  // CLASIFICACIÓN DE ATAQUES: etiquetamos cada log y agrupamos los accesos ilegales
+  // por IP de origen (fuerza bruta al login). Esto surface, p.ej., una IP que martilla
+  // el usuario admin del grabador.
+  const IPRE = /\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b/;
+  const attackCat = (t) => {
+    const s = (t || "").toLowerCase();
+    if (/illegal|ilegal|no autoriz|unauthor|contrase|password|acceso deneg/.test(s)) return "acceso_ilegal";
+    if (/sabotaje|tamper/.test(s)) return "sabotaje";
+    if (/forzada|p[aá]nico|panic|intrus/.test(s)) return "intrusion";
+    if (/conflicto de ip|ip conflict/.test(s)) return "red";
+    return null;
+  };
+  const byIp = {};
+  for (const l of logs) {
+    const cat = attackCat(l.title);
+    l.attack = cat;
+    if (cat === "acceso_ilegal") {
+      const ip = (IPRE.exec(l.detail || "") || [])[1];
+      if (ip && ip !== nvr.ip) {
+        const u = byIp[ip] || (byIp[ip] = { ip, count: 0, lastTs: l.ts, user: null });
+        u.count++;
+        if (new Date(l.ts) > new Date(u.lastTs)) u.lastTs = l.ts;
+        const um = /usuario\s+(\S+)/.exec(l.detail || ""); if (um) u.user = um[1];
+      }
+    }
+  }
+  const threats = Object.values(byIp)
+    .map((t) => ({ ...t, kind: t.count >= 5 ? "fuerza_bruta" : "acceso_ilegal" }))
+    .sort((a, b) => b.count - a.count);
+
+  res.json({
+    id: nvr.id, name: nvr.name, ip: nvr.ip, online: !!(di || chXml || stStorage),
+    ...info, net, total: nSlots, channels, hdds, logs, threats,
+  });
+});
+
+// ── Histórico de salud de un NVR (para la gráfica comparativa) ───────────────
+router.get("/nvr/:id/history", (req, res) => {
+  const RANGES = { "6h": 6 * 3600e3, "24h": 24 * 3600e3, "7d": 7 * 24 * 3600e3 };
+  const range = RANGES[req.query.range] || RANGES["24h"];
+  let points = [];
+  try { points = readHistory(req.params.id, range); } catch { points = []; }
+  res.json({ id: req.params.id, range: req.query.range || "24h", points });
+});
+
 // ── Ajustes de video en vivo / RTSP ──────────────────────────────────────────
 const LIVE_MODES = ["mjpeg", "hls"];
 const VIDEO_QUALITIES = ["sub", "main"];
@@ -337,6 +519,7 @@ router.put("/video", (req, res) => {
     patch.rtspTransport = body.rtspTransport;
   }
   if (body.mjpegConcurrency !== undefined) patch.mjpegConcurrency = Math.min(16, Math.max(1, Number(body.mjpegConcurrency) || 6));
+  if (body.liveConcurrency !== undefined) patch.liveConcurrency = Math.min(64, Math.max(1, Number(body.liveConcurrency) || 8));
   if (Array.isArray(body.rtspTemplates)) {
     patch.rtspTemplates = body.rtspTemplates
       .filter((t) => t && t.vendor)

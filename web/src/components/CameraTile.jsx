@@ -32,10 +32,20 @@ export default function CameraTile({
   highlightId = null,
   onSpotlight,
   showSpotlight = false,
+  alert = null,          // {count} si este canal tuvo eventos recientes → overlay rojo
+  liveGrid = false,      // permite vivo también en mosaico (md), no solo en el hero
+  quality = 'sub',       // 'main' (hasta 4 canales) | 'sub' (más canales) — rendimiento
+  bare = false,          // celda limpia: cuadrado redondeado, sin barras/título (hover)
+  hotspots = null,       // seguimiento visual: [{id,x,y,label,target,count}] sobre el video
+  onFollowHotspot = null,// clic en un hotspot → saltar a esa cámara (seguimiento de escena)
 }) {
   const [failed, setFailed] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [bust, setBust] = useState(() => Date.now())
+  // Aspecto REAL del video en vivo (reportado por el reproductor). En el Hero, el
+  // tile adopta este aspecto → el video llena el cuadro y el overlay de analíticas
+  // coincide exacto (sin desfase), en vez de estirarse sobre todo el ancho.
+  const [liveAspect, setLiveAspect] = useState(null)
 
   // Cámara respaldada por un dispositivo real → pipeline nuevo (live HLS + snapshot
   // ISAPI del server). Si no, se usan las URLs configuradas (streamUrl/snapshotUrl).
@@ -44,10 +54,20 @@ export default function CameraTile({
   const snapshotUrl = (camera && camera.snapshotUrl) || (deviceId ? `/api/camera/${deviceId}/snapshot` : null)
   const hls = isHls(streamUrl)
 
-  // El visor principal (hero) de una cámara-dispositivo va EN VIVO (HLS). Las
-  // miniaturas/mosaico usan snapshot (más liviano). Analíticas solo en la fuente.
-  const useDeviceLive = !!deviceId && !streamUrl && !!live && size === 'hero'
-  const ana = useCameraAnalytics(deviceId, !!isSource)
+  // El visor principal (hero) de una cámara-dispositivo va EN VIVO (HLS). El
+  // mosaico usa snapshot salvo que se pida vivo en grilla (liveGrid) — entonces
+  // también reproduce vivo (sub) por canal. Analíticas solo en la fuente.
+  const useDeviceLive = !!deviceId && !streamUrl && !!live && (size === 'hero' || (liveGrid && size === 'md'))
+  // Analíticas dibujadas: SOLO en el Hero de la fuente. En el mosaico (bare) el
+  // video va "contain" (con franjas) y la capa de analíticas no puede alinear con
+  // el recuadro real → se veían cruzadas/desalineadas entre celdas. Por eso el
+  // dibujo de zonas/líneas queda reservado al Hero, donde el tile adopta el
+  // aspecto del video y coincide exacto.
+  // Analíticas dibujadas: en el Hero (grande, con aspecto adoptado) para CUALQUIER
+  // cámara que se suba al recuadro — no solo la fuente — así el operador ve las
+  // líneas/zonas sobre el vivo mientras busca. En el mosaico (bare) quedan off.
+  const anaOn = (!!isSource || size === 'hero') && !bare
+  const ana = useCameraAnalytics(deviceId, anaOn)
   const anaRules = ana && ana.rules && ana.rules.length > 0 ? ana.rules : null
 
   const usingStream = !!streamUrl && !failed
@@ -57,6 +77,7 @@ export default function CameraTile({
   useEffect(() => {
     setFailed(false)
     setLoaded(false)
+    setLiveAspect(null)
   }, [streamUrl, snapshotUrl, camera && camera.id])
 
   // Polling del snapshot: sólo si está "en vivo" y visible.
@@ -74,8 +95,8 @@ export default function CameraTile({
   let caption = null
 
   if (useDeviceLive) {
-    media = <Go2RtcView deviceId={deviceId} rules={isSource ? anaRules : null} space={(ana && ana.space) || 1000} highlightId={isSource ? highlightId : null} />
-    caption = isSource && anaRules ? 'en vivo · analíticas' : 'en vivo'
+    media = <Go2RtcView deviceId={deviceId} quality={quality} priority={size === 'hero'} rules={anaOn ? anaRules : null} space={(ana && ana.space) || 1000} highlightId={isSource ? highlightId : null} onAspect={setLiveAspect} />
+    caption = anaOn && anaRules ? 'en vivo · analíticas' : 'en vivo'
   } else if (usingStream && hls) {
     media = (
       <video
@@ -129,17 +150,31 @@ export default function CameraTile({
   }
 
   const hasFeed = usingStream || usingSnapshot || useDeviceLive
+  // En el Hero con vivo, el tile toma el aspecto real del stream → sin desfase.
+  const fitHero = size === 'hero' && useDeviceLive && !!liveAspect
 
   return (
     <div
       className={`camtile glass camtile--${size} ${isSource ? 'is-source' : ''} ${
         hasFeed ? 'has-feed' : 'no-feed'
-      }`}
+      }${fitHero ? ' camtile--fit' : ''}${alert ? ' camtile--alerted' : ''}${bare ? ' camtile--bare' : ''}`}
+      style={fitHero ? { aspectRatio: liveAspect } : undefined}
     >
       <div className="camtile__frame">
         {media}
         {hasFeed && !loaded && !failed && !useDeviceLive && <Skeleton className="camtile__skel" w="100%" h="100%" />}
       </div>
+
+      {/* Overlay de alerta: el canal tuvo eventos en los últimos minutos → borde
+          rojo pulsante + chip, para que el operador note actividad de un vistazo. */}
+      {alert ? (
+        <>
+          <span className="camtile__alertring" aria-hidden="true" />
+          <span className="camtile__alertchip" title={`${alert.count} evento(s) recientes en este canal`}>
+            <Icon name="alert" size={11} /> {alert.count > 1 ? `${alert.count} eventos` : 'Evento'}
+          </span>
+        </>
+      ) : null}
 
       {/* Overlay superior: LIVE + tag EVENTO */}
       <div className="camtile__top">
@@ -177,6 +212,25 @@ export default function CameraTile({
         {caption ? <span className="camtile__caption">{caption}</span> : null}
         {isSource && eventTs ? <span className="camtile__caption">{eventTs}</span> : null}
       </div>
+
+      {/* Seguimiento visual: iconos de cámaras vecinas posados sobre el video (solo
+          lectura acá; se posicionan en /wall). Clic → salta a esa cámara. Badge = nº
+          de eventos de esa cámara en los últimos 15 min. */}
+      {hotspots && hotspots.length > 0 && (
+        <div className="camtile__hots">
+          {hotspots.map((h) => (
+            <button key={h.id} type="button"
+              className={`wallhot${h.count > 0 ? ' has-events' : ''}`}
+              style={{ left: `${h.x * 100}%`, top: `${h.y * 100}%` }}
+              title={`Ir a ${h.label || 'cámara'}${h.count > 0 ? ` · ${h.count} evento(s) en 15 min` : ''}`}
+              onClick={(e) => { e.stopPropagation(); if (onFollowHotspot) onFollowHotspot(h.target) }}>
+              <Icon name="camera" size={13} />
+              <span className="wallhot__lbl">{h.label || '—'}</span>
+              {h.count > 0 && <span className="wallhot__badge" aria-label={`${h.count} eventos recientes`}>{h.count > 99 ? '99+' : h.count}</span>}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

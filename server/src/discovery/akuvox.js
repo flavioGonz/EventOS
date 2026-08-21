@@ -39,11 +39,13 @@ function digestAuth({ user, pass, method, uri, auth }) {
 }
 
 // Request de bajo nivel — self-signed OK (rejectUnauthorized:false).
-function rawReq({ host, port, secure, path, headers = {}, timeoutMs = 6000 }) {
+function rawReq({ host, port, secure, path, method = "GET", body = null, headers = {}, timeoutMs = 6000 }) {
   return new Promise((resolve, reject) => {
     const mod = secure ? https : http;
+    const h = { ...headers };
+    if (body != null) { h["Content-Type"] = "application/json"; h["Content-Length"] = Buffer.byteLength(body); }
     const req = mod.request(
-      { host, port, path, method: "GET", headers, rejectUnauthorized: false, timeout: timeoutMs },
+      { host, port, path, method, headers: h, rejectUnauthorized: false, timeout: timeoutMs },
       (res) => {
         let buf = "";
         res.setEncoding("utf8");
@@ -53,6 +55,7 @@ function rawReq({ host, port, secure, path, headers = {}, timeoutMs = 6000 }) {
     );
     req.on("error", reject);
     req.on("timeout", () => req.destroy(new Error("timeout")));
+    if (body != null) req.write(body);
     req.end();
   });
 }
@@ -66,6 +69,25 @@ async function apiGet(opt, path) {
     if (/digest/i.test(wa)) {
       const authz = digestAuth({ user: opt.user, pass: opt.pass, method: "GET", uri: path, auth: parseAuthHeader(wa) });
       res = await rawReq({ ...opt, path, headers: { Authorization: authz } });
+    }
+  }
+  let json = null;
+  try { json = JSON.parse(res.text); } catch { /* no-json */ }
+  return { status: res.status, json };
+}
+
+// POST a la HTTP API: /api/{target}/{action} con cuerpo {target,action,data}.
+// Basic primero; si el equipo pide Digest (401), reintenta digest (mismo cuerpo).
+async function apiPost(opt, target, action, data) {
+  const path = `/api/${target}/${action}`;
+  const body = JSON.stringify({ target, action, data: data || {} });
+  const basic = "Basic " + Buffer.from(`${opt.user}:${opt.pass}`).toString("base64");
+  let res = await rawReq({ ...opt, path, method: "POST", body, headers: { Authorization: basic } });
+  if (res.status === 401) {
+    const wa = res.headers["www-authenticate"] || "";
+    if (/digest/i.test(wa)) {
+      const authz = digestAuth({ user: opt.user, pass: opt.pass, method: "POST", uri: path, auth: parseAuthHeader(wa) });
+      res = await rawReq({ ...opt, path, method: "POST", body, headers: { Authorization: authz } });
     }
   }
   let json = null;
@@ -259,4 +281,56 @@ export async function faceImage(opt, faceUrl) {
   return { contentType: (res.headers && res.headers["content-type"]) || "image/jpeg", buffer: res.buffer };
 }
 
-export default { discover, health, logs, users, faceImage };
+// ── Aprovisionamiento: alta/edición/baja de usuario unificado ────────────────
+// Escribe personas (nombre, tarjeta, PIN, grupo, puerta) en el portero. Es una
+// operación de CONFIGURACIÓN iniciada por el operador desde el panel — NUNCA se
+// dispara por un evento ni abre puertas; sólo carga/edita credenciales.
+// Firmware E16 usa minúsculas (user/*), igual que user/get. Si el equipo no
+// entiende user/{add,set,del}, el llamador puede caer a rfkey/privatekey.
+function userItem(u) {
+  const it = {
+    Name: (u.name || "").trim(),
+  };
+  if (u.userId) { it.UserID = String(u.userId); it.ID = String(u.userId); }
+  if (u.card != null && u.card !== "") it.CardCode = String(u.card).trim();
+  if (u.pin != null && u.pin !== "") it.PrivatePIN = String(u.pin).trim();
+  if (u.group) it.Group = String(u.group).trim();
+  if (u.doorNum) it.DoorNum = String(u.doorNum);
+  if (u.floor) it.Floor = String(u.floor);
+  if (u.phone) it.PhoneNumber = String(u.phone).trim();
+  return it;
+}
+// mode: "add" | "set". Devuelve {ok, retcode, message, status}.
+export async function userSave(opt, u, mode = "add") {
+  const r = await apiPost(opt, "user", mode, { item: [userItem(u)] });
+  const j = r.json || {};
+  return { ok: j.retcode === 0, retcode: j.retcode, message: j.message || "", status: r.status };
+}
+export async function userDel(opt, userId) {
+  const r = await apiPost(opt, "user", "del", { item: [{ UserID: String(userId), ID: String(userId) }] });
+  const j = r.json || {};
+  return { ok: j.retcode === 0, retcode: j.retcode, message: j.message || "", status: r.status };
+}
+
+// ── Diagnóstico de rostros ───────────────────────────────────────────────────
+// En el E16, user/get trae nombre/tarjeta/PIN pero FaceUrl vacío. Este volcado
+// muestra el JSON crudo de un par de usuarios y prueba endpoints candidatos para
+// ver DÓNDE vive el rostro en este firmware (cuál responde retcode 0). Read-only.
+export async function rawDump(opt) {
+  const out = { userGet: null, candidates: {} };
+  try {
+    const g = await apiGet(opt, "/api/user/get");
+    const items = g.json && g.json.data && Array.isArray(g.json.data.item) ? g.json.data.item : null;
+    out.userGet = { status: g.status, retcode: g.json && g.json.retcode, sample: items ? items.slice(0, 3) : g.json, total: items ? items.length : 0 };
+  } catch (e) { out.userGet = { error: e.message }; }
+  const candidates = ["/api/face/get", "/api/faceData/get", "/api/faceInfo/get", "/api/User/get", "/api/faceLibrary/get", "/api/facedata/get"];
+  for (const p of candidates) {
+    try {
+      const r = await apiGet(opt, p);
+      out.candidates[p] = { status: r.status, retcode: r.json && r.json.retcode, message: r.json && r.json.message, hasData: !!(r.json && r.json.data) };
+    } catch (e) { out.candidates[p] = { error: e.message }; }
+  }
+  return out;
+}
+
+export default { discover, health, logs, users, faceImage, userSave, userDel, rawDump };

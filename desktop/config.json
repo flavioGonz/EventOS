@@ -1,5 +1,8 @@
 {
   "url": "https://eventos.infratec.com.uy",
+  "servers": [
+    { "id": "demo", "name": "Infratec · Demo", "url": "https://eventos.infratec.com.uy" }
+  ],
   "kiosk": false,
   "startMaximized": true,
   "popupMinPriority": 3,

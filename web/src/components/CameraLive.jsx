@@ -17,14 +17,14 @@ if (typeof window !== 'undefined' && window.customElements && !customElements.ge
 // acepta con remux `copy` (PIPELINE_ERROR_DECODE, por MSE y por WebRTC); el
 // re-encode lo sanea. HLS viaja por HTTP (puerto 80, vía nginx) → robusto desde
 // cualquier red, sin ICE/UDP. `src` = sesión go2rtc ya registrada (grabación).
-export function Go2RtcView({ deviceId, src, rules = null, space = 1000, highlightId = null, onAspect = null, onPoster = null, quality = 'sub' }) {
+export function Go2RtcView({ deviceId, src, rules = null, space = 1000, highlightId = null, onAspect = null, onPoster = null, quality = 'sub', priority = false }) {
   // Camino A (deviceId, sin src): VIVO por HLS transcodificado.
   // Camino B (src): grabación por go2rtc/MSE (NvrPlayback registra el stream).
   // `onPoster` avisa apenas se muestra el snapshot-póster (antes de que conecte el
   // vivo) → el que consume puede quitar su skeleton sin esperar al video.
   const useGo2 = !!src && !deviceId
   if (useGo2) return <Go2RtcMseView src={src} rules={rules} space={space} highlightId={highlightId} onAspect={onAspect} />
-  return <HlsLiveView deviceId={deviceId} rules={rules} space={space} highlightId={highlightId} onAspect={onAspect} onPoster={onPoster} quality={quality} />
+  return <HlsLiveView deviceId={deviceId} rules={rules} space={space} highlightId={highlightId} onAspect={onAspect} onPoster={onPoster} quality={quality} priority={priority} />
 }
 
 // Refresco del snapshot-póster mientras NO hay vivo: una foto rápida y luego cada
@@ -106,45 +106,102 @@ function MjpegCanvas({ deviceId, onFirst, onAspect, onError, quality = 'sub' }) 
 }
 
 // Lee el modo de vivo (mjpeg/hls) de la config global, cacheado entre instancias.
+// También ajusta el tope de streams concurrentes (liveConcurrency) → así el sistema
+// ESCALA a la capacidad del NVR sin recompilar: se sube desde Admin · Video.
 let _videoCfgCache = null
+function applyLiveCfg(d) {
+  if (d && Number(d.liveConcurrency) > 0) setMaxLive(Number(d.liveConcurrency))
+}
 function useLiveMode() {
   const [mode, setMode] = useState((_videoCfgCache && _videoCfgCache.liveMode) || 'mjpeg')
   useEffect(() => {
-    if (_videoCfgCache) { setMode(_videoCfgCache.liveMode || 'mjpeg'); return }
+    if (_videoCfgCache) { setMode(_videoCfgCache.liveMode || 'mjpeg'); applyLiveCfg(_videoCfgCache); return }
     let alive = true
     fetch('/api/video-settings').then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) { _videoCfgCache = d; if (alive) setMode(d.liveMode || 'mjpeg') } }).catch(() => {})
+      .then((d) => { if (d) { _videoCfgCache = d; applyLiveCfg(d); if (alive) setMode(d.liveMode || 'mjpeg') } }).catch(() => {})
     return () => { alive = false }
   }, [])
   return mode
 }
 
+// Tile en ESPERA de turno de vivo (semáforo lleno): en vez de dejarlo NEGRO con "en
+// cola", mostramos el snapshot del canal refrescando cada ~2.5 s. El operador VE la
+// cámara en la grilla —sin movimiento pleno— y NO gasta un decodificador de video, que
+// es exactamente lo que satura GPU/compositor y memoria en grillas densas (3×3) sobre
+// hardware modesto (p.ej. Intel UHD 630, 16 GB). Así se ven TODAS las cámaras sin colgar
+// el cliente: las primeras N van a vivo pleno (tope configurable) y el resto, en foto viva.
+function QueuedSnapshot({ deviceId }) {
+  const [t, setT] = useState(() => Date.now())
+  useEffect(() => {
+    if (!deviceId) return
+    const id = setInterval(() => setT(Date.now()), 2500)
+    return () => clearInterval(id)
+  }, [deviceId])
+  if (!deviceId) return <div className="go2view"><div className="go2view__badge">en espera…</div></div>
+  return (
+    <div className="go2view">
+      <img className="go2view__snap" alt="" src={`/api/camera/${deviceId}/snapshot?t=${t}`} />
+      <div className="go2view__badge"><Icon name="camera" size={11} /> en espera · foto</div>
+    </div>
+  )
+}
+
 // Dispatcher: si la cámara tiene RTSP DIRECTO disponible (camIp via VPN), usa
 // go2rtc/MSE = video LIMPIO a 25fps. Si no (404), cae al MJPEG por el NVR.
 function HlsLiveView(props) {
-  const { deviceId, quality = 'sub' } = props
+  const { deviceId, priority = false } = props
+  // Calidad EFECTIVA: respeta el override global del cliente de escritorio para la
+  // grilla (SD/HD), salvo en vistas priority (hero) que mantienen lo pedido.
+  const quality = effQuality(props.quality || 'sub', priority)
   const mode = useLiveMode()
   const [direct, setDirect] = useState(undefined) // undefined=probando | name | null
+  const [queued, setQueued] = useState(false)     // esperando turno de vivo (semáforo lleno)
+  // Si el stream DIRECTO por go2rtc falla de forma persistente (p. ej. stream.mp4
+  // devuelve 500 porque el restream del canal no arranca), degradamos al camino
+  // por NVR (MJPEG/HLS) en vez de reintentar para siempre un directo muerto.
+  const [directDead, setDirectDead] = useState(false)
+  // SEMÁFORO: todas las cámaras del sitio pueden salir por el MISMO NVR, que limita
+  // conexiones RTSP concurrentes. Sin tope, una grilla 3×3 abre 9 streams a la vez
+  // → el NVR rechaza los de más y go2rtc devuelve 500. El Hero (priority) salta la
+  // cola; el mosaico toma turnos (MAX_LIVE) y el resto queda "en cola".
   useEffect(() => {
     if (!deviceId) { setDirect(null); return }
-    let alive = true
+    let alive = true, slot = false
     setDirect(undefined)
-    fetch('/api/live-direct', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId, quality }) })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (alive) setDirect(d && d.name ? d.name : null) })
-      .catch(() => { if (alive) setDirect(null) })
-    return () => { alive = false }
-  }, [deviceId, quality])
+    setDirectDead(false)
+    ;(async () => {
+      if (!priority) {
+        setQueued(true)
+        await acquireLive()
+        if (!alive) { releaseLive(); return }
+        slot = true
+        setQueued(false)
+      }
+      try {
+        const r = await fetch('/api/live-direct', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deviceId, quality }) })
+        const d = r.ok ? await r.json() : null
+        if (alive) setDirect(d && d.name ? d.name : null)
+      } catch { if (alive) setDirect(null) }
+    })()
+    return () => { alive = false; setQueued(false); if (slot) releaseLive() }
+  }, [deviceId, quality]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Esperando turno de vivo → foto viva (no negro), sin decodificar video.
+  if (queued) return <QueuedSnapshot deviceId={deviceId} />
   if (direct === undefined) return <div className="go2view"><div className="go2view__badge"><Spinner size={12} /> conectando vivo…</div></div>
-  if (direct) return <DirectLiveView streamName={direct} {...props} />
+  if (direct && !directDead) return <DirectLiveView streamName={direct} onDead={() => setDirectDead(true)} {...props} />
+  // FALLBACK. En el HERO (priority) el flujo es SIEMPRE video, NUNCA fotos: si no hay
+  // directo go2rtc, usamos HLS transcodificado (H264 fluido), jamás el MJPEG (que son
+  // snapshots del servidor de fotos). El MJPEG queda sólo para el mosaico.
+  if (priority) return <HlsVideoLive {...props} />
   return mode === 'hls' ? <HlsVideoLive {...props} /> : <MjpegLive {...props} />
 }
 
 // Vivo DIRECTO de la cámara por go2rtc/MSE (stream limpio, 25fps). Póster snapshot
 // instantáneo + overlay de analíticas.
-function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAspect, onPoster = null }) {
+function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAspect, onPoster = null, onDead = null, priority = false }) {
   const elRef = useRef(null)
+  useVisibilityPause(elRef)
   const [state, setState] = useState('connecting')
   // Vivo por fMP4 progresivo (HTTP GET) — robusto detrás de proxy TLS: no depende
   // del WebSocket de go2rtc (que algunos reverse-proxies no reenvían). El stream ya
@@ -155,10 +212,28 @@ function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAsp
     setState('connecting')
     const url = `/go2rtc/api/stream.mp4?src=${encodeURIComponent(streamName)}`
     let retry, wd, lastT = 0, lastAdvance = Date.now()
+    let errStreak = 0, everPlayed = false, gaveUp = false
     const arm = () => { lastT = 0; lastAdvance = Date.now(); try { el.src = url; el.load && el.load(); const p = el.play && el.play(); if (p && p.catch) p.catch(() => {}) } catch { /* noop */ } }
     const onMeta = () => { if (onAspect && el.videoWidth && el.videoHeight) onAspect(`${el.videoWidth} / ${el.videoHeight}`) }
-    const onPlay = () => { setState('playing'); lastAdvance = Date.now(); onMeta() }
-    const onErr = () => { setState((s) => (s === 'playing' ? s : 'error')); clearTimeout(retry); retry = setTimeout(arm, 2500) }
+    const onPlay = () => { everPlayed = true; errStreak = 0; setState('playing'); lastAdvance = Date.now(); onMeta() }
+    // Reintenta el directo, PERO si nunca reprodujo y falla varias veces seguidas,
+    // se rinde y avisa (onDead) para que el dispatcher caiga al NVR/MJPEG.
+    const onErr = () => {
+      setState((s) => (s === 'playing' ? s : 'error'))
+      clearTimeout(retry)
+      if (gaveUp) return
+      errStreak += 1
+      // Paciencia: el transcode del NVR (main) puede tardar ~10-15 s en dar el
+      // primer segmento. NO caemos a MJPEG (fotos) antes de darle tiempo real al
+      // flujo RTSP→go2rtc, que es el vivo fluido que se quiere. El póster (snapshot)
+      // se muestra mientras tanto, así nunca queda negro.
+      //
+      // En el HERO (priority) NUNCA degradamos a MJPEG: el operador quiere el flujo
+      // RTSP fluido en HD, no fotos del servidor de snapshots. Reintentamos el
+      // directo por go2rtc indefinidamente (con backoff suave) hasta que arranque.
+      if (!priority && !everPlayed && errStreak >= 8 && onDead) { gaveUp = true; onDead(); return }
+      retry = setTimeout(arm, priority ? Math.min(1500 + errStreak * 500, 4000) : 2000)
+    }
     // Watchdog anti-congelamiento: el fMP4/MSE progresivo puede TRABARSE sin emitir
     // 'error' ni 'ended' (currentTime deja de avanzar). Si no avanza ~4.5 s estando
     // en marcha, recargamos el stream. También recorta la latencia acumulada.
@@ -199,6 +274,7 @@ function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAsp
       )}
       <video ref={elRef} className="go2view__video" autoPlay muted playsInline />
       {rules && rules.length > 0 && <AnalyticsOverlay rules={rules} space={space} highlightId={highlightId} />}
+      <DecodeBadge videoRef={elRef} active={playing} />
       {!playing && (
         <div className={`go2view__badge${state === 'error' ? ' is-err' : ''}`}>
           {state === 'error' ? 'reintentando…' : <><Spinner size={12} /> conectando vivo…</>}
@@ -208,10 +284,72 @@ function DirectLiveView({ streamName, deviceId, rules, space, highlightId, onAsp
   )
 }
 
+// Detecta si el <video> se está decodificando por GPU (hardware) o CPU (software),
+// vía MediaCapabilities: powerEfficient ⇒ hardware. Se muestra un badge por canal.
+async function probeDecodeMode(w, h) {
+  try {
+    if (!navigator.mediaCapabilities || !navigator.mediaCapabilities.decodingInfo) return null
+    const info = await navigator.mediaCapabilities.decodingInfo({
+      type: 'file',
+      video: { contentType: 'video/mp4; codecs="avc1.640028"', width: Math.max(320, w || 1280), height: Math.max(180, h || 720), bitrate: 2500000, framerate: 25 },
+    })
+    return info && info.powerEfficient ? 'gpu' : 'cpu'
+  } catch { return null }
+}
+function DecodeBadge({ videoRef, active }) {
+  const [mode, setMode] = useState(null)
+  useEffect(() => {
+    if (!active) { setMode(null); return }
+    const el = videoRef && videoRef.current
+    if (!el) return
+    let alive = true
+    const run = () => probeDecodeMode(el.videoWidth, el.videoHeight).then((m) => { if (alive) setMode(m) })
+    if (el.videoWidth) run()
+    const on = () => run()
+    el.addEventListener('loadedmetadata', on)
+    return () => { alive = false; el.removeEventListener('loadedmetadata', on) }
+  }, [active, videoRef])
+  if (!mode) return null
+  return (
+    <span className={`decbadge decbadge--${mode}`} title={mode === 'gpu' ? 'Decodificación por hardware (GPU)' : 'Decodificación por software (CPU)'}>
+      {mode === 'gpu'
+        ? <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="5" y="5" width="14" height="14" rx="2"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+        : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 4v16M15 4v16M4 9h16M4 15h16"/></svg>}
+      {mode === 'gpu' ? 'GPU' : 'CPU'}
+    </span>
+  )
+}
+
+// Pausa el decode del <video> cuando el tile NO es visible (fuera de pantalla o pestaña
+// en segundo plano) — igual que "Detener la transmisión cuando la ventana no es visible"
+// de HikCentral. Baja muchísimo el uso de GPU/CPU con muchas cámaras. Al volver a ser
+// visible reanuda EN VIVO (salta al borde del buffer, no reproduce lo viejo).
+function useVisibilityPause(ref) {
+  useEffect(() => {
+    const el = ref && ref.current
+    if (!el) return
+    let visible = !document.hidden, onscreen = true
+    const apply = () => {
+      try {
+        if (visible && onscreen) {
+          try { if (el.buffered && el.buffered.length) el.currentTime = el.buffered.end(el.buffered.length - 1) } catch { /* noop */ }
+          if (el.paused) el.play().catch(() => {})
+        } else if (!el.paused) { el.pause() }
+      } catch { /* noop */ }
+    }
+    const onVis = () => { visible = !document.hidden; apply() }
+    document.addEventListener('visibilitychange', onVis)
+    let io = null
+    try { io = new IntersectionObserver((es) => { onscreen = !!(es[0] && es[0].isIntersecting); apply() }, { threshold: 0.05 }); io.observe(el) } catch { /* sin IO */ }
+    return () => { document.removeEventListener('visibilitychange', onVis); if (io) try { io.disconnect() } catch { /* noop */ } }
+  }, [ref])
+}
+
 // Vivo por HLS H264 transcodificado (modo 'hls'; útil cuando se apague H.264+).
-function HlsVideoLive({ deviceId, rules, space, highlightId, onAspect, onPoster = null }) {
+function HlsVideoLive({ deviceId, rules, space, highlightId, onAspect, onPoster = null, quality = 'sub' }) {
   const videoRef = useRef(null)
-  const { phase } = useLiveHlsOn(videoRef, deviceId, 'sub', (w, h) => { if (onAspect && w && h) onAspect(`${w} / ${h}`) })
+  useVisibilityPause(videoRef)
+  const { phase } = useLiveHlsOn(videoRef, deviceId, quality, (w, h) => { if (onAspect && w && h) onAspect(`${w} / ${h}`) })
   const playing = phase === 'playing'
   const [snapT, setSnapT] = useState(0)
   useEffect(() => {
@@ -229,6 +367,7 @@ function HlsVideoLive({ deviceId, rules, space, highlightId, onAspect, onPoster 
       )}
       <video ref={videoRef} className="go2view__video" muted autoPlay playsInline />
       {rules && rules.length > 0 && <AnalyticsOverlay rules={rules} space={space} highlightId={highlightId} />}
+      <DecodeBadge videoRef={videoRef} active={playing} />
       {!playing && (
         <div className={`go2view__badge${phase === 'error' ? ' is-err' : ''}`}>
           {phase === 'error' ? 'NEAR-LIVE' : <><Spinner size={12} /> conectando vivo…</>}
@@ -362,18 +501,54 @@ function Go2RtcMseView({ src, rules, space, highlightId, onAspect }) {
 }
 
 // ── Semáforo global de vivos concurrentes (protege NVR + CPU/banda) ──────────
-export const MAX_LIVE = 6
+// El tope es CONFIGURABLE (Admin · Video → liveConcurrency): así el sistema escala
+// a NVRs con más capacidad de conexiones RTSP sin recompilar. Al subir el tope se
+// DRENA la cola (arrancan de inmediato los que esperaban), para no dejar tiles
+// esperando cuando hay margen.
+export let MAX_LIVE = 8
 let liveActive = 0
 const liveQueue = []
+// Reporta la cantidad de flujos en vivo activos al cliente de escritorio (para su HUD
+// de rendimiento). Best-effort: si no es escritorio, no hace nada.
+function reportLive() {
+  try { if (typeof window !== 'undefined' && window.eventosDesktop && window.eventosDesktop.reportLive) window.eventosDesktop.reportLive(liveActive, MAX_LIVE) } catch { /* noop */ }
+}
+export function setMaxLive(n) {
+  const v = Math.min(64, Math.max(1, Math.floor(n) || 8))
+  if (v === MAX_LIVE) return
+  MAX_LIVE = v
+  while (liveActive < MAX_LIVE && liveQueue.length) { liveActive++; const next = liveQueue.shift(); next() }
+  reportLive()
+}
 function acquireLive() {
-  if (liveActive < MAX_LIVE) { liveActive++; return Promise.resolve() }
+  if (liveActive < MAX_LIVE) { liveActive++; reportLive(); return Promise.resolve() }
   return new Promise((resolve) => liveQueue.push(resolve))
 }
 function releaseLive() {
   const next = liveQueue.shift()
   if (next) next()
   else liveActive = Math.max(0, liveActive - 1)
+  reportLive()
 }
+
+// ── Override GLOBAL del cliente de escritorio (Configuración → Video y rendimiento) ──
+// Cada puesto tunea su rendimiento: calidad de la grilla y tope de vivos, sin tocar el
+// server. Se aplica una sola vez al cargar, si la app de escritorio inyectó preferencias.
+let _clientQuality = null // null=auto (usa lo pedido) | 'sub' | 'main'
+export function effQuality(requested, priority = false) {
+  if (priority) return requested || 'main'   // hero / vista deliberada: respeta lo pedido
+  if (_clientQuality === 'sub') return 'sub'
+  if (_clientQuality === 'main') return 'main'
+  return requested || 'sub'
+}
+;(function applyClientVideoPrefs() {
+  try {
+    const p = (typeof window !== 'undefined' && window.eventosDesktop && window.eventosDesktop.videoPrefs) || null
+    if (!p) return
+    if (p.quality === 'sub' || p.quality === 'main') _clientQuality = p.quality
+    if (Number(p.maxLive) > 0) setMaxLive(Number(p.maxLive))
+  } catch { /* noop */ }
+})()
 
 // Vivo RTSP→HLS. priority=true salta el semáforo (vista deliberada / hero).
 export function useLiveHls(deviceId, quality, enabled, priority = false) {

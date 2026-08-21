@@ -6,6 +6,7 @@ import { log } from "../logger.js";
 import { appendJsonl } from "../util/jsonl.js";
 import { inWindow } from "../alerts/policy.js";
 import { list as listConfig } from "../config/store.js";
+import { upsertEvent, loadActive, loadRecentResolved } from "../db/eventsRepo.js";
 
 const ACTIVE_STATUSES = ["new", "assigned", "ack", "in_progress", "escalated"];
 const RESOLVED_CAP = 200;
@@ -73,6 +74,7 @@ process.once("SIGINT", persistNow);
 export function addEvent(event) {
   active.set(event.id, event);
   schedulePersist();
+  upsertEvent(event).catch(() => {}); // write-through a Postgres (best-effort, durable/consultable)
   return event;
 }
 
@@ -106,7 +108,37 @@ export function updateEvent(id, { status, assignedTo, disposition, logEntry } = 
     if (status === "resolved" && active.has(id)) retire(event);
   }
   schedulePersist();
+  upsertEvent(event).catch(() => {}); // write-through a Postgres (best-effort)
   return event;
+}
+
+// Vuelca a Postgres los eventos que ya están en memoria (activos + resueltos).
+// Se llama UNA vez al boot tras migrate() → migra lo existente sin perder nada.
+export async function backfillPg() {
+  const all = [...active.values(), ...resolved];
+  let n = 0;
+  for (const e of all) { try { await upsertEvent(e); n++; } catch { /* best-effort */ } }
+  return n;
+}
+
+// Rehidrata la cola en vivo desde Postgres al boot (fuente durable). Se llama tras
+// backfillPg (que ya empujó a PG lo cargado de events.json), así PG ⊇ memoria.
+// MERGE add-only: sólo agrega lo que la memoria NO tiene por id — nunca pisa un
+// evento que haya llegado en vivo entre el arranque y esta llamada (evita carreras).
+// Si PG está off/da error, devuelve {pg:false} y seguimos con lo de events.json.
+export async function hydrateFromPg() {
+  const act = await loadActive();
+  if (act == null) return { pg: false };
+  const res = (await loadRecentResolved(RESOLVED_CAP)) || [];
+  let added = 0;
+  for (const e of act) if (e && e.id && !active.has(e.id)) { active.set(e.id, e); added++; }
+  const seen = new Set(resolved.map((e) => e.id));
+  let addedRes = 0;
+  for (const e of res) if (e && e.id && !seen.has(e.id)) { resolved.push(e); seen.add(e.id); addedRes++; }
+  resolved.sort((a, b) => (a.ts < b.ts ? 1 : a.ts > b.ts ? -1 : 0));
+  if (resolved.length > RESOLVED_CAP) resolved.length = RESOLVED_CAP;
+  if (added || addedRes) schedulePersist(); // espejar a events.json lo traído de PG
+  return { pg: true, active: active.size, resolved: resolved.length, added, addedRes };
 }
 
 // Lista de eventos (más recientes primero), filtrable por status, con límite.

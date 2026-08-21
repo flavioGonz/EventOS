@@ -2,10 +2,11 @@
 // Grilla de eventos con su foto/evidencia + filtros (texto, tiempo, objetivo,
 // tipo, prioridad, sitio). Clic en una tarjeta → detalle con evidencia grande +
 // metadatos + acceso al VIVO de la cámara (modal premium reutilizado).
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon, Segmented, Select, TextInput, Modal, Button, Badge } from '../ui/primitives.jsx'
 import { PageHead, Loading } from './_shared.jsx'
-import { api } from '../lib/adminApi.js'
+import { api, getAdminToken } from '../lib/adminApi.js'
+import { apiFetch } from '../lib/eventsApi.js'
 import { CameraModal } from './CameraWallView.jsx'
 import { AnalyticsOverlay, AnalyticsLegend, useCameraAnalytics, refreshCameraAnalytics } from '../components/CameraLive.jsx'
 import {
@@ -78,7 +79,7 @@ export function EvidenceModal({ ev, onClose }) {
   const [busy, setBusy] = useState(false)
   const [hiddenAna, setHiddenAna] = useState(() => new Set())
   const toggleAna = (t) => setHiddenAna((prev) => { const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n })
-  const reloadEvidence = () => fetch(`/api/events/${ev.id}/evidence`).then((r) => r.json()).then((d) => setImgs(Array.isArray(d.images) ? d.images : [])).catch(() => setImgs([]))
+  const reloadEvidence = () => apiFetch(`/api/events/${ev.id}/evidence`).then((r) => r.json()).then((d) => setImgs(Array.isArray(d.images) ? d.images : [])).catch(() => setImgs([]))
   useEffect(() => { reloadEvidence() }, [ev.id])
   const gallery = (imgs && imgs.length) ? imgs : (src ? [{ url: src, ts: new Date(ev.ts).getTime() }] : [])
   const curIdx = Math.min(idx, Math.max(0, gallery.length - 1))
@@ -86,7 +87,7 @@ export function EvidenceModal({ ev, onClose }) {
   const capture = async () => {
     if (!deviceId || busy) return
     setBusy(true)
-    try { const r = await fetch(`/api/events/${ev.id}/evidence/capture`, { method: 'POST' }); if (r.ok) { await reloadEvidence(); setIdx(999) } } finally { setBusy(false) }
+    try { const r = await apiFetch(`/api/events/${ev.id}/evidence/capture`, { method: 'POST' }); if (r.ok) { await reloadEvidence(); setIdx(999) } } finally { setBusy(false) }
   }
   const icon = EVENT_TYPE_ICON[ev.type] || 'camera'
   const tgt = ev.target && ev.target !== 'none' ? ev.target : null
@@ -178,7 +179,16 @@ export function EvidenceModal({ ev, onClose }) {
 
 export default function EvidenceSearch({ site: fixedSite = null, embedded = false, mode = 'ai' }) {
   const isEvents = mode === 'events'
-  const [events, setEvents] = useState(null)
+  // Datos paginados desde Postgres (histórico) + poll en vivo (recientes). Antes se
+  // cargaban 500 eventos de la cola en memoria de un saque: con rango "30 días/Todo"
+  // no se alcanzaban evidencias más viejas y se renderizaban todas las tarjetas juntas.
+  const [histItems, setHistItems] = useState([])   // páginas traídas de PG
+  const [liveItems, setLiveItems] = useState([])   // recientes (cola en vivo)
+  const [before, setBefore] = useState(null)       // cursor keyset (ts ISO)
+  const [loading, setLoading] = useState(false)
+  const [done, setDone] = useState(false)          // no hay más páginas / se cubrió el rango
+  const [firstLoaded, setFirstLoaded] = useState(false)
+  const loadingRef = useRef(false)
   const [retDays, setRetDays] = useState(null)
   const [savingRet, setSavingRet] = useState(false)
   const [q, setQ] = useState('')
@@ -192,12 +202,71 @@ export default function EvidenceSearch({ site: fixedSite = null, embedded = fals
   useEffect(() => { if (embedded) return; api.get('/evidence').then((cfg) => setRetDays(cfg.retentionDays ?? 30)).catch(() => {}) }, [embedded])
   const saveRet = async () => { setSavingRet(true); try { const cfg = await api.put('/evidence', { retentionDays: Number(retDays) || 0 }); setRetDays(cfg.retentionDays) } catch { /* noop */ } finally { setSavingRet(false) } }
 
+  const sentinelRef = useRef(null)
+  // Cabeceras de auth: el panel admin usa X-Admin-Token; el operador, cookie de sesión.
+  // Enviamos ambas — el backend acepta cualquiera para /events/history.
+  const authHeaders = () => { const t = getAdminToken(); return t ? { 'X-Admin-Token': t } : {} }
+
+  // Una página del histórico (keyset por ts). El rango limita la profundidad: dejamos
+  // de pedir cuando el evento más viejo cargado ya cae fuera del rango seleccionado.
+  const fetchPage = useCallback((beforeTs) => {
+    if (loadingRef.current) return
+    loadingRef.current = true; setLoading(true)
+    const qs = new URLSearchParams({ limit: '120' })
+    if (beforeTs) qs.set('before', beforeTs)
+    if (siteFilter) qs.set('site', siteFilter)
+    fetch(`/api/events/history?${qs.toString()}`, { credentials: 'same-origin', headers: authHeaders() })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || !Array.isArray(d.events)) { setDone(true); return }
+        setHistItems((prev) => (beforeTs ? [...prev, ...d.events] : d.events))
+        const oldest = d.events.length ? d.events[d.events.length - 1] : null
+        const pastRange = range !== 'all' && oldest && new Date(oldest.deviceTs || oldest.ts).getTime() < rangeStart(range)
+        setBefore(d.nextBefore || null)
+        setDone(!d.nextBefore || !!pastRange)
+      })
+      .catch(() => setDone(true))
+      .finally(() => { loadingRef.current = false; setLoading(false); setFirstLoaded(true) })
+  }, [siteFilter, range])
+
+  // Reset + primera página cuando cambian los filtros que se resuelven en el server
+  // (sitio) o la profundidad (rango).
+  useEffect(() => {
+    setHistItems([]); setBefore(null); setDone(false); setFirstLoaded(false)
+    loadingRef.current = false
+    fetchPage(null)
+  }, [siteFilter, range]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Poll en vivo de los más recientes (cola en memoria, pública): así las evidencias
+  // nuevas aparecen sin esperar a paginar. Se fusiona por id con el histórico.
   useEffect(() => {
     let alive = true
-    const load = () => fetch('/api/events?limit=500').then((r) => r.json()).then((d) => { if (alive) setEvents(Array.isArray(d) ? d : (d.events || [])) }).catch(() => { if (alive) setEvents([]) })
+    const load = () => apiFetch('/api/events?limit=80').then((r) => r.json()).then((d) => { if (alive) setLiveItems(Array.isArray(d) ? d : (d.events || [])) }).catch(() => {})
     load(); const t = setInterval(load, 15000)
     return () => { alive = false; clearInterval(t) }
   }, [])
+
+  // Scroll infinito: al acercarse el centinela al viewport, pedir la siguiente página.
+  useEffect(() => {
+    const el = sentinelRef.current
+    if (!el) return
+    let io = null
+    try {
+      io = new IntersectionObserver((entries) => {
+        if (entries[0] && entries[0].isIntersecting && !loadingRef.current && !done) fetchPage(before)
+      }, { rootMargin: '500px' })
+      io.observe(el)
+    } catch { /* sin IO */ }
+    return () => { if (io) try { io.disconnect() } catch { /* noop */ } }
+  }, [before, done, fetchPage])
+
+  // Conjunto base: histórico (PG) + recientes (vivo), fusionado por id (vivo gana).
+  const events = useMemo(() => {
+    const m = new Map()
+    for (const e of histItems) m.set(e.id, e)
+    for (const e of liveItems) m.set(e.id, e)
+    return [...m.values()]
+  }, [histItems, liveItems])
 
   const sites = useMemo(() => [...new Set((events || []).map((e) => e.source?.site).filter(Boolean))].sort(), [events])
   const types = useMemo(() => [...new Set((events || []).map((e) => e.type).filter(Boolean))], [events])
@@ -220,7 +289,7 @@ export default function EvidenceSearch({ site: fixedSite = null, embedded = fals
     }).sort((a, b) => new Date(b.ts) - new Date(a.ts))
   }, [events, range, target, type, priority, siteFilter, q])
 
-  if (!events) return <Loading label="Cargando evidencias…" />
+  if (!firstLoaded) return <Loading label="Cargando evidencias…" />
 
   return (
     <div className="evsearch">
@@ -270,9 +339,20 @@ export default function EvidenceSearch({ site: fixedSite = null, embedded = fals
         <span className="evbar__count"><b>{filtered.length}</b> evento{filtered.length === 1 ? '' : 's'}</span>
       </div>
 
-      {filtered.length === 0
+      {filtered.length === 0 && done
         ? <div className="evempty"><Icon name="search" size={28} /><p>Ningún evento coincide con los filtros.</p></div>
         : <div className="evgrid">{filtered.map((ev) => <EvidenceCard key={ev.id} ev={ev} onOpen={setOpen} />)}</div>}
+
+      {/* Centinela de scroll infinito + estado de carga del histórico (PG). */}
+      <div ref={sentinelRef} className="evmore">
+        {loading
+          ? <span className="evmore__loading"><Icon name="refresh" size={14} /> Cargando más…</span>
+          : !done
+            ? <Button variant="secondary" onClick={() => fetchPage(before)}>Cargar más</Button>
+            : filtered.length > 0
+              ? <span className="evmore__end muted">No hay más eventos en este rango.</span>
+              : null}
+      </div>
 
       {open && <EvidenceModal ev={open} onClose={() => setOpen(null)} />}
     </div>

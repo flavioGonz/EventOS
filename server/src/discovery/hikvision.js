@@ -189,6 +189,137 @@ function parseAxOutputs(text) {
   })).filter((o) => o.id != null || o.name);
 }
 
+// ── Estado en vivo del panel AX (salud + zonas + relés) ──────────────────────
+// Lo que el operador necesita ver de un panel de alarma: si tiene corriente y
+// batería, si la red está viva, si algún módulo/disco falla, qué zonas están
+// ABIERTAS (contacto magnético) o en alarma/sabotaje, y el estado real de cada
+// relé. Todo por SecurityCP status (?format=json). Tolerante: cada sonda es
+// independiente y su fallo no tumba al resto — un firmware que no expone una
+// rama simplemente deja ese campo vacío.
+const boolish = (v) => {
+  if (v === true || v === false) return v;
+  const s = String(v ?? "").toLowerCase().trim();
+  if (["true", "open", "opened", "on", "yes", "1", "trigger", "active", "alarm"].includes(s)) return true;
+  if (["false", "close", "closed", "off", "no", "0", "normal", "inactive"].includes(s)) return false;
+  return null;
+};
+// Extrae el primer valor definido de una lista de claves candidatas (grafías por firmware).
+const pick = (o, ...keys) => { for (const k of keys) if (o && o[k] != null) return o[k]; return null; };
+
+function parseAxBattery(text) {
+  const j = tryJson(text); if (!j) return null;
+  const list = unwrapList(j, ["BatteryList", "List"], ["Battery", "battery"]);
+  const b = list[0] || (j.Battery || j.battery || j.BatteryStatus || j);
+  if (!b || typeof b !== "object") return null;
+  const charging = boolish(pick(b, "charge", "chargeStatus", "charging", "chargeTestResult"));
+  const pct = pick(b, "batteryPercent", "percent", "electricQuantity", "capacity", "chargeValue");
+  const volt = pick(b, "voltage", "batteryVoltage");
+  const st = pick(b, "batteryStatus", "status", "batteryFault");
+  const lowFlag = boolish(pick(b, "lowBattery", "batteryLow"));
+  return {
+    percent: pct != null ? Number(pct) : null,
+    voltage: volt != null ? Number(volt) : null,
+    charging,
+    low: lowFlag != null ? lowFlag : (pct != null ? Number(pct) <= 20 : null),
+    status: st != null ? String(st) : null,
+  };
+}
+function parseAxComm(text) {
+  const j = tryJson(text); if (!j) return null;
+  const list = unwrapList(j, ["CommunicationList", "List"], ["Communication", "communication"]);
+  const c = list[0] || j.Communication || j.communication || j;
+  if (!c || typeof c !== "object") return null;
+  const wired = pick(c, "wiredNetworkStatus", "ethernetStatus", "lanStatus", "netStatus");
+  const wifi = pick(c, "wifiStatus", "wlanStatus");
+  const mobile = pick(c, "GPRSStatus", "gprsStatus", "cellularStatus", "mobileStatus", "3G4GStatus");
+  const online = boolish(wired) || boolish(wifi) || boolish(mobile);
+  const netType = boolish(wired) ? "ethernet" : boolish(wifi) ? "wifi" : boolish(mobile) ? "móvil" : null;
+  return {
+    online: online === null ? null : online,
+    type: netType,
+    wired: wired != null ? String(wired) : null,
+    wifi: wifi != null ? String(wifi) : null,
+    mobile: mobile != null ? String(mobile) : null,
+  };
+}
+// Estado extendido: alimentación AC, sabotaje del gabinete, salud de disco/módulos.
+function parseAxHost(text) {
+  const j = tryJson(text); if (!j) return null;
+  const h = j.CardReaderStatus || j.HostStatus || j.hostStatus || j.status || j;
+  if (!h || typeof h !== "object") return {};
+  const ac = boolish(pick(h, "acPower", "mainPower", "ACStatus", "acStatus", "powerStatus"));
+  const tamper = boolish(pick(h, "tamperEvident", "tamper", "caseOpen"));
+  const battFault = boolish(pick(h, "batteryFault", "batteryStatus"));
+  return {
+    ac: ac,                      // corriente de red presente
+    tamper: tamper,              // sabotaje del gabinete
+    batteryFault: battFault,     // batería en falla
+  };
+}
+// Zona con TODO lo que le importa al operador: si está abierta (contacto
+// magnético), en alarma, saboteada, anulada (bypass), su batería y señal RF.
+function parseAxZonesStatus(text) {
+  const j = tryJson(text); if (!j) return [];
+  return unwrapList(j, ["ZoneList", "List", "zoneList"], ["Zone", "zone"]).map((z) => ({
+    id: pick(z, "id", "zoneID", "seq"),
+    name: pick(z, "zoneName", "name", "detectorName"),
+    online: boolish(pick(z, "status", "zoneStatus", "onlineStatus")),
+    open: boolish(pick(z, "magnetOpenStatus", "magnetOpen", "doorOpen", "openStatus")),
+    alarm: boolish(pick(z, "alarm", "alarmStatus")),
+    tamper: boolish(pick(z, "tamperEvident", "tamper")),
+    bypass: boolish(pick(z, "bypassed", "bypass", "shielded")),
+    armed: boolish(pick(z, "armed", "armStatus")),
+    battery: (() => { const v = pick(z, "battery", "batteryVoltage", "chargeValue"); return v != null ? Number(v) : null; })(),
+    lowBattery: boolish(pick(z, "lowBatteryLimit", "batteryLow", "lowBattery")),
+    signal: (() => { const v = pick(z, "signal", "signalStrength", "RSSI"); return v != null ? Number(v) : null; })(),
+    type: pick(z, "zoneType", "detectorType", "type"),
+  })).filter((z) => z.id != null || z.name);
+}
+function parseAxOutputsStatus(text) {
+  const j = tryJson(text); if (!j) return [];
+  return unwrapList(j, ["OutputList", "List", "OutputsList", "RelayList"], ["Output", "output", "Relay", "relay"]).map((o) => ({
+    id: pick(o, "id", "outputNo", "relayNo"),
+    name: pick(o, "name", "outputName", "relayName"),
+    on: boolish(pick(o, "switch", "status", "outputStatus", "state")),
+  })).filter((o) => o.id != null || o.name);
+}
+
+/**
+ * Estado en vivo de un panel AX. Devuelve { ok, host, subsystems, zones,
+ * outputs, errors }. NUNCA lanza: cada sonda captura su error y sigue. `ok` es
+ * true si al menos una rama respondió (el equipo está vivo por SecurityCP).
+ */
+export async function axStatus({ host, port, user, pass, https = false, timeoutMs = 5000 }) {
+  const opt = { host: String(host || "").trim(), port: Number(port) || (https ? 443 : 80), https: !!https, user, pass, timeoutMs };
+  const out = { ok: false, host: {}, subsystems: [], zones: [], outputs: [], errors: [] };
+  if (!opt.host || !user) { out.errors.push("Faltan host o credenciales."); return out; }
+
+  const probe = async (path, onOk) => {
+    try {
+      const r = await isapiGet({ ...opt, path });
+      if (r.status === 200) { onOk(r.text); out.ok = true; }
+      else if (r.status === 401) out.errors.push(`${path}: 401 (credenciales inválidas)`);
+      else if (r.status !== 404) out.errors.push(`${path}: HTTP ${r.status}`);
+    } catch (e) {
+      out.errors.push(`${path}: ${e.name === "AbortError" ? "timeout" : e.message}`);
+    }
+  };
+
+  // Salud del host: batería, red y estado extendido (AC/sabotaje/disco).
+  await probe("/ISAPI/SecurityCP/status/battery?format=json", (t) => { const b = parseAxBattery(t); if (b) out.host.battery = b; });
+  await probe("/ISAPI/SecurityCP/status/communication?format=json", (t) => { const c = parseAxComm(t); if (c) out.host.network = c; });
+  await probe("/ISAPI/SecurityCP/status/exDevStatus?format=json", (t) => { const h = parseAxHost(t); if (h) Object.assign(out.host, h); });
+  // Subsistemas (particiones): estado de armado. Preferimos status; fallback config.
+  await probe("/ISAPI/SecurityCP/status/subSys?format=json", (t) => { out.subsystems = parseAxSubsys(t); });
+  if (!out.subsystems.length) await probe("/ISAPI/SecurityCP/status/subSystems?format=json", (t) => { out.subsystems = parseAxSubsys(t); });
+  // Zonas: apertura de puerta/ventana, alarma, sabotaje, batería.
+  await probe("/ISAPI/SecurityCP/status/zones?format=json", (t) => { out.zones = parseAxZonesStatus(t); });
+  // Relés/salidas: estado real (on/off) para el toggle de la UI.
+  await probe("/ISAPI/SecurityCP/status/outputs?format=json", (t) => { out.outputs = parseAxOutputsStatus(t); });
+
+  return out;
+}
+
 // ── API ──────────────────────────────────────────────────────────────────────
 export async function discover({ host, port, rtspPort, user, pass, https = false, type = "" }) {
   const opt = { host: String(host || "").trim(), port: Number(port) || (https ? 443 : 80), rtspPort: Number(rtspPort) || 554, https: !!https, user, pass };
@@ -284,7 +415,7 @@ function _rawReq(lib, opts, body) {
 }
 
 export async function logs(opt, limit = 200) {
-  const { host, port = 80, user, pass, https: useHttps = false, channel = null, startMs, endMs } = opt || {};
+  const { host, port = 80, user, pass, https: useHttps = false, channel = null, startMs, endMs, all = false } = opt || {};
   if (!host || !user) return [];
   const lib = useHttps ? https : http;
   const uri = "/ISAPI/ContentMgmt/logSearch";
@@ -334,9 +465,24 @@ export async function logs(opt, limit = 200) {
     while (hi - lo > want && probes < 20) { const mid = Math.floor((lo + hi) / 2); if (await has(mid)) lo = mid; else hi = mid; probes++; }
     return itemsOf(await fetchClass(metaId, Math.max(0, lo), want + 40));
   };
-  const raw = [];
-  raw.push(...await allItems("log.hikvision.com/Exception", 3));
-  raw.push(...await tailItems("log.hikvision.com/Operation", limit * 2));
+  // Traemos TODAS las clases del registro del equipo:
+  //  · Exception / Infomation → poco pobladas: varias páginas hasta agotar.
+  //  · Operation / Alarm → muy pobladas (config humana / motion·línea·intrusión·
+  //    armado): la COLA (posición final) = lo más reciente.
+  // La cámara loguea sus detecciones en Alarm y la central Hik AX su armado/zonas
+  // también en Alarm; por eso antes “no aparecía nada” en cámaras y alarmas.
+  // Las 5 clases son independientes → las pedimos EN PARALELO. El tiempo de pared
+  // pasa de la suma de todas a la más lenta (Alarm), que es la gran mejora de
+  // rendimiento del tab Logs. Cada request usa su propio cnonce, así que reusar el
+  // mismo nonce en paralelo es seguro (igual que ya se hacía en secuencia).
+  const classFetches = await Promise.all([
+    allItems("log.hikvision.com/Exception", 3),
+    allItems("log.hikvision.com/Infomation", 2),
+    allItems("log.hikvision.com/Information", 1),
+    tailItems("log.hikvision.com/Operation", limit * 2),
+    tailItems("log.hikvision.com/Alarm", limit * 2),
+  ]);
+  const raw = [].concat(...classFetches);
   const OP_KEEP = /login|logout|reboot|shutdown|startup|upgrade|format|export|playBy|manualRec|remoteArm|remoteDisarm|resetPass|addUser|delUser|modifyUser|localCfg|restore|factory/i;
   const chWant = channel != null && channel !== "" ? String(channel).replace(/\D/g, "") : null;
   const out = [];
@@ -346,7 +492,7 @@ export async function logs(opt, limit = 200) {
     const parts = meta.split("/");
     const cls = parts[1] || "";
     const typ = parts[2] || "";
-    if (cls === "Operation" && !OP_KEEP.test(typ)) continue; // descartar polling
+    if (!all && cls === "Operation" && !OP_KEEP.test(typ)) continue; // sin `all`: descartar polling
     const ts = _ltag(it, "StartDateTime") || _ltag(it, "startDateTime");
     if (!ts) continue;
     const localId = _ltag(it, "localID") || _ltag(it, "localId");
@@ -376,4 +522,4 @@ export async function logs(opt, limit = 200) {
   return out.slice(0, limit);
 }
 
-export default { discover, logs };
+export default { discover, logs, axStatus };

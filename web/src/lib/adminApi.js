@@ -74,6 +74,8 @@ export const putDispatch   = (policy) => api.put('/dispatch', policy)
 export const getVideoCfg   = () => api.get('/video')
 export const putVideoCfg   = (patch) => api.put('/video', patch)
 export const getNvrHealth  = () => api.get('/nvr-health')
+export const getNvrPanel    = (id) => api.get(`/nvr/${id}/panel`)
+export const getNvrHistory  = (id, range = '24h') => api.get(`/nvr/${id}/history?range=${range}`)
 export const testDeviceAlert = (id) => api.post(`/devices/${id}/test-alert`, {})
 
 // CRUD genérico por colección (devices, sites, operators, rules, procedures).

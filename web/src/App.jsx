@@ -24,7 +24,7 @@ function TopBar({ operator, status, onChangeOperator }) {
   return (
     <Glass as="header" className="topbar">
       <div className="topbar__brand">
-        <span className="topbar__logo"><Icon name="bolt" size={15} /></span>
+        <span className="topbar__logo"><Icon name="brand" size={15} /></span>
         <b>EventOS</b><span>· ARC</span>
       </div>
       <nav className="topnav">
@@ -152,7 +152,10 @@ export default function App() {
         <div className="route__page anim-rise" key={routeKey}>
           <Routes location={location}>
             <Route path="/instalar" element={<Install />} />
-            <Route path="/" element={
+            {/* Modo Consola (LiveBoard) retirado por ahora: el operador tiene una
+                sola vista = Centro. ConsoleView queda en el código, sin usar. */}
+            <Route path="/" element={<Navigate to="/center" replace />} />
+            <Route path="/console" element={
               <ConsoleView operator={operator} onConfirmIdentity={confirmIdentity}
                            onChangeOperator={changeOperator} console={console_}
                            autoPopup={autoPopup} onToggleAutoPopup={toggleAutoPopup} />

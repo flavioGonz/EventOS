@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 import { log } from "../logger.js";
 import { RULES as DEFAULT_RULES, PROCEDURES as DEFAULT_PROCEDURES } from "../rules/defaults.js";
 import { hashPin } from "../auth/pin.js";
+import { upsertItem, deleteItem, upsertKv, loadAll, backfillConfig } from "../db/configRepo.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // server/src/config → server/data
@@ -339,6 +340,7 @@ export function setDispatch(patch = {}) {
   const d = db();
   d.dispatch = { ...d.dispatch, ...patch };
   save();
+  upsertKv("dispatch", d.dispatch).catch(() => {});
   return d.dispatch;
 }
 
@@ -347,6 +349,7 @@ const DEFAULT_VIDEO = {
   liveMode: "mjpeg",        // 'mjpeg' (snapshots ~10fps, fiable) | 'hls' (H264 transcodificado)
   quality: "sub",           // 'sub' (canal X02, ligero) | 'main' (X01, HD)
   mjpegConcurrency: 6,      // fetches de snapshot en paralelo (más = más fps, más carga NVR)
+  liveConcurrency: 8,       // streams RTSP→go2rtc simultáneos por operador (subir según capacidad del NVR)
   rtspTransport: "tcp",     // 'tcp' | 'udp'
   rtspTemplates: [
     { vendor: "Hikvision", main: "/Streaming/channels/{ch}01", sub: "/Streaming/channels/{ch}02" },
@@ -387,6 +390,7 @@ export function setVideo(patch = {}) {
   const d = db();
   d.video = { ...DEFAULT_VIDEO, ...(d.video || {}), ...patch };
   save();
+  upsertKv("video", d.video).catch(() => {});
   return d.video;
 }
 
@@ -453,6 +457,7 @@ export function create(name, data = {}) {
   const item = { ...data, id };
   d[name].push(item);
   save();
+  upsertItem(name, item).catch(() => {}); // write-through a Postgres (best-effort)
   return item;
 }
 
@@ -466,6 +471,7 @@ export function update(name, id, patch = {}) {
   const { id: _ignore, ...rest } = patch;
   d[name][idx] = { ...d[name][idx], ...rest, id };
   save();
+  upsertItem(name, d[name][idx]).catch(() => {}); // write-through a Postgres
   return d[name][idx];
 }
 
@@ -476,6 +482,7 @@ export function remove(name, id) {
   if (idx < 0) return false;
   d[name].splice(idx, 1);
   save();
+  deleteItem(name, id).catch(() => {}); // write-through a Postgres
   return true;
 }
 
@@ -497,7 +504,34 @@ export const CONFIG_FILE = CONFIG_PATH;
 // ── Evidencia: retención (galería por caso) ──
 const DEFAULT_EVIDENCE = { retentionDays: 30, maxFiles: 8000 };
 export function getEvidence() { return { ...DEFAULT_EVIDENCE, ...(db().evidence || {}) }; }
-export function setEvidence(patch = {}) { const d = db(); d.evidence = { ...DEFAULT_EVIDENCE, ...(d.evidence || {}), ...patch }; save(); return d.evidence; }
+export function setEvidence(patch = {}) { const d = db(); d.evidence = { ...DEFAULT_EVIDENCE, ...(d.evidence || {}), ...patch }; save(); upsertKv("evidence", d.evidence).catch(() => {}); return d.evidence; }
+
+// ── Migración/carga desde Postgres (inventario) ──────────────────────────────
+// Al boot: si PG tiene inventario, RECONSTRUYE la caché desde PG (fuente durable).
+// Si PG está vacío, hace BACKFILL del estado actual (JSON/seed) hacia PG. Tolerante:
+// si PG no está, no hace nada y el store sigue con memoria/JSON. La caché en memoria
+// sigue siendo la fuente de lectura SYNC del resto del código (no cambia nada aguas abajo).
+export async function loadFromPg() {
+  const snap = await loadAll();
+  if (!snap) return { pg: false };
+  if (snap.total > 0 || Object.keys(snap.kv).length > 0) {
+    // Reconstruir desde PG (rellenando defaults de colecciones/dispatch faltantes).
+    const doc = {};
+    for (const c of COLLECTIONS) doc[c] = snap.items[c] || [];
+    if (snap.kv.dispatch) doc.dispatch = snap.kv.dispatch;
+    if (snap.kv.video) doc.video = snap.kv.video;
+    if (snap.kv.evidence) doc.evidence = snap.kv.evidence;
+    cache = normalizeDoc(doc);
+    save(); // mantener el JSON en espejo por las dudas
+    log.info(`Config cargada desde Postgres: ${snap.total} items`);
+    return { pg: true, loaded: snap.total };
+  }
+  // PG vacío → backfill del estado actual (JSON/seed) hacia PG.
+  const cur = cache || load();
+  const n = await backfillConfig(cur, COLLECTIONS);
+  log.info(`Config backfill → Postgres: ${n} items`);
+  return { pg: true, backfilled: n };
+}
 
 export default {
   load,

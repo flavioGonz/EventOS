@@ -82,7 +82,7 @@ export default function OperatorIdentity({ onConfirm }) {
     <div className="identity-wrap">
       <div className="identity glass glass--strong anim-pop" role="dialog" aria-modal="true">
         <div className="identity__brand">
-          <span className="identity__logo"><Icon name="bolt" size={22} /></span>
+          <span className="identity__logo"><Icon name="brand" size={22} /></span>
           <h1>EventOS</h1>
           <p>Consola de Operación · Elige tu perfil</p>
         </div>

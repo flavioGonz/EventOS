@@ -1,6 +1,6 @@
 {
   "name": "eventos-desktop",
-  "version": "1.1.0",
+  "version": "1.4.7",
   "description": "EventOS · ARC — consola de escritorio (Electron): splash animado, login nativo, popup de alarma con sonido, decode por GPU, multi-monitor, bandeja, hotkeys y auto-arranque.",
   "main": "main.js",
   "author": "EventOS / Infratec",
@@ -18,17 +18,50 @@
   "build": {
     "appId": "uy.eventos.arc.desktop",
     "productName": "EventOS ARC",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "preload-popup.js", "config.json", "ui/**/*", "assets/**/*"],
-    "win": { "target": ["nsis"], "icon": "assets/icon.png" },
+    "publish": null,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "preload-popup.js",
+      "config.json",
+      "ui/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "EventOS ARC"
+      "shortcutName": "EventOS ARC",
+      "menuCategory": "EventOS",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "EventOS-ARC-Setup-${version}.${ext}",
+      "installerIcon": "assets/icon.ico",
+      "uninstallerIcon": "assets/icon.ico",
+      "installerHeaderIcon": "assets/installerHeaderIcon.ico",
+      "installerHeader": "assets/installerHeader.bmp",
+      "installerSidebar": "assets/installerSidebar.bmp",
+      "uninstallerSidebar": "assets/uninstallerSidebar.bmp",
+      "include": "build/installer.nsh"
     },
-    "linux": { "target": ["AppImage"], "icon": "assets/icon.png", "category": "Utility" }
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Utility"
+    }
   }
 }

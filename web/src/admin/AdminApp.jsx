@@ -149,7 +149,7 @@ function AdminTopNav({ onLogout }) {
       {/* La marca vuelve a la Consola (el cambio Consola/Admin/Supervisor vive en
           la barra del operador, por rol; el menú de admin solo tiene secciones). */}
       <NavLink to="/" end className="admin-topbar__brand" title="Volver a la consola">
-        <span className="admin-topbar__logo"><Icon name="bolt" size={15} /></span>
+        <span className="admin-topbar__logo"><Icon name="brand" size={15} /></span>
         <b>EventOS</b><span className="admin-topbar__sub">· ARC</span>
       </NavLink>
       <nav className="admin-topnav">

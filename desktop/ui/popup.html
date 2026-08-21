@@ -3,48 +3,71 @@
 <style>
   *{margin:0;box-sizing:border-box;font-family:Segoe UI,system-ui,Arial,sans-serif}
   html,body{height:100%;background:transparent;overflow:hidden;user-select:none}
-  .card{height:100%;border-radius:14px;overflow:hidden;color:#e6edf6;position:relative;
-    background:linear-gradient(180deg,#151d2a,#0e141d);border:1px solid rgba(255,255,255,.10);
-    box-shadow:0 18px 50px rgba(0,0,0,.6);display:flex;flex-direction:column;
-    animation:slidein .32s cubic-bezier(.2,.9,.2,1)}
+  /* La tarjeta ES la foto: la imagen cubre todo el recuadro y los datos van encima. */
+  .card{height:100%;border-radius:14px;overflow:hidden;color:#fff;position:relative;
+    background:#05070d;border:1px solid rgba(255,255,255,.12);
+    box-shadow:0 18px 50px rgba(0,0,0,.65);animation:slidein .32s cubic-bezier(.2,.9,.2,1)}
   @keyframes slidein{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:none}}
-  .bar{height:4px;width:100%;background:var(--c,#e5484d)}
+  .shotwrap{position:absolute;inset:0;overflow:hidden;background:#05070d}
+  .shot{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;display:none}
+  .noshot{position:absolute;inset:0;display:grid;place-items:center;color:#2a3648}
+  .noshot svg{width:54px;height:54px}
+  /* Overlay de analíticas: se posiciona por JS al rect real de la foto (cover). */
+  .anov{position:absolute;pointer-events:none;overflow:visible;display:none}
+  .anov line{stroke:#f5b945;stroke-width:6;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+  .anov polygon{fill:rgba(245,72,77,.16);stroke:#f5484d;stroke-width:5;filter:drop-shadow(0 1px 2px rgba(0,0,0,.7))}
+  .anov .hot{stroke-width:8}
+  /* Degradados para legibilidad de los datos sobre la foto. */
+  .scrim{position:absolute;left:0;right:0;z-index:3}
+  .scrim--top{top:0;padding:11px 13px 26px;background:linear-gradient(180deg,rgba(3,5,10,.86) 0%,rgba(3,5,10,.55) 55%,transparent 100%);
+    display:flex;align-items:flex-start;gap:10px;pointer-events:none}
+  .scrim--bot{bottom:0;padding:26px 12px 11px;background:linear-gradient(0deg,rgba(3,5,10,.92) 0%,rgba(3,5,10,.6) 55%,transparent 100%)}
+  .bar{position:absolute;top:0;left:0;right:0;height:4px;z-index:4;background:var(--c,#e5484d)}
   .bar.crit{animation:blink 1s steps(1) infinite}
   @keyframes blink{50%{opacity:.35}}
-  .top{display:flex;align-items:center;gap:10px;padding:12px 14px 8px}
-  .pri{flex-shrink:0;width:38px;height:38px;border-radius:10px;display:grid;place-items:center;
-    background:color-mix(in srgb,var(--c) 20%,transparent);color:var(--c);position:relative}
-  .pri svg{width:20px;height:20px}
+  .pri{flex-shrink:0;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;
+    background:color-mix(in srgb,var(--c) 30%,rgba(0,0,0,.45));color:#fff;position:relative;border:1.5px solid var(--c)}
+  .pri svg{width:19px;height:19px}
   .pri.crit::after{content:"";position:absolute;inset:-3px;border-radius:12px;border:2px solid var(--c);animation:ring 1.1s ease-out infinite}
   @keyframes ring{0%{transform:scale(.75);opacity:.7}100%{transform:scale(1.25);opacity:0}}
-  .ttl{flex:1;min-width:0}
-  .ttl .h{font-size:14.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ttl .m{font-size:11.5px;color:#93a1b4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
-  .pchip{font-size:10px;font-weight:800;color:var(--c);border:1px solid var(--c);border-radius:20px;padding:2px 7px;flex-shrink:0}
-  .body{display:flex;gap:10px;padding:2px 14px 8px;flex:1;min-height:0}
-  .thumb{width:74px;height:56px;border-radius:8px;object-fit:cover;background:#0a0d12;border:1px solid rgba(255,255,255,.08);flex-shrink:0;display:none}
-  .det{font-size:12px;color:#b8c2d0;line-height:1.4;overflow:hidden}
-  .foot{display:flex;gap:8px;padding:8px 12px 12px;-webkit-app-region:no-drag}
-  .b{flex:1;border:none;border-radius:9px;padding:9px;font-size:12.5px;font-weight:700;cursor:pointer}
-  .b.see{background:linear-gradient(135deg,#3b82f6,#22d3ee);color:#fff}
-  .b.mute{background:rgba(255,255,255,.08);color:#cdd7e4;border:1px solid rgba(255,255,255,.12)}
+  .ttl{flex:1;min-width:0;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  .ttl .h{font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+  .ttl .m{font-size:11.5px;color:#cdd7e4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+  .pchip{font-size:10px;font-weight:800;color:#fff;background:var(--c);border-radius:20px;padding:3px 9px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.5)}
+  .time{position:absolute;top:12px;right:14px;z-index:4;font-size:10px;color:#e6edf6;opacity:.85;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+  .det{font-size:12px;color:#e6edf6;line-height:1.4;margin-bottom:9px;text-shadow:0 1px 3px rgba(0,0,0,.85);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .anatag{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:700;color:#ffd27a;
+    background:rgba(0,0,0,.4);border:1px solid rgba(245,185,69,.5);border-radius:20px;padding:2px 7px;margin-bottom:8px}
+  .foot{display:flex;gap:8px;pointer-events:auto;-webkit-app-region:no-drag}
+  .b{flex:1;border:none;border-radius:9px;padding:9px;font-size:12.5px;font-weight:800;cursor:pointer}
+  .b.see{background:linear-gradient(135deg,#3b82f6,#22d3ee);color:#fff;box-shadow:0 2px 8px rgba(34,211,238,.35)}
+  .b.mute{background:rgba(20,26,36,.85);color:#cdd7e4;border:1px solid rgba(255,255,255,.16)}
   .b:hover{filter:brightness(1.08)}
-  .time{position:absolute;top:12px;right:14px;font-size:10px;color:#6b7788}
 </style></head><body>
   <div class="card" id="card">
+    <div class="shotwrap" id="shotwrap">
+      <img class="shot" id="shot" alt=""/>
+      <div class="noshot" id="noshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
+      <svg class="anov" id="anov" preserveAspectRatio="none" aria-hidden="true"></svg>
+    </div>
     <div class="bar" id="bar"></div>
-    <div class="top">
+    <div class="time" id="time"></div>
+    <div class="scrim scrim--top">
       <div class="pri" id="pri"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg></div>
       <div class="ttl"><div class="h" id="h">Evento</div><div class="m" id="m"></div></div>
       <div class="pchip" id="pchip">P5</div>
     </div>
-    <div class="body"><img class="thumb" id="thumb" alt=""/><div class="det" id="det"></div></div>
-    <div class="foot"><button class="b see" id="see">Ver en consola</button><button class="b mute" id="mute">Silenciar</button></div>
+    <div class="scrim scrim--bot">
+      <span class="anatag" id="anatag" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M7 12h10M11 18h2"/></svg> <span id="anatag-n"></span></span>
+      <div class="det" id="det"></div>
+      <div class="foot"><button class="b see" id="see">Ver en consola</button><button class="b mute" id="mute">Silenciar</button></div>
+    </div>
   </div>
 <script>
   const $=(id)=>document.getElementById(id);
   const P=window.popupApi;
-  let curId=null, ac=null, timer=null, autoClose=null;
+  let curId=null, ac=null, timer=null, autoClose=null, curRules=null, curSpace=1000, curTrig=null;
   const COLORS={1:'#e5484d',2:'#f5a524',3:'#3b82f6',4:'#22d3ee',5:'#8b97a8'};
   const LABEL={access_granted:'Acceso concedido',access_denied:'Acceso denegado',alarm:'ALARMA',tamper_alarm:'Sabotaje',door_held:'Puerta abierta',door_forced:'Puerta forzada',doorbell:'Llamada de portero',motion:'Movimiento',line_crossing:'Cruce de línea',intrusion:'Intrusión'};
 
@@ -65,8 +88,37 @@
   }
   function fmtTime(iso){ try{ return new Date(iso).toLocaleTimeString('es-UY',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }catch{ return ''; } }
 
+  // Dibuja las analíticas sobre la foto, alineadas al rect real de la imagen
+  // (object-fit: cover → escala = max, con recorte). Hik: origen abajo-izq → invierte Y.
+  function layoutOverlay(){
+    const anov=$('anov'), im=$('shot');
+    if(!curRules||!curRules.length||!im.naturalWidth||im.style.display==='none'){ anov.style.display='none'; return; }
+    const wrap=$('shotwrap').getBoundingClientRect();
+    const scale=Math.max(wrap.width/im.naturalWidth, wrap.height/im.naturalHeight);
+    const dw=im.naturalWidth*scale, dh=im.naturalHeight*scale;
+    const ox=(wrap.width-dw)/2, oy=(wrap.height-dh)/2;
+    const s=curSpace||1000;
+    anov.style.display='block';
+    anov.style.left=ox+'px'; anov.style.top=oy+'px'; anov.style.width=dw+'px'; anov.style.height=dh+'px';
+    anov.setAttribute('viewBox','0 0 '+s+' '+s);
+    const fy=(y)=>s-y;
+    let svg='<defs><marker id="ar" markerWidth="9" markerHeight="9" refX="6.5" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 Z" fill="#f5b945"/></marker></defs>';
+    for(const r of curRules){
+      const hot=curTrig!=null && String(r.id)===String(curTrig);
+      const pts=r.points||[];
+      if(r.type==='line' && pts.length>=2){
+        svg+='<line class="'+(hot?'hot':'')+'" marker-end="url(#ar)" x1="'+pts[0].x+'" y1="'+fy(pts[0].y)+'" x2="'+pts[1].x+'" y2="'+fy(pts[1].y)+'"/>';
+      } else if(pts.length>=3){
+        svg+='<polygon class="'+(hot?'hot':'')+'" points="'+pts.map(p=>p.x+','+fy(p.y)).join(' ')+'"/>';
+      }
+    }
+    anov.innerHTML=svg;
+  }
+  window.addEventListener('resize', layoutOverlay);
+
   function render(ev){
     curId=ev.id||null;
+    curRules=Array.isArray(ev.rules)?ev.rules:null; curSpace=ev.space||1000; curTrig=ev.triggerId!=null?ev.triggerId:null;
     const c=COLORS[ev.priority]||COLORS[5], crit=(ev.priority??5)<=2;
     document.documentElement.style.setProperty('--c',c);
     $('bar').className='bar'+(crit?' crit':''); $('pri').className='pri'+(crit?' crit':'');
@@ -74,9 +126,16 @@
     $('m').textContent=[ev.site,ev.device].filter(Boolean).join(' · ')||'—';
     $('pchip').textContent='P'+(ev.priority??5);
     $('det').textContent=ev.detail||'';
-    const th=$('thumb'); if(ev.snapshot){ th.src=ev.snapshot; th.style.display='block'; th.onerror=()=>{th.style.display='none';}; } else { th.style.display='none'; }
-    const t=document.createElement('div'); t.className='time'; t.textContent=fmtTime(ev.ts);
-    const old=document.querySelector('.time'); if(old) old.remove(); $('card').appendChild(t);
+    $('time').textContent=fmtTime(ev.ts);
+    const th=$('shot'), ns=$('noshot');
+    if(ev.snapshot){
+      th.onload=()=>{ th.style.display='block'; ns.style.display='none'; layoutOverlay(); };
+      th.onerror=()=>{ th.style.display='none'; ns.style.display='grid'; $('anov').style.display='none'; };
+      th.src=ev.snapshot;
+    } else { th.style.display='none'; ns.style.display='grid'; $('anov').style.display='none'; }
+    const n=curRules?curRules.length:0;
+    if(n){ $('anatag').style.display='inline-flex'; $('anatag-n').textContent=n+' analítica'+(n===1?'':'s'); layoutOverlay(); }
+    else $('anatag').style.display='none';
     if(ev.sound!==false) siren(ev.priority); else stopSiren();
     if(autoClose) clearTimeout(autoClose);
     if(!crit) autoClose=setTimeout(()=>{ stopSiren(); P&&P.dismiss(); }, 12000); // los no-críticos se cierran solos

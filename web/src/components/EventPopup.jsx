@@ -6,9 +6,11 @@ import NvrPlayback from './NvrPlayback.jsx'
 import ClientPanel from './ClientPanel.jsx'
 import { useCameraAnalytics, AnalyticsOverlay } from './CameraLive.jsx'
 import { fetchProcedure, getProcedureFallback } from '../lib/procedures.js'
+import { apiFetch } from '../lib/eventsApi.js'
 import { Badge, Button, Icon, PriorityDot, Segmented, Select, TextInput } from '../ui/primitives.jsx'
 import {
   CATEGORY_LABEL,
+  DISPOSITION_LABEL,
   LOG_ACTION_LABEL,
   PRIORITY_LABEL,
   STATUS_LABEL,
@@ -18,6 +20,9 @@ import {
   sourceLine,
   timeAgo,
 } from '../lib/format.js'
+
+// Disposiciones posibles al resolver un evento (mismo orden que el checklist).
+const DISPOSITIONS = ['real', 'false_alarm', 'test', 'no_action']
 import { targetLabel, TARGET_ICON, TARGET_TONE } from '../lib/labels.js'
 
 // Centro de Verificación en Vivo — modal SOC de gran formato (modal--xl).
@@ -41,31 +46,18 @@ const STATUS_TONE = {
 function EvidenceView({ event, url }) {
   const target = event && event.target
   const deviceId = event && event.source && event.source.deviceId
-  const stageRef = useRef(null)
-  const imgRef = useRef(null)
-  const [box, setBox] = useState(null)
+  // El marco adopta la relación de aspecto REAL de la foto (igual que el visor en
+  // vivo). Así la imagen no se deforma y el overlay de analíticas se dibuja sobre el
+  // mismo cuadro que la cámara/NVR → sin corrimientos. Se enciende con el chip.
+  const [aspect, setAspect] = useState(null)
+  const [showAna, setShowAna] = useState(false)
   const ana = useCameraAnalytics(deviceId, !!deviceId)
   const rules = ana && ana.rules && ana.rules.length ? ana.rules : null
-  const recompute = () => {
-    const st = stageRef.current, im = imgRef.current
-    if (!st || !im || !im.naturalWidth) return
-    const sr = st.getBoundingClientRect(), ir = im.getBoundingClientRect()
-    const scale = Math.min(ir.width / im.naturalWidth, ir.height / im.naturalHeight)
-    const pw = im.naturalWidth * scale, ph = im.naturalHeight * scale
-    setBox({ left: (ir.left - sr.left) + (ir.width - pw) / 2, top: (ir.top - sr.top) + (ir.height - ph) / 2, width: pw, height: ph })
-  }
-  useEffect(() => {
-    recompute()
-    const st = stageRef.current
-    if (!st || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => recompute()); ro.observe(st)
-    return () => ro.disconnect()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [box && box.width ? null : 0])
+  const onImgLoad = (e) => { const im = e.currentTarget; if (im.naturalWidth && im.naturalHeight) setAspect(`${im.naturalWidth} / ${im.naturalHeight}`) }
   const [imgs, setImgs] = useState(null)
   const [idx, setIdx] = useState(0)
   const [busy, setBusy] = useState(false)
-  const reload = () => fetch(`/api/events/${event.id}/evidence`).then((r) => r.json()).then((d) => setImgs(Array.isArray(d.images) ? d.images : [])).catch(() => setImgs([]))
+  const reload = () => apiFetch(`/api/events/${event.id}/evidence`).then((r) => r.json()).then((d) => setImgs(Array.isArray(d.images) ? d.images : [])).catch(() => setImgs([]))
   useEffect(() => { reload() }, [event && event.id])
   const gallery = (imgs && imgs.length) ? imgs : (url ? [{ url, ts: event && event.ts ? new Date(event.ts).getTime() : 0 }] : [])
   const cur = Math.min(idx, Math.max(0, gallery.length - 1))
@@ -73,7 +65,7 @@ function EvidenceView({ event, url }) {
   const capture = async () => {
     if (!deviceId || busy) return
     setBusy(true)
-    try { const r = await fetch(`/api/events/${event.id}/evidence/capture`, { method: 'POST' }); if (r.ok) { await reload(); setIdx(999) } } finally { setBusy(false) }
+    try { const r = await apiFetch(`/api/events/${event.id}/evidence/capture`, { method: 'POST' }); if (r.ok) { await reload(); setIdx(999) } } finally { setBusy(false) }
   }
   if (!main) {
     return (
@@ -88,13 +80,17 @@ function EvidenceView({ event, url }) {
     )
   }
   return (
-    <div className={`evidence${rules ? ' evidence--ana' : ''}`} ref={stageRef}>
-      <img ref={imgRef} className="evidence__img" src={main} alt="Foto de evidencia del evento" onLoad={recompute} />
-      {rules && box && (
-        <div className="evidence__anabox" style={{ left: box.left, top: box.top, width: box.width, height: box.height }}>
-          <AnalyticsOverlay rules={rules} space={(ana && ana.space) || 1000} />
+    <div className={`evidence${rules && showAna ? ' evidence--ana' : ''}`}>
+      <div className="evidence__stage">
+        <div className="evidence__frame" style={aspect ? { aspectRatio: aspect } : undefined}>
+          <img className="evidence__img" src={main} alt="Foto de evidencia del evento" onLoad={onImgLoad} />
+          {rules && showAna && (
+            <div className="evidence__anabox">
+              <AnalyticsOverlay rules={rules} space={(ana && ana.space) || 1000} />
+            </div>
+          )}
         </div>
-      )}
+      </div>
       {gallery.length > 1 && (
         <div className="evidence__thumbs">
           {gallery.map((g, i) => (
@@ -106,7 +102,7 @@ function EvidenceView({ event, url }) {
       )}
       <div className="evidence__cap">
         <span className="evidence__tag"><Icon name="camera" size={13} /> Fotos del caso ({gallery.length})</span>
-        {rules && <span className="evidence__anatag"><Icon name="filter" size={12} /> {rules.length} analítica{rules.length === 1 ? '' : 's'}</span>}
+        {rules && <button type="button" className={`evidence__anatag${showAna ? ' is-on' : ''}`} onClick={() => setShowAna((v) => !v)} title={showAna ? 'Ocultar analíticas dibujadas (pueden no coincidir con esta foto)' : 'Superponer las analíticas dibujadas de la cámara'}><Icon name="filter" size={12} /> {rules.length} analítica{rules.length === 1 ? '' : 's'}</button>}
         {event && event.ts && <span className="evidence__time"><Icon name="clock" size={12} /> <span className="tnum">{formatTime(event.ts)}</span></span>}
         <span className="evidence__cap-spacer" />
         {deviceId && <button type="button" className="evidence__act evidence__act--cap" onClick={capture} disabled={busy}><Icon name="camera" size={13} /> {busy ? 'Capturando…' : 'Capturar'}</button>}
@@ -116,13 +112,17 @@ function EvidenceView({ event, url }) {
   )
 }
 
-export default function EventPopup({ event, operator, actions, onClose, supervise = false }) {
+export default function EventPopup({ event, operator, actions, onClose, supervise = false, queuePos = null, onNav = null }) {
   const [procedure, setProcedure] = useState(() =>
     getProcedureFallback(event && event.procedureId)
   )
   const [note, setNote] = useState('')
+  const [disposition, setDisposition] = useState('')
   const [groups, setGroups] = useState([])
   const [groupSel, setGroupSel] = useState('')
+  // Modo INTERVENCIÓN: se activa al confirmar la alarma como REAL. Cambia la
+  // experiencia (banner + controles de disuasión foregrounded) sin cerrar el popup.
+  const [intervene, setIntervene] = useState(false)
   const evidenceUrl = (event && event.media && (event.media.evidenceUrl || event.media.snapshotUrl)) || null
   // ¿El evento viene de una cámara? Las centrales de alarma NO (su deviceId es el
   // panel) → sin pestañas de vivo/grabación, solo evidencia.
@@ -203,29 +203,33 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
     // El clic fuera NO cierra el Centro de Verificación: solo la cruz (o Escape).
     <div className="modal-scrim">
       <div
-        className="glass glass--strong modal modal--xl evpopup"
+        className={`glass glass--strong modal modal--xl evpopup${intervene ? ' evpopup--intervene' : ''}`}
         style={{ '--accent-prio': `var(--${pc})` }}
         role="dialog"
         aria-modal="true"
         aria-label="Centro de Verificación en Vivo"
       >
-        <header className="evpopup__head">
-          <span className="evpopup__brand">
-            <Icon name="video" size={17} />
-            Centro de Verificación en Vivo
-          </span>
-          <span className="evpopup__head-spacer" />
-          <span className="evpopup__time tnum">{timeAgo(event.ts)}</span>
-          <button
-            className="icon-btn icon-btn--md btn--ghost"
-            onClick={onClose}
-            aria-label="Cerrar"
-          >
-            <Icon name="x" size={18} />
-          </button>
-        </header>
+        {/* Navegación por la cola (‹ N/total ›): procesar eventos sin cerrar el modal. */}
+        {queuePos && onNav && (
+          <div className="evpopup__nav" role="group" aria-label="Navegar en la cola">
+            <button type="button" onClick={() => onNav(-1)} disabled={queuePos.index <= 0} title="Anterior" aria-label="Anterior"><Icon name="chevronleft" size={16} /></button>
+            <span className="evpopup__navpos tnum">{queuePos.index + 1}/{queuePos.total}</span>
+            <button type="button" onClick={() => onNav(1)} disabled={queuePos.index >= queuePos.total - 1} title="Siguiente" aria-label="Siguiente"><Icon name="chevronright" size={16} /></button>
+          </div>
+        )}
+        {/* Cierre FLOTANTE (sin barra de título): la ventana es el video mismo. */}
+        <button
+          className="evpopup__close"
+          onClick={onClose}
+          aria-label="Cerrar"
+          title="Cerrar (Esc)"
+        >
+          <Icon name="x" size={16} />
+        </button>
 
-        <div className="evpopup__body">
+        {/* La columna de operación (der.) aparece SOLO en la tab Evidencia; en
+            En vivo / Grabación el muro de video ocupa todo el ancho. */}
+        <div className={`evpopup__body${(mode !== 'evidence' && !intervene) ? ' evpopup__body--wide' : ''}`}>
           {/* IZQUIERDA — Muro de video (o playback del NVR) */}
           <div className="evpopup__wall">
             <div className="evpopup__tabs">
@@ -234,13 +238,14 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
                 ...(hasCamera ? [{ value: 'live', label: 'En vivo' }, { value: 'rec', label: 'Grabación' }] : []),
               ]} />
             </div>
-            {mode === 'rec'
-              ? <NvrPlayback event={event} onClose={() => setMode('live')} />
-              : mode === 'evidence'
-                ? <EvidenceView event={event} url={evidenceUrl} />
-                : <CameraWall event={event} />}
-            {!supervise && <RelayBar deviceId={event.source && event.source.deviceId} closed={closed}
-              operatorId={(operator && operator.id) || 'operator'} />}
+            {/* Panel con transición al cambiar de tab (fade + leve subida). */}
+            <div className="evpopup__pane" key={mode}>
+              {mode === 'rec'
+                ? <NvrPlayback event={event} onClose={() => setMode('live')} />
+                : mode === 'evidence'
+                  ? <EvidenceView event={event} url={evidenceUrl} />
+                  : <CameraWall event={event} />}
+            </div>
           </div>
 
           {/* DERECHA — Operación */}
@@ -266,9 +271,33 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
 
             <h2 className="evpopup__title">{event.title || event.type}</h2>
 
+            {/* MODO INTERVENCIÓN — al confirmar alarma real. Foregroundea disuasión:
+                relés/sirena (muro de video) + parlantes SIP del cliente (abajo). */}
+            {intervene && !supervise && (
+              <div className="evintervene" role="alert">
+                <div className="evintervene__hd">
+                  <span className="evintervene__pulse" aria-hidden="true" />
+                  <Icon name="alert" size={16} /> Alarma REAL confirmada · Intervención
+                </div>
+                <p className="evintervene__lead">Disuadí al intruso: accioná <b>sirena / relé</b> (en el panel de video) y <b>hablá por el parlante</b> del cliente. Todo queda en la bitácora.</p>
+                <div className="evintervene__acts">
+                  <a className="evintervene__act" href="#evpopup-relays"><Icon name="route" size={14} /> Ir a relés / sirena</a>
+                  <a className="evintervene__act" href="#evpopup-speakers"><Icon name="phone" size={14} /> Parlantes SIP</a>
+                  <button type="button" className="evintervene__done" onClick={() => { actions.resolve(event.id, 'real', note.trim() || undefined); onClose() }}>
+                    <Icon name="check" size={14} /> Finalizar y resolver
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* CLIENTE · RESPUESTA arriba: lo PRIMERO que el operador necesita
                 (a quién llamar, protocolo, dirección) en un evento. */}
-            <ClientPanel event={event} actions={actions} critical={p <= 2} />
+            <div id="evpopup-speakers"><ClientPanel event={event} actions={actions} critical={p <= 2 || intervene} /></div>
+
+            {/* Relés / puertas: ahora en la columna de operación (ya NO flotando a
+                la derecha del video, donde chocaba con la columna Perímetro). */}
+            {!supervise && <div id="evpopup-relays"><RelayBar deviceId={event.source && event.source.deviceId} closed={closed}
+              operatorId={(operator && operator.id) || 'operator'} /></div>}
 
             {supervise && (
               <div className="evpopup__superbanner"><Icon name="gauge" size={14} /> Vista de supervisión · solo lectura, podés reasignar</div>
@@ -278,12 +307,14 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
             <p className="evpopup__sec-lbl"><Icon name="bolt" size={13} /> Gestión del evento
               <span className="evpopup__kbdhint" title="Atajos: T Tomar (pasa a en curso) · E Escalar · Esc Cerrar"><b>T</b><b>E</b></span>
             </p>
+            {/* Acciones agrupadas: Tomar · Escalar · Alarma real · Falsa alarma.
+                Resolver (real/falsa) cierra el popup y vuelve a la lista. */}
             <div className={`evpopup__actions${(!mine && !assignedToOther && !closed) ? ' evpopup__actions--take' : ''}`}>
               <Button
                 variant="primary"
                 icon="check"
                 className="evpopup__take"
-                data-tip="Te asignás el evento y pasa a EN CURSO · atajo T"
+                data-tip="Te asignás el evento (queda a tu nombre) y pasa a EN CURSO · atajo T"
                 disabled={closed || mine || assignedToOther}
                 onClick={() => { actions.claim(event.id); actions.progress(event.id, note.trim() || undefined) }}
               >
@@ -298,6 +329,31 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
               >
                 Escalar
               </Button>
+              <Button
+                variant="secondary"
+                icon="alert"
+                className="evpopup__resolve evpopup__resolve--real"
+                data-tip="Confirmar ALARMA REAL y pasar a modo intervención (disuasión / llamada)"
+                disabled={closed || intervene}
+                onClick={() => {
+                  if (!mine && !assignedToOther) actions.claim(event.id)
+                  actions.progress && actions.progress(event.id)
+                  actions.note(event.id, 'Alarma confirmada REAL — intervención iniciada')
+                  setIntervene(true)
+                }}
+              >
+                {intervene ? 'En intervención' : 'Alarma real'}
+              </Button>
+              <Button
+                variant="secondary"
+                icon="check"
+                className="evpopup__resolve evpopup__resolve--false"
+                data-tip="Resolver como FALSA alarma y cerrar"
+                disabled={closed}
+                onClick={() => { actions.resolve(event.id, 'false_alarm', note.trim() || undefined); onClose() }}
+              >
+                Falsa alarma
+              </Button>
             </div>
 
             <div className="evpopup__noterow">
@@ -311,6 +367,25 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
               />
               <Button variant="secondary" data-tip="Agregás una nota a la bitácora del evento" onClick={sendNote} disabled={closed || !note.trim()}>
                 Nota
+              </Button>
+            </div>
+
+            {/* Resolver con disposición — dentro de Gestión del evento. La nota de
+                arriba se usa como nota de cierre. Al resolver, cierra el popup. */}
+            <div className="evpopup__resolverow">
+              <Select value={disposition} onChange={(e) => setDisposition(e.target.value)} disabled={closed}>
+                <option value="">Disposición…</option>
+                {DISPOSITIONS.map((d) => <option key={d} value={d}>{DISPOSITION_LABEL[d]}</option>)}
+              </Select>
+              <Button
+                variant="danger"
+                icon="check"
+                className="evpopup__resolvebtn"
+                data-tip={disposition ? 'Resolver el evento con la disposición elegida y cerrar' : 'Elegí una disposición para resolver'}
+                disabled={closed || !disposition}
+                onClick={() => { actions.resolve(event.id, disposition, note.trim() || undefined); onClose() }}
+              >
+                Resolver
               </Button>
             </div>
             </>)}
@@ -336,9 +411,6 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
                 procedure={procedure}
                 eventId={event.id}
                 onStepNote={(text) => actions.note(event.id, text)}
-                onResolve={(disposition, closeNote) =>
-                  actions.resolve(event.id, disposition, closeNote || undefined)
-                }
               />
             )}
 
@@ -405,11 +477,16 @@ function Meta({ label, value }) {
   )
 }
 
-// RelayBar — permite al operador accionar los relés/puertas del dispositivo del
-// evento sin salir de la consola. Lista las salidas del equipo y las dispara.
+// RelayBar — control de puertas/relés como ICONOGRAFÍA: cada salida es un botón
+// redondo (icono de puerta) que, al presionarse, se ANIMA y pide CONFIRMACIÓN
+// inline (¿Abrir? ✓/✕) antes de accionar la salida física. Al confirmar, el
+// botón pulsa en verde y muestra el check de "abierta". Nada se dispara sin ese
+// segundo toque del operador — la acción física siempre es deliberada.
 function RelayBar({ deviceId, closed, operatorId }) {
   const [outputs, setOutputs] = useState(null)
-  const [busy, setBusy] = useState('')
+  const [busy, setBusy] = useState('')        // id accionándose
+  const [confirmId, setConfirmId] = useState(null) // id esperando confirmación
+  const [done, setDone] = useState('')        // id recién abierto (pulso verde)
   const [msg, setMsg] = useState(null)
   useEffect(() => {
     if (!deviceId) { setOutputs([]); return }
@@ -422,35 +499,61 @@ function RelayBar({ deviceId, closed, operatorId }) {
   }, [deviceId])
   if (!deviceId || !outputs || outputs.length === 0) return null
 
+  const ask = (id) => { setMsg(null); setConfirmId(id) }
+  const cancel = () => setConfirmId(null)
+
   const fire = async (o, id) => {
-    if (!window.confirm(`¿Abrir "${o.name || 'salida ' + id}" ahora? Acciona la salida física del equipo.`)) return
-    setBusy(id); setMsg(null)
+    setConfirmId(null); setBusy(id); setMsg(null)
     try {
       const res = await fetch(`/api/device/${deviceId}/relay`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ output: id, cmd: o.kind || 'open', confirmed: true, operatorId }),
       })
       const d = await res.json().catch(() => ({}))
-      setMsg(d && d.ok ? { ok: true, t: `Accionado: ${o.name || 'salida ' + id}` } : { ok: false, t: `No respondió OK (${(d && (d.status || d.error)) || '—'})` })
+      const ok = !!(d && d.ok)
+      if (ok) { setDone(id); setTimeout(() => setDone((c) => (c === id ? '' : c)), 1800) }
+      setMsg(ok ? { ok: true, t: `Abierta: ${o.name || 'salida ' + id}` } : { ok: false, t: `No respondió OK (${(d && (d.status || d.error)) || '—'})` })
     } catch (e) { setMsg({ ok: false, t: e.message || 'No se pudo accionar' }) }
     finally { setBusy('') }
   }
 
   return (
-    <div className="evpopup__relays">
-      <span className="evpopup__sec-lbl"><Icon name="route" size={13} /> Relés / puertas</span>
-      <div className="evpopup__relay-row">
+    <div className="evrelays" role="group" aria-label="Relés y puertas">
+      <span className="evrelays__hd"><Icon name="route" size={13} /> Puertas</span>
+      <div className="evrelays__list">
         {outputs.map((o, i) => {
           const id = String(o.id != null ? o.id : (o.output != null ? o.output : i + 1))
+          const label = o.name || `Salida ${id}`
+          const isConfirm = confirmId === id
+          const isBusy = busy === id
+          const isDone = done === id
           return (
-            <Button key={i} variant="secondary" icon="route" disabled={closed || busy === id}
-              data-tip="Acciona la salida física del equipo (abrir puerta / relé)" onClick={() => fire(o, id)}>
-              {busy === id ? 'Accionando…' : (o.name || `Salida ${id}`)}
-            </Button>
+            <div key={i} className={`evrelay${isConfirm ? ' is-confirm' : ''}${isBusy ? ' is-busy' : ''}${isDone ? ' is-done' : ''}`}>
+              {isConfirm ? (
+                <div className="evrelay__confirm" role="group" aria-label={`Confirmar apertura de ${label}`}>
+                  <span className="evrelay__q">¿Abrir {label}?</span>
+                  <button type="button" className="evrelay__yes" onClick={() => fire(o, id)} aria-label="Confirmar apertura" data-tip="Confirmar — acciona la salida física">
+                    <Icon name="check" size={16} />
+                  </button>
+                  <button type="button" className="evrelay__no" onClick={cancel} aria-label="Cancelar" data-tip="Cancelar">
+                    <Icon name="x" size={16} />
+                  </button>
+                </div>
+              ) : (
+                <button type="button" className="evrelay__btn" disabled={closed || isBusy}
+                  onClick={() => ask(id)} title={`Abrir ${label}`}
+                  data-tip="Abrir puerta / accionar relé (pide confirmación)">
+                  <span className="evrelay__ic" aria-hidden="true">
+                    <Icon name={isDone ? 'check' : 'route'} size={19} />
+                  </span>
+                  <span className="evrelay__lbl">{isBusy ? 'Accionando…' : isDone ? 'Abierta' : label}</span>
+                </button>
+              )}
+            </div>
           )
         })}
       </div>
-      {msg && <span className={`evpopup__relay-msg ${msg.ok ? 'is-ok' : 'is-err'}`}>{msg.t}</span>}
+      {msg && <span className={`evrelay__msg ${msg.ok ? 'is-ok' : 'is-err'}`}>{msg.t}</span>}
     </div>
   )
 }

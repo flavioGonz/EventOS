@@ -115,11 +115,13 @@ function xmlTag(xml, tag) { const m = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${t
 async function identifyHik(host, port, user, pass) {
   try {
     const r = await digestGetBuffer({ host, port, path: "/ISAPI/System/deviceInfo", user, pass, timeoutMs: 3500 });
-    if (r.status !== 200) return r.status === 401 ? { vendor: "Hikvision", auth: true } : null;
+    // 401 = ISAPI presente pero las credenciales no autenticaron (o faltan).
+    if (r.status !== 200) return r.status === 401 ? { vendor: "Hikvision", auth: "need" } : null;
     const xml = r.buffer.toString("utf8");
     const dt = (xmlTag(xml, "deviceType") || "").toLowerCase();
     const type = /nvr|dvr|recorder/.test(dt) ? "nvr" : "camera";
-    return { vendor: "Hikvision", model: xmlTag(xml, "model"), name: xmlTag(xml, "deviceName"), fw: xmlTag(xml, "firmwareVersion"), type };
+    return { vendor: "Hikvision", model: xmlTag(xml, "model"), name: xmlTag(xml, "deviceName"),
+      fw: xmlTag(xml, "firmwareVersion"), mac: xmlTag(xml, "macAddress"), serial: xmlTag(xml, "serialNumber"), type, auth: "ok" };
   } catch { return null; }
 }
 // ¿El :80 habla ISAPI? Sonda SIN credenciales: una cámara/NVR Hik responde 401
@@ -166,14 +168,16 @@ export async function scan({ base, from = 1, to = 254, user = "", pass = "", onv
     const ports = new Set(tcp.get(ip) || []);
     const wsi = ws.get(ip);
     if (wsi && wsi.port) ports.add(wsi.port);
-    let isapi = false, vendor = null, model = null, name = null, type = null, fw = null;
+    let isapi = false, vendor = null, model = null, name = null, type = null, fw = null, mac = null, serial = null, auth = null;
     if (ports.has(80)) {
       isapi = await isapiProbe(ip, 80);
       if (isapi && (user || pass)) {
         const hik = await identifyHik(ip, 80, user, pass);
-        if (hik) { vendor = hik.vendor; model = hik.model || null; name = hik.name || null; type = hik.type || null; fw = hik.fw || null; }
+        if (hik) { vendor = hik.vendor; model = hik.model || null; name = hik.name || null; type = hik.type || null; fw = hik.fw || null; mac = hik.mac || null; serial = hik.serial || null; auth = hik.auth || null; }
       }
       if (isapi && !vendor) vendor = "Hikvision";
+      // ISAPI presente pero sin identificar con las credenciales → necesita login.
+      if (isapi && !auth) auth = "need";
     }
     // ONVIF: vendor/modelo/nombre/tipo desde los scopes.
     if (!vendor && wsi) {
@@ -194,7 +198,7 @@ export async function scan({ base, from = 1, to = 254, user = "", pass = "", onv
     if (wsi) via.push("onvif");
     if (isapi) via.push("isapi");
     if (ports.has(554)) via.push("rtsp");
-    return { ip, ports: [...ports].sort((a, b) => a - b), vendor, model: model || null, name: name || null, type, fw: fw || null, via };
+    return { ip, ports: [...ports].sort((a, b) => a - b), vendor, model: model || null, name: name || null, type, fw: fw || null, mac: mac || null, serial: serial || null, auth, via };
   }, 16);
 
   hosts.sort((a, b) => {

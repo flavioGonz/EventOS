@@ -96,6 +96,26 @@ export async function deviceTimeOffsetMs(dev) {
   return off;
 }
 
+// GOP (ms entre I-frames) del stream principal de un canal, para anclar el playback
+// al keyframe exacto ≤ instante pedido → seek de precisión de frame (como iVMS).
+// gopMs = GovLength(frames) / fps * 1000. Cacheado por equipo:canal. Fallback 2000.
+const gopCache = new Map();
+export async function deviceGopMs(dev, ch) {
+  const key = `${dev.ip}:${dev.isapiPort}:${ch}`;
+  if (gopCache.has(key)) return gopCache.get(key);
+  let gop = 2000;
+  try {
+    const r = await authedText(dev, "GET", `/ISAPI/Streaming/channels/${ch}01`);
+    const gov = Number((/(?:<GovLength>)(\d+)(?:<\/GovLength>)/i.exec(r.text || "") || [])[1]);
+    const fr = Number((/(?:<maxFrameRate>)(\d+)(?:<\/maxFrameRate>)/i.exec(r.text || "") || [])[1]); // centi-fps
+    const fps = fr > 0 ? fr / 100 : 25;
+    if (gov > 0 && fps > 0) gop = Math.round((gov / fps) * 1000);
+  } catch { /* fallback 2000 */ }
+  if (!(gop >= 200 && gop <= 10000)) gop = 2000;
+  gopCache.set(key, gop);
+  return gop;
+}
+
 // Busca el segmento grabado que cubre `startMs` para el track. null si no hay.
 export async function searchSegment(dev, trackId, startMs, endMs) {
   const sx =

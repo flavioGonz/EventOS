@@ -16,9 +16,20 @@ try {
   }
 } catch { /* sin operario inyectado (login/splash) */ }
 
+// Preferencias de video del cliente (calidad/maxLive) inyectadas por main.js.
+let _vprefs = null;
+try {
+  const a = (process.argv || []).find((s) => typeof s === 'string' && s.startsWith('--eventos-vprefs='));
+  if (a) _vprefs = JSON.parse(Buffer.from(a.slice('--eventos-vprefs='.length), 'base64').toString('utf8'));
+} catch { _vprefs = null; }
+
 contextBridge.exposeInMainWorld('eventosDesktop', {
   isDesktop: true,
-  version: 2,
+  version: 3,
+  // Overrides de video por puesto (la web los aplica sobre la config del server).
+  videoPrefs: _vprefs,
+  // La web reporta cuántos flujos en vivo hay activos (para el HUD de rendimiento).
+  reportLive: (active, max) => ipcRenderer.send('client:live-count', { active, max }),
   // Notificación nativa del SO.
   notify: (title, body) => ipcRenderer.send('eventos:notify', { title, body }),
   // Abrir una ruta de EventOS en otra ventana/monitor.
@@ -45,4 +56,40 @@ contextBridge.exposeInMainWorld('eventosDesktop', {
     logout: () => ipcRenderer.invoke('auth:logout'),
   },
   getConfig: () => ipcRenderer.invoke('cfg:get'),
+  // Perfiles de servidor (multi-servidor local, por operador).
+  servers: {
+    get: () => ipcRenderer.invoke('servers:get'),
+    add: (name, url) => ipcRenderer.invoke('servers:add', { name, url }),
+    remove: (id) => ipcRenderer.invoke('servers:remove', id),
+    select: (url) => ipcRenderer.invoke('servers:select', url),
+  },
+  // Insignia de alarmas pendientes en la barra de tareas (la web informa el conteo).
+  setBadge: (count) => ipcRenderer.send('eventos:badge', count),
+  // Configuración NATIVA del cliente de escritorio (NO abre /admin del sistema).
+  openSettings: () => ipcRenderer.send('client:open-settings'),
+  // Controles de la ventana sin marco (login / settings).
+  win: {
+    minimize: () => ipcRenderer.send('win:minimize'),
+    close: () => ipcRenderer.send('win:close'),
+  },
+  client: {
+    get: () => ipcRenderer.invoke('client:get'),
+    set: (patch) => ipcRenderer.invoke('client:set', patch),
+    restart: () => ipcRenderer.invoke('client:restart'),
+  },
+  // Rendimiento del cliente (CPU/mem): valor puntual + suscripción en vivo.
+  getPerf: () => ipcRenderer.invoke('perf:get'),
+  // Aviso de que el servidor publicó una versión nueva (para banner "sincronizar").
+  onUpdateAvailable: (cb) => {
+    if (typeof cb !== 'function') return () => {};
+    const fn = (_e, info) => cb(info);
+    ipcRenderer.on('client:update-available', fn);
+    return () => ipcRenderer.removeListener('client:update-available', fn);
+  },
+  onPerf: (cb) => {
+    if (typeof cb !== 'function') return () => {};
+    const fn = (_e, p) => cb(p);
+    ipcRenderer.on('perf:tick', fn);
+    return () => ipcRenderer.removeListener('perf:tick', fn);
+  },
 });

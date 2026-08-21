@@ -19,7 +19,7 @@ const KIND = {
 const okStatus = (s) => /succ|éxito|exito|ok|received|dial/i.test(String(s || ''))
 const PER_PAGE = 25
 
-export default function DeviceLogs({ device, isNew }) {
+export default function DeviceLogs({ device, isNew, onCount }) {
   const [data, setData] = useState(undefined)
   const [reloadKey, setReloadKey] = useState(0)
   const [q, setQ] = useState('')
@@ -39,6 +39,8 @@ export default function DeviceLogs({ device, isNew }) {
   }, [device && device.id, isNew, reloadKey])
 
   const entries = (data && data.entries) || []
+  // Reporta el total al padre para el badge numérico de la pestaña.
+  useEffect(() => { if (data && typeof onCount === 'function') onCount(entries.length) }, [data])
 
   // Tipos presentes (para las chips de filtro), con conteo.
   const kindsPresent = useMemo(() => {
@@ -68,10 +70,28 @@ export default function DeviceLogs({ device, isNew }) {
   const slice = filtered.slice(pageSafe * PER_PAGE, pageSafe * PER_PAGE + PER_PAGE)
 
   if (isNew) return <p className="help-block">Guardá el dispositivo para ver su registro.</p>
-  if (data === undefined) return <div className="admin-center"><Spinner size={20} /><span>Cargando registro del dispositivo… (puede tardar unos segundos)</span></div>
+  if (data === undefined) return (
+    <div className="devlogs devlogs--wrap">
+      <div className="devlogs__loading">
+        <span className="devlogs__loading-lbl"><Spinner size={15} /> Leyendo el registro del equipo…</span>
+        <ul className="devlogs__list devlogs__skel" aria-hidden="true">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <li key={i} className="devlog devlog--skel" style={{ animationDelay: `${i * 70}ms` }}>
+              <span className="sk sk--ic" />
+              <span className="sk sk--time" />
+              <span className="sk sk--title" style={{ width: `${38 + ((i * 13) % 34)}%` }} />
+              <span className="devlog__spacer" />
+              <span className="sk sk--src" />
+              <span className="sk sk--ago" />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="devlogs">
+    <div className="devlogs devlogs--wrap">
       <div className="devlogs__bar">
         <span className="devlogs__count"><Icon name="rules" size={14} /> {filtered.length} de {entries.length} {data.native ? '· equipo + eventos' : '· eventos EventOS'}</span>
         <span className="devlogs__spacer" />

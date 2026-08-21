@@ -22,6 +22,38 @@ const CARDS = [
 const openUrl = (r) => (r === 'supervisor' ? '/supervisor?app=supervisor' : '/center?app=operador')
 const installUrl = (r) => `/instalar?app=${r}`
 
+const fmtMB = (b) => (b ? `${(b / 1048576).toFixed(1)} MB` : '')
+
+// Tarjeta de descarga de la app de escritorio Windows (Electron): mini popup de
+// alarma nativo, sonido, multi-monitor. El servidor sirve el .exe más reciente.
+function WindowsAppCard() {
+  const [info, setInfo] = useState(null)
+  useEffect(() => {
+    let alive = true
+    fetch('/api/desktop/latest')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (alive) setInfo(d || { available: false }) })
+      .catch(() => { if (alive) setInfo({ available: false }) })
+    return () => { alive = false }
+  }, [])
+  const isWin = /windows/i.test(navigator.userAgent)
+  return (
+    <div className="pwacard pwacard--win" style={{ '--acc': '#38bdf8' }}>
+      <span className="pwacard__icon"><Icon name="device" size={26} /></span>
+      <h2>App de escritorio · Windows</h2>
+      <p>Consola nativa con popup de alarma emergente (foto + analíticas), sonido, multi-monitor y bandeja. Recomendada para el puesto de operador.{isWin ? '' : ' (Instalador para Windows.)'}</p>
+      <div className="pwacard__actions">
+        {info && info.available
+          ? <a className="pwacard__btn" href={info.url} download><Icon name="expand" size={15} /> Descargar instalador{info.version ? ` · v${info.version}` : ''}</a>
+          : info
+            ? <span className="pwacard__btn pwacard__btn--ghost" aria-disabled="true"><Icon name="clock" size={15} /> Instalador no disponible aún</span>
+            : <span className="pwacard__btn pwacard__btn--ghost" aria-disabled="true">Cargando…</span>}
+        {info && info.available && <span className="pwacard__open">{fmtMB(info.sizeBytes)}{info.builtAt ? ` · ${new Date(info.builtAt).toLocaleDateString()}` : ''}</span>}
+      </div>
+    </div>
+  )
+}
+
 export default function Install() {
   const current = new URLSearchParams(window.location.search).get('app') === 'supervisor' ? 'supervisor' : 'operador'
   const { canInstall, installed, promptInstall } = useInstallPrompt()
@@ -31,7 +63,7 @@ export default function Install() {
   return (
     <div className="pwainstall">
       <header className="pwainstall__head">
-        <span className="pwainstall__logo"><Icon name="bolt" size={22} /></span>
+        <span className="pwainstall__logo"><Icon name="brand" size={22} /></span>
         <div>
           <h1>Instalar EventOS</h1>
           <p>Elegí la app según tu rol. Se instala como aplicación de escritorio, con su propio ícono y ventana.</p>
@@ -58,6 +90,7 @@ export default function Install() {
             </div>
           )
         })}
+        <WindowsAppCard />
       </div>
       {isIOS && <p className="pwainstall__ios"><Icon name="phone" size={14} /> En iPhone/iPad: tocá <b>Compartir</b> → <b>Agregar a inicio</b>.</p>}
       <p className="pwainstall__hint">El botón “Instalar esta app” aparece cuando el navegador lo permite (Chrome/Edge de escritorio). Si no aparece, usá el menú del navegador → <b>Instalar EventOS</b>. Cada rol instala su propia app con su ícono.</p>

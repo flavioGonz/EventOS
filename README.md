@@ -7,9 +7,9 @@
 
 *Recibí, verificá y despachá eventos de seguridad en tiempo real — de cualquier marca, desde una sola consola.*
 
-`Node.js` · `Express` · `Socket.io` · `Redis` · `React` · `Vite` · `Leaflet` · `go2rtc` · `multi-marca`
+`Node.js` · `Express` · `Socket.io` · `Redis` · `PostgreSQL` · `React` · `Vite` · `Leaflet` · `go2rtc` · `multi-marca`
 
-**Versión 1.2.0**
+**Versión 1.5.0**
 
 </div>
 
@@ -188,10 +188,35 @@ Dos apps instalables desde un mismo código: **EventOS · Operador** (abre al Ce
 
 ## 🧰 Stack tecnológico
 
-**Backend:** Node.js · Express · Socket.io · Redis · go2rtc (binario) · ffmpeg
+**Backend:** Node.js · Express · Socket.io · Redis · **PostgreSQL** (persistencia durable) · go2rtc (binario) · ffmpeg
 **Frontend:** React · Vite · React Router · Leaflet (mapas) · hls.js
 **Protocolos / integraciones:** Hikvision **ISAPI** (alertStream, Smart, IO/SecurityCP, snapshot, ContentMgmt), **ONVIF** (Perfil S/M), RTSP, SIP/tel:, webhooks genéricos
 **Infra:** LXC (Proxmox) · nginx (proxy + SPA) · systemd
+
+---
+
+## 🗄️ Persistencia (PostgreSQL)
+
+Desde **v1.5.0** EventOS suma una capa de persistencia durable en **PostgreSQL**, montada
+de forma **incremental y tolerante**: la caché en memoria sigue siendo la fuente de lectura
+síncrona (cero cambios aguas abajo) y PG es el respaldo durable con **escritura dual** +
+hidratación al arranque. **Si PG no está o cae, el server sigue funcionando con memoria/JSON.**
+
+- **Eventos** — tabla `events` (jsonb + columnas indexadas ts/status/site/device). Historial
+  paginado por keyset: `GET /api/events/history`. Las vistas pesadas (**Escaladas**,
+  **Evidencias**) paginan desde PG con scroll infinito en vez de cargar miles en memoria →
+  resuelve los cuelgues por tormentas de alarmas.
+- **Inventario / config** — tablas `config_items` (una fila por device/site/operator/… ) y
+  `config_kv` (dispatch/video/evidence). Escritura por-item; reconstrucción de la caché
+  desde PG al boot.
+- **Cola en vivo** — se rehidrata desde PG al arrancar (merge add-only, no pisa lo que llega
+  en vivo); `events.json` queda como espejo.
+- **Sesiones** — la cookie de operador se persiste en la tabla `sessions` → **sobreviven a un
+  reinicio del server** (el operario no re-loguea).
+- **Backups** — `pg_dump` nocturno comprimido (systemd timer, retención 14 días).
+
+`DATABASE_URL` en `/etc/eventos/eventos.env` activa PG; sin esa variable, arranca en modo
+memoria/JSON como antes.
 
 ---
 

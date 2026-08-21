@@ -10,7 +10,7 @@ export default function SupervisorStandalone() {
     <div className="admin admin--top anim-pop">
       <Glass className="admin-topbar">
         <span className="admin-topbar__brand">
-          <span className="admin-topbar__logo"><Icon name="bolt" size={15} /></span>
+          <span className="admin-topbar__logo"><Icon name="brand" size={15} /></span>
           <b>EventOS</b><span className="admin-topbar__sub">· Supervisión</span>
         </span>
         <nav className="admin-topnav">

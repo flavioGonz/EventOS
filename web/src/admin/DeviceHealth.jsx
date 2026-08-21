@@ -3,8 +3,8 @@
 // códec, uptime, última alerta) + snapshot.
 import { useEffect, useState } from 'react'
 import { Icon, Spinner } from '../ui/primitives.jsx'
-import { getNvrHealth } from '../lib/adminApi.js'
-import { NvrCard, fmtUptime } from './Health.jsx'
+import { fmtUptime } from './Health.jsx'
+import NvrHealthDash from './NvrHealthDash.jsx'
 
 const fmtRel = (ts) => { if (!ts) return null; const m = Math.floor((Date.now() - new Date(ts).getTime()) / 60000); if (m < 1) return 'recién'; if (m < 60) return `hace ${m} min`; const h = Math.floor(m / 60); return h < 24 ? `hace ${h} h` : `hace ${Math.floor(h / 24)} d` }
 const vendorLabel = (v) => { if (!v) return 'este equipo'; const s = String(v).toLowerCase(); if (s.includes('tiandy')) return 'Tiandy'; if (s.includes('hik')) return 'Hikvision'; if (s.includes('dahua')) return 'Dahua'; return v }
@@ -14,22 +14,30 @@ function HRow({ k, v }) {
   return <div className="caminfo__row"><span className="caminfo__k">{k}</span><span className="caminfo__v">{v}</span></div>
 }
 
+// Cabecera unificada del panel de salud (mismo shell que el dashboard del NVR),
+// para que TODO elemento de /admin/health se vea igual: cámara, portero, alarma, acceso.
+function DashHead({ icon, name, sub, state }) {
+  const lbl = state === 'on' ? 'En línea' : state === 'limited' ? 'Alcanzable' : 'Sin señal'
+  return (
+    <header className="nvrdash__head">
+      <span className="nvrdash__logo"><Icon name={icon || 'device'} size={20} /></span>
+      <span className="nvrdash__id"><b>{name || 'Dispositivo'}</b>{sub ? <small>{sub}</small> : null}</span>
+      <span className={`nvrdash__badge${state === 'off' ? ' is-off' : ' is-on'}`}><span className="dot" /> {lbl}</span>
+    </header>
+  )
+}
+
 export default function DeviceHealth({ device, isNew }) {
   const isNvr = device && device.type === 'nvr'
-  const [nvr, setNvr] = useState(undefined)
   const [info, setInfo] = useState(undefined)
   const [snapT, setSnapT] = useState(Date.now())
 
   useEffect(() => {
-    if (isNew || !device || !device.id) return
+    if (isNew || isNvr || !device || !device.id) return
     let alive = true
-    if (isNvr) {
-      getNvrHealth().then((d) => { if (alive) setNvr((d.nvrs || []).find((n) => n.id === device.id) || null) }).catch(() => { if (alive) setNvr(null) })
-    } else {
-      const load = () => fetch(`/api/camera/${device.id}/info`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (alive) setInfo(d || null) }).catch(() => { if (alive) setInfo(null) })
-      load(); const t = setInterval(load, 20000); return () => { alive = false; clearInterval(t) }
-    }
-    return () => { alive = false }
+    const load = () => fetch(`/api/camera/${device.id}/info`).then((r) => (r.ok ? r.json() : null)).then((d) => { if (alive) setInfo(d || null) }).catch(() => { if (alive) setInfo(null) })
+    load(); const t = setInterval(load, 20000)
+    return () => { alive = false; clearInterval(t) }
   }, [device, isNvr, isNew])
 
   // refresca el snapshot del póster cada 5s
@@ -37,11 +45,8 @@ export default function DeviceHealth({ device, isNew }) {
 
   if (isNew) return <p className="help-block">Guardá el dispositivo para ver su salud en vivo.</p>
 
-  if (isNvr) {
-    if (nvr === undefined) return <div className="admin-center"><Spinner size={20} /><span>Consultando el NVR…</span></div>
-    if (!nvr) return <p className="help-block">Sin datos de salud para este NVR (¿responde por ISAPI?).</p>
-    return <div className="hgrid">{<NvrCard nvr={nvr} />}</div>
-  }
+  // NVR → dashboard 360 (identidad + métricas + canales + discos + logs, todo en un recuadro)
+  if (isNvr) return <NvrHealthDash device={device} />
 
   // Cámara
   if (info === undefined) return <div className="admin-center"><Spinner size={20} /><span>Consultando la cámara…</span></div>
@@ -51,6 +56,8 @@ export default function DeviceHealth({ device, isNew }) {
     const sipTone = (st) => (st === 'registered' ? 'is-on' : st === 'registering' ? 'is-warn' : 'is-off')
     const sipLbl = (st) => (st === 'registered' ? 'Registrado' : st === 'registering' ? 'Registrando' : 'Sin registro')
     return (
+      <div className="nvrdash">
+      <DashHead icon="phone" name={device.name || ak.model || 'Portero'} sub={[ak.model, ak.firmware ? `FW ${ak.firmware}` : null, (ak.lan && ak.lan.ip) || device.ip].filter(Boolean).join(' · ')} state="on" />
       <div className="devhealth">
         <div className="devhealth__snap">
           <img src={`/api/camera/${device.id}/snapshot?t=${snapT}`} alt="" onError={(e) => { e.currentTarget.style.opacity = .12 }} />
@@ -87,6 +94,7 @@ export default function DeviceHealth({ device, isNew }) {
           ) : <p className="help-block">Sin cuentas SIP configuradas en el portero.</p>}
         </div>
       </div>
+      </div>
     )
   }
   const online = !!(info && info.online)
@@ -95,7 +103,10 @@ export default function DeviceHealth({ device, isNew }) {
   const via = info && info.via
   const limited = online && via === 'rtsp'
   const vlabel = vendorLabel(info && info.vendor)
+  const camState = online ? (limited ? 'limited' : 'on') : 'off'
   return (
+    <div className="nvrdash">
+    <DashHead icon="video" name={device.name || (info && info.model) || 'Cámara'} sub={[limited ? vlabel : (info && info.model), (info && info.ip) || device.ip, device.channel ? `Canal #${device.channel}` : null].filter(Boolean).join(' · ')} state={camState} />
     <div className="devhealth">
       <div className="devhealth__snap">
         <img src={`/api/camera/${device.id}/snapshot?t=${snapT}`} alt="" onError={(e) => { e.currentTarget.style.opacity = .15 }} />
@@ -123,6 +134,7 @@ export default function DeviceHealth({ device, isNew }) {
         {limited && <p className="help-block devhealth__note">Salud limitada: {vlabel} no expone métricas por ISAPI, así que solo confirmamos que el equipo está alcanzable (responde el puerto de video). Modelo, firmware, uptime, CPU y discos no están disponibles para este equipo.</p>}
         {!online && <p className="help-block">No respondió por ISAPI ni por RTSP. Verificá red, puerto y credenciales en la pestaña Datos.</p>}
       </div>
+    </div>
     </div>
   )
 }

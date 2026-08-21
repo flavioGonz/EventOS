@@ -8,10 +8,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon, Segmented, Button } from '../ui/primitives.jsx'
+import { apiFetch } from '../lib/eventsApi.js'
 import { Go2RtcView } from './CameraLive.jsx'
 import NvrPlayback from './NvrPlayback.jsx'
 import { api, getAdminToken } from '../lib/adminApi.js'
 import { useConsole } from '../lib/socket.js'
+import { onWallFocus } from '../lib/wallbus.js'
 
 const LAYOUTS = [
   { value: '2x2', label: '2×2', cells: 4 },
@@ -30,7 +32,7 @@ function saveLS(key, val) { try { localStorage.setItem(key, JSON.stringify(val))
 
 // Celda: snapshot near-live, o vivo go2rtc si `live`. Si el snapshot falla
 // (cámara sin señal) muestra un estado claro en vez de imagen rota.
-function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, onMoveCell, onPlayback, editTrack, cameras, onFollow, onSaveLinks }) {
+function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, onMoveCell, onDropCam, onPlayback, onInstant, editTrack, cameras, recentByCam, onFollow, onSaveLinks }) {
   const [t, setT] = useState(0)
   const [over, setOver] = useState(false)
   const [failed, setFailed] = useState(false)
@@ -92,7 +94,10 @@ function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, o
       onDragStart={(e) => { e.dataTransfer.setData('text/cell', String(index)); e.dataTransfer.effectAllowed = 'move' }}
       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (!over) setOver(true) }}
       onDragLeave={() => setOver(false)}
-      onDrop={(e) => { e.preventDefault(); setOver(false); const from = Number(e.dataTransfer.getData('text/cell')); if (!Number.isNaN(from) && from !== index) onMoveCell(from, index) }}>
+      onDrop={(e) => { e.preventDefault(); setOver(false);
+        const camId = e.dataTransfer.getData('text/cam');
+        if (camId) { onDropCam && onDropCam(camId, index); return }
+        const from = Number(e.dataTransfer.getData('text/cell')); if (!Number.isNaN(from) && from !== index) onMoveCell(from, index) }}>
       {cam ? (
         <>
           {live
@@ -109,6 +114,8 @@ function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, o
             <span className="wallcell__sp" />
             <button type="button" className={`wallcell__btn${live ? ' is-on' : ''}`} title="En vivo"
               onClick={(e) => { e.stopPropagation(); onToggleLive() }}><Icon name="bolt" size={13} /></button>
+            <button type="button" className="wallcell__btn" title="Repetición instantánea (últimos 30 s)"
+              onClick={(e) => { e.stopPropagation(); onInstant() }}><Icon name="replay" size={13} /></button>
             <button type="button" className="wallcell__btn" title="Grabación / eventos"
               onClick={(e) => { e.stopPropagation(); onPlayback() }}><Icon name="clock" size={13} /></button>
             <button type="button" className="wallcell__btn" title="Descargar foto"
@@ -125,12 +132,16 @@ function WallCell({ cam, live, focused, index, onClick, onClear, onToggleLive, o
               {editTrack && <span className="wallcell__hothint"><Icon name="route" size={12} /> Clic para añadir cámara vecina</span>}
               {links.map((l) => {
                 const tgt = cameras.find((cc) => cc.id === l.target)
+                const cnt = (recentByCam && recentByCam[l.target]) || 0
+                const nm = (tgt && tgt.name) || l.label || 'cámara'
+                const ch = tgt && tgt.channel != null && tgt.channel !== '' ? `#${tgt.channel} ` : ''
                 return (
-                  <button key={l.id} type="button" className="wallhot" style={{ left: `${l.x * 100}%`, top: `${l.y * 100}%` }}
-                    title={editTrack ? 'Quitar' : `Ir a ${(tgt && tgt.name) || l.label || 'cámara'}`}
+                  <button key={l.id} type="button" className={`wallhot${cnt > 0 ? ' has-events' : ''}`} style={{ left: `${l.x * 100}%`, top: `${l.y * 100}%` }}
+                    title={editTrack ? 'Quitar' : `Ir a ${ch}${nm}${cnt > 0 ? ` · ${cnt} evento(s) en 15 min` : ''}`}
                     onClick={(e) => { e.stopPropagation(); if (editTrack) removeLink(l.id); else onFollow(l.target) }}>
                     <Icon name="camera" size={13} />
-                    <span className="wallhot__lbl">{l.label || (tgt && tgt.name) || '—'}</span>
+                    <span className="wallhot__lbl">{ch}{nm}</span>
+                    {cnt > 0 && <span className="wallhot__badge" aria-label={`${cnt} eventos recientes`}>{cnt > 99 ? '99+' : cnt}</span>}
                   </button>
                 )
               })}
@@ -175,7 +186,15 @@ export default function Videowall() {
   const [carouselSec, setCarouselSec] = useState(initial.carouselSec || 10)
   const [presets, setPresets] = useState(() => loadLS(LS_PRESETS, {}))
   const [pbCam, setPbCam] = useState(null) // cámara con el modal de grabación abierto
+  const [pbInstant, setPbInstant] = useState(false) // abierto como "repetición instantánea"
   const [editTrack, setEditTrack] = useState(false) // modo edición de hotspots de seguimiento
+  // "Seguir selección": al seleccionar un evento en la consola, este muro carga todas
+  // las cámaras del cliente que lo reportó. Activo por defecto; el operador lo apaga si
+  // está usando el muro a mano y no quiere que cambie solo.
+  const [followSel, setFollowSel] = useState(initial.followSel !== false)
+  const [treeOpen, setTreeOpen] = useState(!!initial.treeOpen) // árbol de recursos (cámaras por sitio)
+  const [treeQuery, setTreeQuery] = useState('')
+  const [treeCollapsed, setTreeCollapsed] = useState({}) // sitio → colapsado
 
   const n = layoutCells(layout)
   const { events } = useConsole(null) // solo para escuchar alarmas (sin identidad)
@@ -189,7 +208,7 @@ export default function Videowall() {
   }, [])
 
   // Persistir estado.
-  useEffect(() => { saveLS(LS, { layout, cells, live, autoSpot, carouselSec }) }, [layout, cells, live, autoSpot, carouselSec])
+  useEffect(() => { saveLS(LS, { layout, cells, live, autoSpot, carouselSec, followSel, treeOpen }) }, [layout, cells, live, autoSpot, carouselSec, followSel, treeOpen])
 
   // Normaliza longitud de arrays al cambiar layout.
   useEffect(() => {
@@ -215,12 +234,55 @@ export default function Videowall() {
 
   const camById = useMemo(() => Object.fromEntries(cameras.map((c) => [c.id, c])), [cameras])
 
+  // Seguimiento visual: cuántos eventos tuvo CADA cámara en los últimos 15 min →
+  // el hotspot de esa cámara muestra un badge numérico (el operador ve de un vistazo
+  // dónde hubo actividad reciente al encadenar el seguimiento). Sondeo liviano cada
+  // 30 s de /api/events; se asocia el evento a la cámara por deviceId → nombre → ip →
+  // canal (misma precedencia que el muro de verificación).
+  const [recentByCam, setRecentByCam] = useState({})
+  useEffect(() => {
+    if (cameras.length === 0) return
+    let alive = true
+    const nrm = (v) => (v == null ? '' : String(v).trim().toLowerCase())
+    const byName = new Map(), byIp = new Map(), byCh = new Map()
+    for (const c of cameras) {
+      if (c.name) byName.set(nrm(c.name), c.id)
+      if (c.ip) byIp.set(nrm(c.ip), c.id)
+      if (c.channel != null && c.channel !== '') byCh.set(String(c.channel), c.id)
+    }
+    const load = () => {
+      apiFetch('/api/events?limit=200').then((r) => (r.ok ? r.json() : null)).then((d) => {
+        if (!alive) return
+        const list = Array.isArray(d) ? d : (d && d.events) || []
+        const cut = Date.now() - 15 * 60 * 1000
+        const counts = {}
+        for (const e of list) {
+          const t = new Date(e.deviceTs || e.ts).getTime()
+          if (!(t >= cut)) continue
+          const s = e.source || {}
+          let cid = null
+          if (s.deviceId && camById[s.deviceId]) cid = s.deviceId
+          else if (s.deviceName && byName.has(nrm(s.deviceName))) cid = byName.get(nrm(s.deviceName))
+          else if (s.ip && byIp.has(nrm(s.ip))) cid = byIp.get(nrm(s.ip))
+          else if (s.channel != null && byCh.has(String(s.channel))) cid = byCh.get(String(s.channel))
+          if (cid) counts[cid] = (counts[cid] || 0) + 1
+        }
+        setRecentByCam(counts)
+      }).catch(() => {})
+    }
+    load()
+    const id = setInterval(load, 30000)
+    return () => { alive = false; clearInterval(id) }
+  }, [cameras, camById])
+
   const assign = useCallback((camId) => {
     setCells((c) => { const next = c.slice(); next[focus] = camId; return next })
     setPickerOpen(false)
   }, [focus])
   const clearCell = (i) => setCells((c) => { const next = c.slice(); next[i] = null; return next })
   const toggleLive = (i) => setLive((l) => { const next = l.slice(); next[i] = !next[i]; return next })
+  // Colocar una cámara (del árbol de recursos) en una celda concreta (drag&drop).
+  const placeInCell = useCallback((camId, i) => { setCells((c) => { const n = c.slice(); n[i] = camId; return n }); setFocus(i) }, [])
   // Seguimiento: al hacer clic en un hotspot, la cámara destino salta al SPOTLIGHT
   // (celda principal, en vivo) y la anterior baja a la primera satélite — así se
   // mantiene el contexto y se encadena el seguimiento de cámara en cámara.
@@ -251,6 +313,54 @@ export default function Videowall() {
     setCells((c) => { const n = c.slice();[n[from], n[to]] = [n[to], n[from]]; return n })
     setLive((l) => { const n = l.slice();[n[from], n[to]] = [n[to], n[from]]; return n })
   }, [])
+
+  // ── Seguir selección de evento (mensaje de la consola) ──────────────────────
+  // Carga TODAS las cámaras del cliente/sitio del evento en el muro, con la fuente
+  // primero (en vivo) y el layout ajustado a la cantidad. Se usa un ref de cámaras
+  // para que el handler vea siempre la lista fresca sin re-suscribir; si el mensaje
+  // llega antes de cargar cámaras, queda pendiente y se aplica al terminar la carga.
+  const camerasRef = useRef([])
+  const pendingFocus = useRef(null)
+  const followSelRef = useRef(followSel)
+  useEffect(() => { followSelRef.current = followSel }, [followSel])
+  const nrm = (v) => (v == null ? '' : String(v).trim().toLowerCase())
+  const focusSite = useCallback((msg) => {
+    const all = camerasRef.current
+    if (!all || !all.length) { pendingFocus.current = msg; return }
+    const isSrc = (c) => (msg.sourceDeviceId && c.id === msg.sourceDeviceId)
+      || (msg.sourceName && nrm(c.name) === nrm(msg.sourceName))
+      || (msg.sourceIp && nrm(c.ip) === nrm(msg.sourceIp))
+      || (msg.sourceChannel != null && String(c.channel) === String(msg.sourceChannel))
+    const site = nrm(msg.site)
+    let list = site ? all.filter((c) => nrm(c.site) === site) : []
+    if (!list.length) { // sin match por nombre de sitio: probar el sitio de la cámara fuente
+      const src = all.find(isSrc)
+      if (src && src.site) list = all.filter((c) => nrm(c.site) === nrm(src.site))
+    }
+    if (!list.length) return // no pudimos resolver el cliente → no tocamos el muro
+    const si = list.findIndex(isSrc)
+    if (si > 0) { const [s] = list.splice(si, 1); list.unshift(s) } // fuente primero
+    const lay = list.length <= 4 ? '2x2' : list.length <= 9 ? '3x3' : '4x4'
+    const cells = layoutCells(lay)
+    setLayout(lay)
+    setCells(Array.from({ length: cells }, (_, i) => (list[i] ? list[i].id : null)))
+    setLive(Array.from({ length: cells }, (_, i) => i === 0)) // fuente en vivo; resto snapshot
+    setFocus(0)
+  }, [])
+  // Aplicar el foco pendiente cuando lleguen las cámaras.
+  useEffect(() => {
+    camerasRef.current = cameras
+    if (cameras.length && pendingFocus.current) { const m = pendingFocus.current; pendingFocus.current = null; if (followSelRef.current) focusSite(m) }
+  }, [cameras, focusSite])
+  // Suscripción al canal de la consola (una sola vez).
+  useEffect(() => {
+    const off = onWallFocus((msg) => {
+      if (!msg || msg.type !== 'focus-site') return
+      if (!followSelRef.current) return
+      focusSite(msg)
+    })
+    return off
+  }, [focusSite])
 
   // AUTO-SPOTLIGHT: al llegar un evento P1/P2 nuevo, su cámara salta a la celda 0.
   useEffect(() => {
@@ -311,6 +421,18 @@ export default function Videowall() {
     return [...m.entries()]
   }, [cameras, pickQuery])
 
+  // Árbol de recursos: cámaras agrupadas por sitio, con su propio filtro. Cada grupo
+  // trae el conteo online/total (campo `online` del server: true/false/null).
+  const treeGroups = useMemo(() => {
+    const q = treeQuery.trim().toLowerCase()
+    const m = new Map()
+    for (const c of cameras) {
+      if (q && !`${c.name || ''} #${c.channel || ''} ${c.site || ''}`.toLowerCase().includes(q)) continue
+      const s = c.site || 'Sin sitio'; if (!m.has(s)) m.set(s, []); m.get(s).push(c)
+    }
+    return [...m.entries()].map(([site, cams]) => [site, cams, cams.filter((c) => c.online === true).length])
+  }, [cameras, treeQuery])
+
   return (
     <div className={`wall${isPopout ? ' wall--popout' : ''}`}>
       <header className="wall__toolbar">
@@ -324,11 +446,13 @@ export default function Videowall() {
         )}
         <span className="wall__sp" />
         <Button variant={autoSpot ? 'primary' : 'ghost'} size="sm" icon="bolt" onClick={() => setAutoSpot((v) => !v)} title="La cámara del evento P1/P2 salta a la celda principal">Auto-spotlight</Button>
+        <Button variant={followSel ? 'primary' : 'ghost'} size="sm" icon="building" onClick={() => setFollowSel((v) => !v)} title="Al seleccionar un evento en la consola, este muro carga todas las cámaras del cliente que lo reportó">Seguir evento</Button>
         <Button variant={carousel ? 'primary' : 'ghost'} size="sm" icon="refresh" onClick={() => setCarousel((v) => !v)}>Carrusel</Button>
         {carousel && (
           <input className="wall__num" type="number" min="3" max="120" value={carouselSec}
             onChange={(e) => setCarouselSec(Number(e.target.value) || 10)} title="Segundos por rotación" />
         )}
+        <Button variant={treeOpen ? 'primary' : 'ghost'} size="sm" icon="grid" onClick={() => setTreeOpen((v) => !v)} title="Árbol de recursos: cámaras por sitio con online/total. Clic asigna a la celda enfocada; arrastrá a cualquier celda.">Recursos</Button>
         <Button variant="ghost" size="sm" icon="camera" onClick={() => setPickerOpen((v) => !v)}>Cámaras</Button>
         <Button variant={editTrack ? 'primary' : 'ghost'} size="sm" icon="route"
           onClick={() => setEditTrack((v) => { const nv = !v; if (nv && !getAdminToken()) window.alert('Para editar el seguimiento iniciá sesión de supervisor (panel de administración) en este navegador; sin eso no se podrá guardar.'); return nv })}
@@ -345,13 +469,54 @@ export default function Videowall() {
       </header>
 
       <div className="wall__body">
+        {treeOpen && (
+          <aside className="wall__tree">
+            <header className="wall__treehead">
+              <span className="wall__treettl"><Icon name="grid" size={14} /> Recursos</span>
+              <button type="button" onClick={() => setTreeOpen(false)} aria-label="Cerrar"><Icon name="x" size={15} /></button>
+            </header>
+            <div className="wall__treesearch">
+              <Icon name="search" size={13} />
+              <input type="text" value={treeQuery} placeholder="Buscar cámara…" onChange={(e) => setTreeQuery(e.target.value)} />
+              {treeQuery && <button type="button" onClick={() => setTreeQuery('')} aria-label="Limpiar"><Icon name="x" size={12} /></button>}
+            </div>
+            <div className="wall__treelist">
+              {treeGroups.map(([site, cams, on]) => {
+                const col = !!treeCollapsed[site]
+                return (
+                  <div key={site} className="wall__treegrp">
+                    <button type="button" className="wall__treesite" onClick={() => setTreeCollapsed((s) => ({ ...s, [site]: !s[site] }))}>
+                      <span className={`wall__chev${col ? '' : ' open'}`}><Icon name="chevron" size={13} /></span>
+                      <span className="wall__treesitenm">{site}</span>
+                      <span className="wall__treecount" title="Cámaras en línea / total">{on}/{cams.length}</span>
+                    </button>
+                    {!col && cams.map((c) => (
+                      <div key={c.id}
+                        className={`wall__treecam${c.online === false ? ' is-off' : ''}${cells.includes(c.id) ? ' is-used' : ''}`}
+                        draggable
+                        onDragStart={(e) => { e.dataTransfer.setData('text/cam', c.id); e.dataTransfer.effectAllowed = 'copy' }}
+                        onClick={() => assign(c.id)}
+                        title={`${c.channel ? `#${c.channel} ` : ''}${c.name}${c.online === false ? ' · offline' : c.online ? ' · online' : ''} — clic: asignar a la celda ${focus + 1}; arrastrar: a cualquier celda`}>
+                        <span className={`wall__dot${c.online === false ? ' off' : c.online ? ' on' : ' unk'}`}></span>
+                        <Icon name="video" size={13} />
+                        <span className="wall__treecamnm">{c.channel ? `#${c.channel} ` : ''}{c.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
+              {treeGroups.length === 0 && <p className="wall__treeempty">{cameras.length === 0 ? 'No hay cámaras.' : 'Sin resultados.'}</p>}
+            </div>
+          </aside>
+        )}
         <div className={`wall__grid wall--${layout}`}>
           {Array.from({ length: n }, (_, i) => (
             <WallCell key={i} index={i} cam={camById[cells[i]] || null} live={!!live[i]} focused={focus === i}
               onClick={() => { setFocus(i); if (!cells[i]) setPickerOpen(true) }}
-              onClear={() => clearCell(i)} onToggleLive={() => toggleLive(i)} onMoveCell={moveCell}
-              onPlayback={() => setPbCam(camById[cells[i]] || null)}
-              editTrack={editTrack} cameras={cameras}
+              onClear={() => clearCell(i)} onToggleLive={() => toggleLive(i)} onMoveCell={moveCell} onDropCam={placeInCell}
+              onPlayback={() => { setPbInstant(false); setPbCam(camById[cells[i]] || null) }}
+              onInstant={() => { setPbInstant(true); setPbCam(camById[cells[i]] || null) }}
+              editTrack={editTrack} cameras={cameras} recentByCam={recentByCam}
               onFollow={(tid) => followTo(tid)} onSaveLinks={saveLinks} />
           ))}
         </div>
@@ -400,12 +565,13 @@ export default function Videowall() {
         <div className="modal-scrim" onClick={() => setPbCam(null)}>
           <div className="wallpb" onClick={(e) => e.stopPropagation()}>
             <header className="wallpb__head">
-              <span className="wallpb__title"><Icon name="clock" size={16} /> Grabación · {pbCam.channel ? `#${pbCam.channel} ` : ''}{pbCam.name}</span>
+              <span className="wallpb__title"><Icon name={pbInstant ? 'replay' : 'clock'} size={16} /> {pbInstant ? 'Repetición instantánea' : 'Grabación'} · {pbCam.channel ? `#${pbCam.channel} ` : ''}{pbCam.name}</span>
               <button type="button" className="wallpb__x" onClick={() => setPbCam(null)} aria-label="Cerrar"><Icon name="x" size={18} /></button>
             </header>
             <div className="wallpb__body">
               <NvrPlayback
                 event={{ id: `live_${pbCam.id}`, ts: Date.now(), source: { deviceId: pbCam.id } }}
+                startOffsetMs={pbInstant ? 30000 : 15000}
                 onClose={() => setPbCam(null)} />
             </div>
           </div>

@@ -39,7 +39,14 @@ export function applyRules(event, rules = getRules()) {
       return { event, rule };
     }
   }
-  return { event, rule: null };
+  // REGLA DE ALERTA POR DEFECTO (incorporada): si ninguna regla configurada casa,
+  // igual garantizamos una experiencia base — prioridad media + procedimiento
+  // genérico (que trae su SLA). Así NINGÚN evento queda sin prioridad/SLA/checklist,
+  // aunque el admin borre la regla "Por defecto" del almacén.
+  if (event.priority == null) event.priority = 3;
+  if (!event.procedureId) event.procedureId = "proc_generic";
+  event._ruleId = "_builtin_default";
+  return { event, rule: { id: "_builtin_default", name: "Por defecto (incorporada)", match: {}, procedureId: event.procedureId, actions: {} } };
 }
 
 export function getProcedure(id) {

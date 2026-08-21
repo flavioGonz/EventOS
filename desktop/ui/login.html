@@ -1,88 +1,221 @@
 <!doctype html><html lang="es"><head><meta charset="utf-8"/>
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:;"/>
 <style>
-  *{margin:0;box-sizing:border-box;font-family:Segoe UI,system-ui,Arial,sans-serif}
+  /* Login del cliente de escritorio — v3 "clean". Tarjeta centrada, oscura y sobria,
+     que SIEMPRE entra en la ventana (scroll de respaldo, nada se corta). Movimiento
+     mínimo y elegante (un resplandor que respira). Mantiene todo el cableado:
+     selector de servidor, auth, controles de ventana, versión. */
+  :root{
+    --bg:#080b12; --panel:#0f1522; --panel-2:#141b2b;
+    --ink:#eef3fb; --ink-dim:#9aa8bf; --ink-faint:#5f6e86;
+    --accent:#2f9bff; --accent-2:#5db4ff; --on:#fff;
+    --crit:#ff5a52; --ok:#38d996;
+    --line:rgba(255,255,255,.08); --line-2:rgba(255,255,255,.14);
+    --r-sm:11px; --r:15px; --r-lg:20px; --r-pill:999px;
+    --font:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --ease:cubic-bezier(.22,.8,.2,1);
+  }
+  *{margin:0;box-sizing:border-box;font-family:var(--font)}
   html,body{height:100%}
-  body{background:radial-gradient(130% 100% at 50% -10%,#122036 0%,#0a0d12 58%);color:#e6edf6;
-    display:grid;place-items:center;overflow:hidden;user-select:none;-webkit-app-region:drag}
-  .bg{position:fixed;inset:0;overflow:hidden;z-index:0}
-  .bg span{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.20),transparent 70%);animation:float 14s ease-in-out infinite}
-  .bg span:nth-child(1){width:340px;height:340px;left:-80px;top:-60px}
-  .bg span:nth-child(2){width:260px;height:260px;right:-60px;bottom:-40px;animation-delay:-5s;background:radial-gradient(circle,rgba(34,211,238,.16),transparent 70%)}
-  @keyframes float{0%,100%{transform:translate(0,0)}50%{transform:translate(18px,26px)}}
-  .card{position:relative;z-index:1;width:372px;padding:30px 30px 26px;border-radius:18px;
-    background:rgba(17,24,34,.86);border:1px solid rgba(255,255,255,.08);
-    box-shadow:0 24px 70px rgba(0,0,0,.55);backdrop-filter:blur(8px);-webkit-app-region:no-drag;
-    animation:in .5s cubic-bezier(.2,.8,.2,1)}
-  @keyframes in{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
-  .logo{display:flex;flex-direction:column;align-items:center;gap:9px;margin-bottom:20px}
-  .logo svg{width:60px;height:60px;filter:drop-shadow(0 4px 14px rgba(59,130,246,.4))}
-  .logo .t{font-size:20px;font-weight:800}.logo .t b{color:#22d3ee}
-  .logo .s{font-size:10.5px;color:#8b97a8;letter-spacing:.18em;text-transform:uppercase;margin-top:-4px}
-  label{display:block;font-size:11.5px;color:#93a1b4;font-weight:600;margin:14px 0 6px;letter-spacing:.02em}
-  .fld{display:flex;align-items:center;gap:9px;background:#0c1119;border:1px solid rgba(255,255,255,.10);
-    border-radius:11px;padding:0 12px;transition:.18s}
-  .fld:focus-within{border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.18)}
-  .fld svg{width:16px;height:16px;color:#6b7788;flex-shrink:0}
-  .fld input{flex:1;background:none;border:none;outline:none;color:#e6edf6;font-size:14px;padding:12px 0}
-  .fld input::placeholder{color:#5c677a}
-  .eye{cursor:pointer;color:#6b7788}.eye:hover{color:#cdd7e4}
-  .adv{margin-top:12px;font-size:11.5px;color:#6b7788;cursor:pointer;user-select:none;display:inline-flex;align-items:center;gap:5px}
-  .adv:hover{color:#9fb0c4}
-  #srvWrap{display:none}
-  .btn{width:100%;margin-top:22px;border:none;border-radius:11px;padding:13px;font-size:14.5px;font-weight:700;
-    color:#fff;background:linear-gradient(135deg,#3b82f6,#22d3ee);cursor:pointer;letter-spacing:.02em;
-    display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s}
-  .btn:hover{filter:brightness(1.07)}.btn:disabled{opacity:.65;cursor:default}
-  .sp{width:16px;height:16px;border:2px solid rgba(255,255,255,.5);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:none}
-  @keyframes sp{to{transform:rotate(360deg)}}
-  .err{margin-top:14px;font-size:12.5px;color:#fca5a5;background:rgba(229,72,77,.12);border:1px solid rgba(229,72,77,.3);
-    border-radius:9px;padding:9px 11px;display:none;animation:in .3s}
-  .foot{margin-top:16px;text-align:center;font-size:10.5px;color:#5c677a;letter-spacing:.06em}
+  body{background:
+      radial-gradient(90% 70% at 50% -10%, #10203c 0%, transparent 55%),
+      radial-gradient(80% 60% at 50% 120%, #0d1626 0%, transparent 55%),
+      var(--bg);
+    color:var(--ink);min-height:100%;overflow-x:hidden;overflow-y:auto;user-select:none;-webkit-app-region:drag}
+
+  /* Resplandor sutil detrás de la tarjeta (respira lento) */
+  .glow{position:fixed;left:50%;top:44%;width:520px;height:520px;transform:translate(-50%,-50%);z-index:0;pointer-events:none;
+    background:radial-gradient(circle, rgba(47,155,255,.22), transparent 62%);filter:blur(30px);animation:breathe 7s var(--ease) infinite}
+  @keyframes breathe{0%,100%{opacity:.6;transform:translate(-50%,-50%) scale(1)}50%{opacity:.9;transform:translate(-50%,-50%) scale(1.08)}}
+  .mesh{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.4;
+    background:linear-gradient(rgba(255,255,255,.028) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.028) 1px,transparent 1px);
+    background-size:46px 46px;mask-image:radial-gradient(70% 60% at 50% 42%,#000,transparent 82%)}
+
+  /* Escenario: centra la tarjeta y permite scroll si la ventana es muy baja */
+  .stage{position:relative;z-index:5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:28px 20px}
+  .card{-webkit-app-region:no-drag;width:100%;max-width:392px;padding:26px 28px 22px;border-radius:var(--r-lg);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line-2);
+    box-shadow:0 30px 70px -26px #000, inset 0 1px 0 rgba(255,255,255,.05);animation:rise .5s var(--ease) both}
+  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  .brand{display:flex;flex-direction:column;align-items:center;gap:9px;margin-bottom:10px}
+  .logo{display:grid;place-items:center;width:54px;height:54px;border-radius:16px;color:#fff;
+    background:linear-gradient(140deg,var(--accent),#6a7bff);box-shadow:0 10px 26px -8px rgba(47,155,255,.65)}
+  .logo svg{width:27px;height:27px}
+  .brand h1{font-size:24px;font-weight:750;letter-spacing:-.02em}
+  .brand p{font-size:11.5px;color:var(--ink-faint);letter-spacing:.03em;text-transform:uppercase}
+
+  label{display:block;font-size:11.5px;color:var(--ink-dim);font-weight:650;margin:14px 0 6px;letter-spacing:.02em}
+  .fld{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:var(--r-sm);padding:0 12px;transition:.16s var(--ease)}
+  .fld:focus-within{border-color:var(--accent);background:rgba(47,155,255,.07);box-shadow:0 0 0 3px rgba(47,155,255,.15)}
+  .fld svg{width:16px;height:16px;color:var(--ink-faint);flex-shrink:0}
+  .fld:focus-within svg{color:var(--accent-2)}
+  .fld input,.fld select{flex:1;min-width:0;background:none;border:none;outline:none;color:var(--ink);font-size:14.5px;padding:11px 0;appearance:none;-webkit-appearance:none}
+  .fld select option{color:#0a0c10}
+  .fld input::placeholder{color:var(--ink-faint)}
+  .eye{cursor:pointer;color:var(--ink-faint)}.eye:hover{color:var(--ink-dim)}
+  .srvrow{display:flex;gap:8px;align-items:stretch}.srvrow .fld{flex:1;min-width:0}
+  .iconbtn{-webkit-app-region:no-drag;width:44px;flex-shrink:0;display:grid;place-items:center;border-radius:var(--r-sm);background:rgba(255,255,255,.035);border:1px solid var(--line);color:var(--ink-dim);cursor:pointer;transition:.14s}
+  .iconbtn:hover{border-color:var(--accent);color:var(--accent-2);background:rgba(47,155,255,.1)}
+  .iconbtn svg{width:18px;height:18px}
+
+  .srvmng{margin-top:9px;padding:12px;border-radius:var(--r-sm);background:rgba(255,255,255,.03);border:1px solid var(--line);display:none}
+  .srvmng.show{display:block;animation:rise .22s ease}
+  .srvmng label{margin-top:0}
+  .srvmng .save{margin-top:10px;width:100%;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:700;color:#fff;background:linear-gradient(135deg,var(--accent),#6a7bff);cursor:pointer}
+  .srvmng .list{margin-top:11px;display:flex;flex-direction:column;gap:6px;max-height:120px;overflow:auto}
+  .srvitem{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+  .srvitem b{font-size:12.5px;font-weight:700}
+  .srvitem .sp2{flex:1;min-width:0;overflow:hidden;display:flex;flex-direction:column}
+  .srvitem .sp2 span{font-size:10.5px;color:var(--ink-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .srvitem .del{cursor:pointer;color:var(--ink-faint);flex-shrink:0}.srvitem .del:hover{color:var(--crit)}
+
+  .btn{-webkit-app-region:no-drag;width:100%;margin-top:18px;border:none;border-radius:var(--r-sm);padding:13px;font-size:15px;font-weight:730;color:#fff;
+    background:linear-gradient(135deg,var(--accent),#6a7bff);cursor:pointer;letter-spacing:.01em;display:flex;align-items:center;justify-content:center;gap:9px;transition:.15s;box-shadow:0 12px 26px -12px rgba(47,155,255,.6)}
+  .btn:hover{filter:brightness(1.07);transform:translateY(-1px)}.btn:active{transform:translateY(0)}
+  .btn:disabled{opacity:.7;cursor:default;transform:none}
+  .btn svg{width:16px;height:16px}
+  .sp{width:16px;height:16px;border:2px solid rgba(255,255,255,.45);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err{margin-top:12px;font-size:12.5px;color:#ff8a84;background:rgba(255,90,82,.12);border:1px solid rgba(255,90,82,.3);border-radius:10px;padding:9px 11px;display:none}
+  .err.show{display:block;animation:shake .38s}
+  @keyframes shake{10%,90%{transform:translateX(-1px)}30%,70%{transform:translateX(3px)}50%{transform:translateX(-4px)}}
+  .hint{margin:12px 0 0;text-align:center;font-size:11px;color:var(--ink-faint);display:flex;align-items:center;justify-content:center;gap:6px}
+  .hint i{width:6px;height:6px;border-radius:50%;background:var(--ok);box-shadow:0 0 7px rgba(56,217,150,.7);font-style:normal;display:inline-block}
+
+  .winctl{position:fixed;top:0;right:0;z-index:30;display:flex;-webkit-app-region:no-drag}
+  .winctl button{width:46px;height:34px;display:grid;place-items:center;border:none;background:transparent;color:var(--ink-faint);cursor:pointer;transition:.12s}
+  .winctl button:hover{background:rgba(255,255,255,.08);color:var(--ink)}
+  .winctl .wc-dl:hover{color:var(--accent-2);background:rgba(47,155,255,.14)}
+  .winctl .wc-close:hover{background:#e0352b;color:#fff}
+  .winctl svg{width:16px;height:16px}
+  .winctl .wc-dl b{position:absolute;transform:translate(11px,-9px);font-size:8.5px;font-weight:800;color:var(--accent-2);background:#0d1626;border-radius:6px;padding:0 3px;line-height:1.5;box-shadow:0 0 0 1px var(--line-2)}
 </style></head><body>
-  <div class="bg"><span></span><span></span></div>
-  <form class="card" id="f" autocomplete="off">
-    <div class="logo">
-      <svg viewBox="0 0 66 66"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs>
-        <path d="M33 8 L54 18 V36 C54 50 45 59 33 64 C21 59 12 50 12 36 V18 Z" fill="none" stroke="url(#g)" stroke-width="3.2" stroke-linejoin="round"/>
-        <path d="M25 34 l6 7 l12 -15" fill="none" stroke="url(#g)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      <div class="t">EventOS <b>ARC</b></div>
-      <div class="s">Central de Monitoreo</div>
-    </div>
-    <label>Usuario</label>
-    <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
-      <input id="u" type="text" placeholder="operador" autofocus/></div>
-    <label>Contraseña</label>
-    <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
-      <input id="p" type="password" placeholder="••••••••"/>
-      <svg class="eye" id="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
-    <span class="adv" id="advT">⚙ Servidor</span>
-    <div id="srvWrap"><label>Dirección del servidor</label>
-      <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>
-        <input id="srv" type="text" placeholder="http://192.168.99.6"/></div></div>
-    <button class="btn" id="go" type="submit"><span class="sp" id="sp"></span><span id="goT">Ingresar</span></button>
-    <div class="err" id="err"></div>
-    <div class="foot">Infratec · EventOS · acceso seguro</div>
-  </form>
+  <div class="glow"></div>
+  <div class="mesh"></div>
+
+  <div class="winctl">
+    <button class="wc-dl" id="wcDl" title="Actualizaciones y configuración del cliente">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v11M8 10l4 4 4-4"/><path d="M5 20h14"/></svg><b id="wcVer"></b></button>
+    <button class="wc-min" id="wcMin" title="Minimizar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg></button>
+    <button class="wc-close" id="wcClose" title="Cerrar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+
+  <div class="stage">
+    <form class="card" id="f" autocomplete="off">
+      <div class="brand">
+        <span class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round"><path d="M12 2.5 L20 5.5 V13.5 C20 18.6 16.7 21.6 12 22.9 C7.3 21.6 4 18.6 4 13.5 V5.5 Z"/><path d="M6.6 13.6 H10 L11.8 8.8 L14.8 18.6 L16.5 12.8 H18.4"/></svg></span>
+        <h1>EventOS</h1>
+        <p>Central Receptora de Alarmas</p>
+      </div>
+
+      <label>Servidor</label>
+      <div class="srvrow">
+        <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>
+          <select id="srvSel"></select></div>
+        <button type="button" class="iconbtn" id="srvBtn" title="Gestionar servidores">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+      </div>
+      <div class="srvmng" id="srvMng">
+        <label>Nombre</label>
+        <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+          <input id="nName" type="text" placeholder="Cliente / instancia"/></div>
+        <label>Dirección (host o URL)</label>
+        <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/></svg>
+          <input id="nUrl" type="text" placeholder="https://eventos.cliente.com  o  192.168.1.10"/></div>
+        <button type="button" class="save" id="nSave">Guardar servidor</button>
+        <div class="list" id="srvList"></div>
+      </div>
+
+      <label>Usuario</label>
+      <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
+        <input id="u" type="text" placeholder="usuario" autofocus/></div>
+
+      <label>Contraseña</label>
+      <div class="fld"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        <input id="p" type="password" placeholder="••••••••"/>
+        <svg class="eye" id="eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></div>
+
+      <button class="btn" id="go" type="submit"><span class="sp" id="sp"></span><span id="goT">Entrar</span>
+        <svg id="goChev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></button>
+      <div class="err" id="err"></div>
+      <p class="hint"><i></i> Acceso restringido a personal autorizado</p>
+    </form>
+  </div>
+
 <script>
   const $=(id)=>document.getElementById(id);
-  const D=window.eventosDesktop;
-  (async()=>{ try{ const c=await (D&&D.getConfig&&D.getConfig()); if(c&&c.url) $('srv').value=c.url; }catch{} })();
+  const SVGNS='http://www.w3.org/2000/svg';
+  const D=window.eventosDesktop||{
+    __preview:true,
+    servers:{ get:async()=>({servers:[{id:'a',name:'Infratec · Demo',url:'https://eventos.infratec.com.uy'}],current:'https://eventos.infratec.com.uy'}),
+      add:async(n,u)=>({ok:true,servers:[{id:'a',name:'Infratec · Demo',url:'https://eventos.infratec.com.uy'},{id:'b',name:n,url:u}]}),
+      remove:async()=>({servers:[{id:'a',name:'Infratec · Demo',url:'https://eventos.infratec.com.uy'}],current:'https://eventos.infratec.com.uy'}),
+      select:async()=>({ok:true}) },
+    auth:{ login:async()=>{ await new Promise(r=>setTimeout(r,900)); return {ok:false,error:'preview'}; } },
+    client:{ get:async()=>({version:'1.4.5 · preview'}) },
+    win:{ minimize(){}, close(){} }, openSettings(){}
+  };
+
+  let SERVERS=[], CURRENT='';
+  function renderServers(){
+    const sel=$('srvSel'); sel.innerHTML='';
+    if(!SERVERS.length){ const o=document.createElement('option'); o.value=''; o.textContent='— agregá un servidor —'; sel.appendChild(o); }
+    for(const s of SERVERS){ const o=document.createElement('option'); o.value=s.url; o.textContent=(s.name&&s.name!==s.url)?(s.name+'  ·  '+s.url):s.url; if(s.url===CURRENT)o.selected=true; sel.appendChild(o); }
+    const list=$('srvList'); list.innerHTML='';
+    for(const s of SERVERS){
+      const it=document.createElement('div'); it.className='srvitem';
+      const info=document.createElement('div'); info.className='sp2';
+      const b=document.createElement('b'); b.textContent=s.name||s.url;
+      const sp=document.createElement('span'); sp.textContent=s.url;
+      info.appendChild(b); info.appendChild(sp); it.appendChild(info);
+      const del=document.createElementNS(SVGNS,'svg');
+      del.setAttribute('viewBox','0 0 24 24'); del.setAttribute('fill','none'); del.setAttribute('stroke','currentColor');
+      del.setAttribute('stroke-width','2'); del.setAttribute('width','16'); del.setAttribute('height','16'); del.setAttribute('class','del');
+      del.innerHTML='<path d="M4 7h16M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2M6 7l1 13h10l1-13"/>';
+      del.onclick=async()=>{ const r=await D.servers.remove(s.id); SERVERS=r.servers||[]; CURRENT=r.current||''; renderServers(); };
+      it.appendChild(del); list.appendChild(it);
+    }
+  }
+  async function loadServers(){
+    try{ const r=await (D&&D.servers&&D.servers.get()); if(r){ SERVERS=r.servers||[]; CURRENT=r.current||''; } }catch{}
+    renderServers();
+    if(!SERVERS.length) $('srvMng').classList.add('show');
+  }
+  $('srvBtn').onclick=()=>$('srvMng').classList.toggle('show');
+  $('srvSel').onchange=async(e)=>{ CURRENT=e.target.value; try{ await D.servers.select(CURRENT); }catch{} };
+  $('nSave').onclick=async()=>{
+    const name=$('nName').value.trim(), url=$('nUrl').value.trim();
+    if(!url){ return fail('Ingresá la dirección del servidor.'); }
+    const r=await D.servers.add(name,url);
+    if(r&&r.ok){ SERVERS=r.servers||[]; const added=SERVERS[SERVERS.length-1]; CURRENT=(added&&added.url)||CURRENT; try{await D.servers.select(CURRENT);}catch{} $('nName').value=''; $('nUrl').value=''; renderServers(); $('srvMng').classList.remove('show'); $('err').classList.remove('show'); $('u').focus(); }
+    else fail('No se pudo guardar el servidor.');
+  };
+
   $('eye').onclick=()=>{ const p=$('p'); p.type=p.type==='password'?'text':'password'; };
-  $('advT').onclick=()=>{ const w=$('srvWrap'); w.style.display=w.style.display==='block'?'none':'block'; };
-  function fail(msg){ const e=$('err'); e.textContent=msg; e.style.display='block'; setBusy(false); }
-  function setBusy(b){ $('go').disabled=b; $('sp').style.display=b?'inline-block':'none'; $('goT').textContent=b?'Ingresando…':'Ingresar'; }
+  function fail(msg){ const e=$('err'); e.textContent=msg; e.classList.add('show'); setBusy(false); }
+  function setBusy(b){ $('go').disabled=b; $('sp').style.display=b?'inline-block':'none'; $('goChev').style.display=b?'none':'inline-block'; $('goT').textContent=b?'Verificando…':'Entrar'; }
   const MSG={bad_credentials:'Usuario o contraseña incorrectos.',missing_credentials:'Completá usuario y contraseña.',network:'No se pudo conectar con el servidor. Verificá la dirección y la red.'};
+
   $('f').addEventListener('submit', async (ev)=>{
-    ev.preventDefault(); $('err').style.display='none';
-    const username=$('u').value.trim(), password=$('p').value, server=$('srv').value.trim();
+    ev.preventDefault(); $('err').classList.remove('show');
+    const username=$('u').value.trim(), password=$('p').value;
+    const server=$('srvSel').value||CURRENT;
+    if(!server){ $('srvMng').classList.add('show'); return fail('Elegí o agregá un servidor.'); }
     if(!username||!password){ return fail('Completá usuario y contraseña.'); }
     if(!D||!D.auth){ return fail('Puente de escritorio no disponible.'); }
     setBusy(true);
     try{
       const r=await D.auth.login({server,username,password});
-      if(r&&r.ok){ $('goT').textContent='Bienvenido'; /* main cierra esta ventana */ }
+      if(r&&r.ok){ $('goT').textContent='Bienvenido'; }
+      else if(D.__preview){ fail('Vista previa: el ingreso funciona en la app real.'); }
       else{ fail(MSG[(r&&r.error)]||('No se pudo ingresar ('+((r&&r.error)||'error')+').')); }
     }catch(e){ fail('Error inesperado: '+(e&&e.message||e)); }
   });
+
+  loadServers();
+  $('wcMin').onclick=()=>{ try{ D.win.minimize(); }catch{} };
+  $('wcClose').onclick=()=>{ try{ D.win.close(); }catch{ window.close(); } };
+  $('wcDl').onclick=()=>{ try{ D.openSettings(); }catch{} };
+  (async()=>{ try{ const c=await D.client.get(); if(c&&c.version) $('wcVer').textContent='v'+c.version; }catch{} })();
 </script></body></html>

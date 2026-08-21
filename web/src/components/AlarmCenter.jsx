@@ -10,6 +10,7 @@ import OperativeMap from './OperativeMap.jsx'
 import OperatorBar from './OperatorBar.jsx'
 import EventPopup from './EventPopup.jsx'
 import OperatorIdentity from './OperatorIdentity.jsx'
+import { postWallFocus } from '../lib/wallbus.js'
 import { eventTypeLabel, EVENT_TYPE_ICON, EVENT_TYPE_LABELS, priorityLabel, targetLabel, TARGET_ICON } from '../lib/labels.js'
 import { formatTime, timeAgo, priorityClass, slaInfo } from '../lib/format.js'
 
@@ -29,6 +30,10 @@ const loadLS = (k, fb) => { try { const r = localStorage.getItem(k); return r ? 
 const saveLS = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)) } catch { /* ignore */ } }
 
 const isActive = (e) => e.status !== 'resolved' && e.status !== 'escalated'
+// Alto FIJO de fila (px) para la virtualización de la tabla. Debe coincidir con el
+// CSS (.alarmc__row height). Con miles de alarmas (p.ej. Escaladas) sólo se montan
+// las filas visibles → no se cuelga la app ni el compositor de Windows.
+const ROW_H = 44
 const PRIOS = [1, 2, 3, 4, 5]
 
 function matchFilters(e, f) {
@@ -167,11 +172,61 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const [flash, setFlash] = useState(() => new Set()) // ids recién llegados (animación)
   const [, setTick] = useState(0) // re-render 1s para el contador de SLA
   const [checked, setChecked] = useState(() => new Set()) // selección múltiple
+  const [panelsOpen, setPanelsOpen] = useState(true) // paneles inferiores (foto/vivo/mapa) plegables
+  const tableWrapRef = useRef(null)
+  // Virtualización: seguimos el scroll y el alto del contenedor para montar sólo las
+  // filas visibles (+ un colchón). Sin esto, miles de filas × ~10 SVG c/u re-renderizadas
+  // por el tick de 1 s saturaban GPU/memoria y colgaban la app y Windows.
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewH, setViewH] = useState(640)
+  useEffect(() => {
+    const el = tableWrapRef.current
+    if (!el) return
+    const onScroll = () => setScrollTop(el.scrollTop)
+    el.addEventListener('scroll', onScroll, { passive: true })
+    let ro = null
+    try { ro = new ResizeObserver(() => setViewH(el.clientHeight || 640)); ro.observe(el) } catch { /* sin RO */ }
+    setViewH(el.clientHeight || 640)
+    return () => { el.removeEventListener('scroll', onScroll); if (ro) try { ro.disconnect() } catch { /* noop */ } }
+  }, [])
   const fwdRef = useRef(null)
   const seenRef = useRef(null)
   const acRef = useRef(null)
   const bcRef = useRef(null)
   const escSeenRef = useRef(null)
+  // Paginación de "Escaladas" desde Postgres (/api/events/history). La cola en memoria
+  // (socket) sólo trae lo reciente (cap MAX_EVENTS); con tormentas, los miles de
+  // escalados históricos viven en PG. Cargamos por páginas (keyset) con scroll infinito
+  // y fusionamos con lo que llega en vivo por socket (live gana en el merge).
+  const [escItems, setEscItems] = useState([])   // páginas traídas de PG (histórico)
+  const [escBefore, setEscBefore] = useState(null) // cursor keyset (ts ISO del último)
+  const [escLoading, setEscLoading] = useState(false)
+  const [escDone, setEscDone] = useState(false)  // no hay más páginas
+  const escLoadingRef = useRef(false)            // guarda contra doble disparo del scroll
+  const fetchEscPage = useCallback((before) => {
+    if (escLoadingRef.current) return
+    escLoadingRef.current = true
+    setEscLoading(true)
+    const qs = new URLSearchParams({ status: 'escalated', limit: '150' })
+    if (before) qs.set('before', before)
+    fetch(`/api/events/history?${qs.toString()}`, { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || !Array.isArray(d.events)) { setEscDone(true); return }
+        setEscItems((prev) => (before ? [...prev, ...d.events] : d.events))
+        setEscBefore(d.nextBefore || null)
+        setEscDone(!d.nextBefore)
+      })
+      .catch(() => { setEscDone(true) })
+      .finally(() => { escLoadingRef.current = false; setEscLoading(false) })
+  }, [])
+  // Al entrar a la pestaña Escaladas, reiniciar y traer la primera página desde PG.
+  useEffect(() => {
+    if (tab !== 'escalated') return
+    setEscItems([]); setEscBefore(null); setEscDone(false)
+    escLoadingRef.current = false
+    fetchEscPage(null)
+  }, [tab, fetchEscPage])
   const [sound, setSound] = useState(() => { try { return localStorage.getItem('eventos.alarms.sound') !== '0' } catch { return true } })
   const toggleSound = () => setSound((v) => { const n = !v; try { localStorage.setItem('eventos.alarms.sound', n ? '1' : '0') } catch { /* ignore */ } return n })
 
@@ -275,18 +330,60 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
     return m
   }, [events])
 
-  const latest = useMemo(() => events.filter((e) => (showHistory ? true : isActive(e)) && !ignored.has(e.id)), [events, ignored, showHistory])
+  // Recientes = eventos activos de las últimas 6 h (alivia la tabla). Con
+  // "Historial" activado se muestran todos (sin ventana temporal).
+  const latest = useMemo(() => {
+    const cut = Date.now() - 6 * 3600 * 1000
+    return events.filter((e) => {
+      if (ignored.has(e.id)) return false
+      if (showHistory) return true
+      if (!isActive(e)) return false
+      return new Date(e.deviceTs || e.ts).getTime() >= cut
+    })
+  }, [events, ignored, showHistory])
   const ignoredList = useMemo(() => events.filter((e) => ignored.has(e.id)), [events, ignored])
   const escalatedList = useMemo(() => events.filter((e) => e.status === 'escalated'), [events])
+  // Tabs fijas nuevas: "Míos" (asignados a mí) y "Grupo" (derivados a un grupo).
+  const myId = operator && operator.operatorId
+  const mineList = useMemo(() => events.filter((e) => isActive(e) && !ignored.has(e.id) && myId && e.assignedTo === myId), [events, ignored, myId])
+  const groupList = useMemo(() => events.filter((e) => isActive(e) && !ignored.has(e.id) && (e.log || []).some((l) => l.action === 'transfer' || l.action === 'reassign')), [events, ignored])
   const activeTab = customTabs.find((t) => t.id === tab)
+  // Tabs por PRIORIDAD (estilo HikCentral): cubos con contador para triaje rápido en
+  // volumen. Bucket: 1=crítica, 2=alta, 3=media, ≥4=baja. Cuenta sobre lo ACTIVO.
+  const prioBucket = (p) => { const n = Number(p) || 5; return n <= 1 ? 1 : n === 2 ? 2 : n === 3 ? 3 : 4 }
+  const prioCounts = useMemo(() => {
+    const c = { 1: 0, 2: 0, 3: 0, 4: 0 }
+    for (const e of events) { if (isActive(e) && !ignored.has(e.id)) c[prioBucket(e.priority)]++ }
+    return c
+  }, [events, ignored])
   const rows = useMemo(() => {
     if (tab === 'ignored') return ignoredList
-    if (tab === 'escalated') return escalatedList
+    if (tab === 'escalated') {
+      // Fusión: histórico de PG (escItems) + escalados vivos (socket). Live gana por id.
+      const m = new Map()
+      for (const e of escItems) m.set(e.id, e)
+      for (const e of escalatedList) m.set(e.id, e)
+      return [...m.values()]
+        .filter((e) => e.status === 'escalated')
+        .sort((a, b) => new Date(b.deviceTs || b.ts).getTime() - new Date(a.deviceTs || a.ts).getTime())
+    }
+    if (tab === 'mine') return mineList
+    if (tab === 'group') return groupList
+    if (typeof tab === 'string' && tab.startsWith('prio:')) {
+      const b = Number(tab.slice(5))
+      return events.filter((e) => isActive(e) && !ignored.has(e.id) && prioBucket(e.priority) === b)
+    }
     if (activeTab) return events.filter((e) => isActive(e) && !ignored.has(e.id) && matchFilters(e, activeTab.filters))
     return latest
-  }, [tab, activeTab, events, ignored, latest, ignoredList, escalatedList])
+  }, [tab, activeTab, events, ignored, latest, ignoredList, escalatedList, escItems, mineList, groupList])
 
-  const selected = selId ? events.find((e) => e.id === selId) || null : null
+  // Buscar un evento por id abarcando la cola en memoria y las páginas PG (escalados
+  // que ya no están en memoria). Así el panel/modal abre eventos sólo-PG correctamente.
+  const findEvent = useCallback((id) => {
+    if (!id) return null
+    return events.find((e) => e.id === id) || escItems.find((e) => e.id === id) || null
+  }, [events, escItems])
+  const selected = selId ? findEvent(selId) : null
   // Mapa centrado en el CLIENTE del evento seleccionado.
   const focus = useMemo(() => {
     if (!selected) return null
@@ -313,11 +410,48 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
   const ack = () => { targetIds().forEach((id) => actions?.ack?.(id)); setChecked(new Set()) }
   const forward = (groupId) => { targetIds().forEach((id) => actions?.transfer?.(id, groupId)); setChecked(new Set()); setFwdOpen(false) }
   const bulkIgnore = () => { const ids = targetIds(); if (!ids.length) return; const n = new Set(ignored); ids.forEach((id) => n.add(id)); persistIgn(n); setChecked(new Set()); setSelId(null) }
+  // Clasificar/resolver en lote: alarma real o falsa (disposición del evento).
+  const resolveAs = (disp) => { const ids = targetIds(); if (!ids.length) return; ids.forEach((id) => actions?.resolve?.(id, disp)); setChecked(new Set()); setSelId(null) }
+  // Tomar en lote: el operador se asigna los eventos (claim) y pasan a EN CURSO.
+  // Reemplaza al viejo "Acuse" — "tomar" es el concepto claro (asignárselo).
+  const takeSelected = () => { const ids = targetIds(); if (!ids.length) return; ids.forEach((id) => { actions?.claim?.(id); actions?.progress?.(id) }); setChecked(new Set()); setSelId(null) }
   const openVideo = () => requestOpen(selId)
+  const clearSel = () => { setChecked(new Set()); setSelId(null) }
   const toggleCheck = (id) => setChecked((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const allChecked = rows.length > 0 && rows.every((r) => checked.has(r.id))
   const toggleAll = () => setChecked((prev) => (rows.every((r) => prev.has(r.id)) ? new Set() : new Set(rows.map((r) => r.id))))
   const hasTargets = !!selId || checked.size > 0
+  const targetCount = checked.size || (selId ? 1 : 0)
+  // Volver arriba de la tabla cuando llega una alarma nueva (lo último, arriba).
+  const topRowId = rows.length ? rows[0].id : null
+  useEffect(() => { const el = tableWrapRef.current; if (el) { el.scrollTop = 0; setScrollTop(0) } }, [topRowId])
+
+  // Ventana visible (virtualización). Cálculo barato por render; sólo se montan las
+  // filas dentro del viewport + colchón. Dos filas espaciadoras mantienen el alto
+  // total y la barra de scroll reales.
+  const vOver = 8
+  const vTotal = rows.length
+  const vStart = Math.max(0, Math.floor(scrollTop / ROW_H) - vOver)
+  const vEnd = Math.min(vTotal, vStart + Math.ceil((viewH || 640) / ROW_H) + vOver * 2)
+  const vRows = rows.slice(vStart, vEnd)
+  const padTop = vStart * ROW_H
+  const padBottom = Math.max(0, (vTotal - vEnd) * ROW_H)
+
+  // Scroll infinito de "Escaladas": al acercarse al final de lo cargado, pedir la
+  // siguiente página a PG. El guard escLoadingRef evita disparos superpuestos.
+  useEffect(() => {
+    if (tab !== 'escalated' || escDone || escLoadingRef.current) return
+    const remaining = vTotal * ROW_H - (scrollTop + (viewH || 640))
+    if (remaining < 600) fetchEscPage(escBefore)
+  }, [tab, escDone, scrollTop, viewH, vTotal, escBefore, fetchEscPage])
+
+  // Mapa operativo: NO debe re-renderizar en el tick de 1 s ni plotear miles de marcadores.
+  // Cap a 400 eventos y elemento memoizado (sólo se recrea si cambian sitios/eventos/foco).
+  const mapEvents = useMemo(() => (rows.length > 400 ? rows.slice(0, 400) : rows), [rows])
+  const mapEl = useMemo(
+    () => <OperativeMap sites={sites} events={mapEvents} focus={focus} onOpenEvent={(ev) => requestOpen(ev.id)} />,
+    [sites, mapEvents, focus, requestOpen]
+  )
 
   // Navegación por teclado: ↑/↓ mover · Enter abrir · Espacio marcar.
   useEffect(() => {
@@ -334,15 +468,38 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [rows, selId, openId, newTabOpen, requestOpen, requestSelect])
-  // Auto-scroll de la fila activa al navegar con teclado.
+  // Auto-scroll de la fila activa al navegar con teclado. Con la lista virtualizada la
+  // fila puede no estar montada → calculamos su posición por índice y ajustamos el scroll.
   useEffect(() => {
     if (!selId) return
-    const el = document.querySelector('.alarmc__row.is-sel')
-    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' })
-  }, [selId])
+    const el = tableWrapRef.current; if (!el) return
+    const idx = rows.findIndex((r) => r.id === selId)
+    if (idx < 0) return
+    const top = idx * ROW_H, bottom = top + ROW_H
+    if (top < el.scrollTop) el.scrollTop = top
+    else if (bottom > el.scrollTop + el.clientHeight) el.scrollTop = bottom - el.clientHeight
+  }, [selId, rows])
+
+  // Al abrir un evento, avisar a los muros (Videowall en otro monitor) para que
+  // carguen todas las cámaras del cliente/sitio que reportó el evento.
+  useEffect(() => {
+    if (!openId) return
+    const ev = findEvent(openId)
+    if (!ev) return
+    const s = ev.source || {}
+    postWallFocus({
+      type: 'focus-site',
+      site: s.site || ev.site || ev.zone || '',
+      sourceDeviceId: s.deviceId || null,
+      sourceName: s.deviceName || null,
+      sourceChannel: s.channel != null ? s.channel : null,
+      sourceIp: s.ip || null,
+      eventId: ev.id,
+    })
+  }, [openId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!operator) return <OperatorIdentity onConfirm={onConfirmIdentity} />
-  const openEvent = openId ? events.find((e) => e.id === openId) || null : null
+  const openEvent = openId ? findEvent(openId) : null
 
   return (
     <div className={`console console--work console--center${isTablePopout ? ' console--popout' : ''}`}>
@@ -371,6 +528,20 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
           <button type="button" className={`alarmc__tab alarmc__tab--esc ${tab === 'escalated' ? 'is-active' : ''}`} onClick={() => setTab('escalated')} title="Eventos escalados / SLA vencido">
             <Icon name="alert" size={13} /> Escaladas <span className={`alarmc__count ${escalatedList.length > 0 ? 'alarmc__count--esc' : ''}`}>{escalatedList.length}</span>
           </button>
+          <button type="button" className={`alarmc__tab ${tab === 'mine' ? 'is-active' : ''}`} onClick={() => setTab('mine')} title="Eventos asignados a mí (en curso)">
+            <Icon name="check" size={13} /> Míos <span className="alarmc__count">{mineList.length}</span>
+          </button>
+          <button type="button" className={`alarmc__tab ${tab === 'group' ? 'is-active' : ''}`} onClick={() => setTab('group')} title="Eventos derivados a un grupo">
+            <Icon name="route" size={13} /> Grupo <span className="alarmc__count">{groupList.length}</span>
+          </button>
+          <span className="alarmc__tabsep" />
+          {[{ b: 1, lbl: 'Crítica', cls: 'prio-1' }, { b: 2, lbl: 'Alta', cls: 'prio-2' }, { b: 3, lbl: 'Media', cls: 'prio-3' }, { b: 4, lbl: 'Baja', cls: 'prio-4' }].map(({ b, lbl, cls }) => (
+            prioCounts[b] > 0 ? (
+              <button key={b} type="button" className={`alarmc__tab alarmc__tab--prio ${cls} ${tab === `prio:${b}` ? 'is-active' : ''}`} onClick={() => setTab(`prio:${b}`)} title={`Prioridad ${lbl}`}>
+                <PriorityDot p={b} size={8} /> {lbl} <span className={`alarmc__count ${b <= 1 ? 'alarmc__count--esc' : ''}`}>{prioCounts[b]}</span>
+              </button>
+            ) : null
+          ))}
           {customTabs.map((t) => {
             const n = events.filter((e) => isActive(e) && !ignored.has(e.id) && matchFilters(e, t.filters)).length
             return (
@@ -384,41 +555,60 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
             <button type="button" className="alarmc__addtab" title="Nueva pestaña por filtros" onClick={() => setNewTabOpen((v) => !v)}><Icon name="plus" size={15} /></button>
             {newTabOpen && <NewTabForm sites={sites} onSave={addTab} onClose={() => setNewTabOpen(false)} />}
           </div>
-        </div>
 
-        <div className="alarmc__toolbar">
-          <button type="button" className="alarmc__act" disabled={!hasTargets} onClick={ack}><Icon name="check" size={15} /> Acuse{checked.size > 1 ? ` (${checked.size})` : ''}</button>
-          <div className="alarmc__fwd" ref={fwdRef}>
-            <button type="button" className="alarmc__act" disabled={!hasTargets} onClick={() => setFwdOpen((v) => !v)}><Icon name="route" size={15} /> Reenviar</button>
-            {fwdOpen && (
-              <Glass strong className="alarmc__menu anim-pop" role="menu">
-                <p className="alarmc__menu-title">Reenviar a grupo</p>
-                {groups.length === 0 && <p className="alarmc__menu-empty">No hay grupos configurados</p>}
-                {groups.map((g) => (
-                  <button key={g.id} role="menuitem" className="alarmc__menu-item" onClick={() => forward(g.id)}>
-                    <Icon name="shieldcheck" size={14} /> {g.name}
-                  </button>
-                ))}
-              </Glass>
+          {/* Barra de utilidades: en la MISMA fila de las tabs, alineada a la derecha. */}
+          <div className="alarmc__toolbar">
+            <button type="button" className={`alarmc__toggle ${sound ? 'is-on' : ''}`} onClick={toggleSound} title={sound ? 'Sonido de alarma activado' : 'Sonido silenciado'}>
+              <Icon name="speaker" size={14} /> {sound ? 'Sonido' : 'Silencio'}
+            </button>
+            {onToggleAutoPopup && (
+              <button type="button" className={`alarmc__toggle ${autoPopup ? 'is-on' : ''}`} onClick={onToggleAutoPopup} title={autoPopup ? 'Pop-up automático de alarmas: activado' : 'Pop-up automático de alarmas: desactivado'}>
+                <Icon name="bell" size={14} /> Pop-up
+              </button>
             )}
+            <button type="button" className={`alarmc__toggle ${showHistory ? 'is-on' : ''}`} onClick={() => setShowHistory((v) => !v)} title="Incluir resueltas/escaladas">
+              <Icon name="clock" size={14} /> Historial
+            </button>
+            {!isTablePopout && <>
+              <button type="button" className={`alarmc__toggle ${panelsOpen ? '' : 'is-on'}`} onClick={() => setPanelsOpen((v) => !v)} title={panelsOpen ? 'Ocultar foto/vivo/mapa para ver más filas' : 'Mostrar foto/vivo/mapa'}>
+                <Icon name={panelsOpen ? 'layers' : 'expand'} size={14} /> {panelsOpen ? 'Más filas' : 'Ver paneles'}
+              </button>
+              <button type="button" className="alarmc__toggle" onClick={popoutTable} title="Abrir la tabla limpia en otra ventana/monitor"><Icon name="expand" size={14} /> Desacoplar tabla</button>
+              <a className="alarmc__toggle" href="/admin" title="Configuración"><Icon name="sliders" size={14} /> Config</a>
+            </>}
           </div>
-          <button type="button" className="alarmc__act" disabled={!selId} onClick={openVideo}><Icon name="play" size={15} /> Video de alarma</button>
-          <button type="button" className="alarmc__act" disabled={!hasTargets} onClick={bulkIgnore}><Icon name="x" size={15} /> Ignorar{checked.size > 1 ? ` (${checked.size})` : ''}</button>
-          <span className="alarmc__sp" />
-          <button type="button" className={`alarmc__toggle ${sound ? 'is-on' : ''}`} onClick={toggleSound} title={sound ? 'Sonido de alarma activado' : 'Sonido silenciado'}>
-            <Icon name="speaker" size={14} /> {sound ? 'Sonido' : 'Silencio'}
-          </button>
-          <button type="button" className={`alarmc__toggle ${showHistory ? 'is-on' : ''}`} onClick={() => setShowHistory((v) => !v)} title="Incluir resueltas/escaladas">
-            <Icon name="clock" size={14} /> Historial
-          </button>
-          {!isTablePopout && <>
-            <button type="button" className="alarmc__toggle" onClick={popoutTable} title="Abrir la tabla limpia en otra ventana/monitor"><Icon name="expand" size={14} /> Desacoplar tabla</button>
-            <a className="alarmc__toggle" href="/admin/devices" title="Armado / dispositivos"><Icon name="shield" size={14} /> Armado</a>
-            <a className="alarmc__toggle" href="/admin" title="Configuración"><Icon name="sliders" size={14} /> Config</a>
-          </>}
         </div>
 
-        <div className="alarmc__tablewrap">
+        {/* Barra de acciones EN LOTE: aparece SOLO cuando se MARCA el checkbox de una o
+            más filas (no al seleccionar/click, que sólo enfoca la fila y su preview).
+            Estilo notificación desde arriba-centro; desaparece al desmarcar todo. */}
+        {!isTablePopout && checked.size > 0 && (
+          <div className="selbar" role="toolbar" aria-label="Acciones de selección">
+            <span className="selbar__count"><b className="tnum">{targetCount}</b> {targetCount === 1 ? 'alarma' : 'alarmas'}</span>
+            <span className="selbar__div" />
+            <button type="button" className="selbar__act selbar__act--real" onClick={() => resolveAs('real')}><Icon name="alert" size={15} /> Alarma real</button>
+            <button type="button" className="selbar__act selbar__act--false" onClick={() => resolveAs('false_alarm')}><Icon name="check" size={15} /> Falsa alarma</button>
+            <button type="button" className="selbar__act" onClick={takeSelected} title="Te asignás el/los evento(s) y pasan a EN CURSO"><Icon name="check" size={15} /> Tomar</button>
+            <div className="alarmc__fwd" ref={fwdRef}>
+              <button type="button" className="selbar__act" onClick={() => setFwdOpen((v) => !v)}><Icon name="route" size={15} /> Reenviar</button>
+              {fwdOpen && (
+                <Glass strong className="alarmc__menu anim-pop" role="menu">
+                  <p className="alarmc__menu-title">Reenviar a grupo</p>
+                  {groups.length === 0 && <p className="alarmc__menu-empty">No hay grupos configurados</p>}
+                  {groups.map((g) => (
+                    <button key={g.id} role="menuitem" className="alarmc__menu-item" onClick={() => forward(g.id)}>
+                      <Icon name="shieldcheck" size={14} /> {g.name}
+                    </button>
+                  ))}
+                </Glass>
+              )}
+            </div>
+            <button type="button" className="selbar__act" onClick={bulkIgnore}><Icon name="x" size={15} /> Ignorar</button>
+            <button type="button" className="selbar__close" onClick={clearSel} title="Deseleccionar"><Icon name="x" size={15} /></button>
+          </div>
+        )}
+
+        <div className={`alarmc__tablewrap${panelsOpen ? '' : ' alarmc__tablewrap--tall'}`} ref={tableWrapRef}>
           <table className="alarmc__table">
             <thead>
               <tr>
@@ -433,7 +623,8 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
                   <div className="alarmc__empty"><Icon name="bell" size={26} /><span>Sin alarmas en esta pestaña</span></div>
                 </td></tr>
               )}
-              {rows.map((e) => {
+              {padTop > 0 && <tr aria-hidden="true" className="alarmc__spacer"><td colSpan={11} style={{ height: padTop, padding: 0, border: 0 }} /></tr>}
+              {vRows.map((e) => {
                 const p = e.priority ?? 5
                 const k = `${(e.source && e.source.deviceId) || '?'}|${e.type}`
                 const times = timesByKey.get(k) || 1
@@ -441,12 +632,15 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
                 const sla = slaForEvent(e)
                 const src = e.source || {}
                 const origin = [src.deviceName || src.deviceId, (src.channel != null && src.channel !== '') ? `canal ${src.channel}` : null].filter(Boolean).join(' · ') || '—'
+                // ¿Fue reasignada/transferida? (aparece en la bitácora del evento)
+                const reassigned = (e.log || []).some((l) => l.action === 'transfer' || l.action === 'reassign')
                 return (
-                  <tr key={e.id} className={`alarmc__row ${sel ? 'is-sel' : ''} ${priorityClass(p)} ${flash.has(e.id) ? 'is-new' : ''}`}
+                  <tr key={e.id} className={`alarmc__row ${sel ? 'is-sel' : ''} ${priorityClass(p)} ${flash.has(e.id) ? 'is-new' : ''} ${e.disposition === 'real' && isActive(e) ? 'is-real' : ''}`}
                       onClick={() => requestSelect(e.id)} onDoubleClick={() => requestOpen(e.id)}>
                     <td className="alarmc__td-sel" onClick={(ev) => ev.stopPropagation()}><input type="checkbox" checked={checked.has(e.id)} onChange={() => toggleCheck(e.id)} aria-label="Seleccionar alarma" /></td>
                     <td className="alarmc__name"><Icon name={EVENT_TYPE_ICON[e.type] || 'bell'} size={14} /> {e.title || eventTypeLabel(e.type)}
                       {e.target && e.target !== 'none' && <Icon name={TARGET_ICON[e.target] || 'dot'} size={12} className={`alarmc__target alarmc__target--${e.target}`} title={`Objetivo: ${targetLabel(e.target)}`} />}
+                      {reassigned && <span className="alarmc__retag" title="Evento reasignado / transferido"><Icon name="route" size={11} /> Reasignada</span>}
                     </td>
                     <td><span className={`alarmc__prio ${priorityClass(p)}`}><PriorityDot p={p} size={8} /> {priorityLabel(p)}</span></td>
                     <td>{sla ? <span className={`alarmc__sla alarmc__sla--${sla.tone}`}>{sla.label}</span> : <span className="alarmc__dim">—</span>}</td>
@@ -460,23 +654,35 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
                       {tab === 'ignored' ? (
                         <button type="button" title="Restaurar" onClick={() => restore(e.id)}><Icon name="refresh" size={14} /> Restaurar</button>
                       ) : (
-                        <>
-                          <button type="button" title="Acuse" onClick={() => actions?.ack?.(e.id)}><Icon name="check" size={14} /></button>
-                          <button type="button" title="Video" onClick={() => requestOpen(e.id)}><Icon name="play" size={14} /></button>
-                          <button type="button" title="Ignorar" onClick={() => ignore(e.id)}><Icon name="x" size={14} /></button>
-                        </>
+                        <div className="alarmc__actbar">
+                          <button type="button" className="alarmc__act alarmc__act--take" title="Tomar (asignármelo · pasa a EN CURSO)"
+                            onClick={() => { actions?.claim?.(e.id); actions?.progress?.(e.id) }}><Icon name="check" size={14} /></button>
+                          <button type="button" className="alarmc__act" title="Ver video / verificación"
+                            onClick={() => requestOpen(e.id)}><Icon name="play" size={14} /></button>
+                          <button type="button" className="alarmc__act alarmc__act--esc" title="Escalar a supervisión"
+                            onClick={() => actions?.escalate?.(e.id)}><Icon name="alert" size={14} /></button>
+                          <button type="button" className="alarmc__act alarmc__act--real" title="Resolver como ALARMA REAL"
+                            onClick={() => actions?.resolve?.(e.id, 'real')}><Icon name="siren" size={14} /></button>
+                          <button type="button" className="alarmc__act alarmc__act--false" title="Resolver como FALSA alarma"
+                            onClick={() => actions?.resolve?.(e.id, 'false_alarm')}><Icon name="shieldcheck" size={14} /></button>
+                          <button type="button" className="alarmc__act" title="Reasignar / reenviar a grupo"
+                            onClick={() => { setSelId(e.id); setChecked(new Set([e.id])); setFwdOpen(true) }}><Icon name="route" size={14} /></button>
+                          <button type="button" className="alarmc__act alarmc__act--mute" title="Ignorar"
+                            onClick={() => ignore(e.id)}><Icon name="x" size={14} /></button>
+                        </div>
                       )}
                     </td>
                   </tr>
                 )
               })}
+              {padBottom > 0 && <tr aria-hidden="true" className="alarmc__spacer"><td colSpan={11} style={{ height: padBottom, padding: 0, border: 0 }} /></tr>}
             </tbody>
           </table>
         </div>
 
-        {!isTablePopout && <p className="alarmc__hint">Clic: seleccionar · Doble clic o «Video de alarma»: abrir verificación · ↑↓ navegar · Enter abrir · Espacio marcar · marcá varias para acuse/ignorar en lote</p>}
+        {!isTablePopout && <p className="alarmc__hint">Clic: seleccionar · Doble clic: abrir verificación · ↑↓ navegar · Enter abrir · Espacio marcar · marcá varias para acciones en lote (aparecen arriba)</p>}
 
-        {!isTablePopout && (<div className="alarmc__bottom alarmc__bottom--3">
+        {!isTablePopout && panelsOpen && (<div className="alarmc__bottom alarmc__bottom--3">
           <section className="alarmc__panel">
             <header className="alarmc__panel-head"><Icon name="camera" size={14} /> Foto del evento</header>
             <div className="alarmc__panel-body"><RelatedMedia event={selected} /></div>
@@ -496,13 +702,21 @@ export default function AlarmCenter({ operator, onConfirmIdentity, onChangeOpera
               {selected && selected.source && selected.source.site && <span className="alarmc__panel-sub">· {selected.source.site}</span>}
             </header>
             <div className="alarmc__panel-body alarmc__map">
-              <OperativeMap sites={sites} events={rows} focus={focus} onOpenEvent={(e) => requestOpen(e.id)} />
+              {mapEl}
             </div>
           </section>
         </div>)}
       </div>
 
-      {!isTablePopout && openEvent && <EventPopup event={openEvent} operator={operator} actions={actions} onClose={() => { setOpenId(null); if (clearAlert) clearAlert() }} />}
+      {!isTablePopout && openEvent && (() => {
+        // Navegación por la cola (estilo HikCentral ‹ N/285 ›): recorrer la lista actual
+        // sin cerrar el modal, para procesar en volumen.
+        const openIdx = rows.findIndex((e) => e.id === openId)
+        const navOpen = (dir) => { if (openIdx < 0) return; const ni = openIdx + dir; if (ni >= 0 && ni < rows.length) requestOpen(rows[ni].id) }
+        return <EventPopup event={openEvent} operator={operator} actions={actions}
+          queuePos={openIdx >= 0 ? { index: openIdx, total: rows.length } : null} onNav={navOpen}
+          onClose={() => { setOpenId(null); if (clearAlert) clearAlert() }} />
+      })()}
     </div>
   )
 }

@@ -35,7 +35,7 @@ function SecHead({ icon, tone, title, sub, hint, action }) {
 const EMPTY = {
   name: '', type: 'camera', vendor: '', ip: '', channel: 1,
   username: '', password: '', isapiPort: '', rtspPort: '', camIp: '',
-  siteId: '', zone: '', streamUrl: '', snapshotUrl: '', rtspUrl: '',
+  siteId: '', zone: '', area: '', liveSource: 'auto', playbackSource: 'nvr', videoMode: 'transcode', streamUrl: '', snapshotUrl: '', rtspUrl: '',
   enabled: true, defaultPriority: null, tags: [], alerts: null, armed: false, relays: [],
 }
 const VENDORS = ['Hikvision', 'Dahua', 'Tiandy', 'Akuvox', 'Uniview', 'Siera', 'Intelbras', 'ONVIF', 'Otro']
@@ -274,6 +274,7 @@ export default function DeviceEdit() {
   const [liveQuality, setLiveQuality] = useState('sub') // 'sub' | 'main' — flujo elegido
   const [editingAna, setEditingAna] = useState(false)
   const [tab, setTab] = useState('datos') // datos | alertas | medios | salud
+  const [tabCounts, setTabCounts] = useState({ logs: null, usuarios: null }) // contadores async para los badges
   const [probing, setProbing] = useState(false)
   const [probed, setProbed] = useState(false) // conexión verificada al menos una vez
   const [newStep, setNewStep] = useState(0) // alta: 0=Marca 1=Tipo 2=Conexión
@@ -315,6 +316,16 @@ export default function DeviceEdit() {
     ? allDevices.filter((x) => x.id !== id && x.ip === form.ip && x.channel != null && x.type !== 'nvr' && x.type !== 'alarm')
         .sort((a, b) => (Number(a.channel) || 0) - (Number(b.channel) || 0))
     : []
+  // Guardrail contra error humano: si esta cámara/portero toma una IP que YA es de
+  // un NVR existente, al guardar quedaría como un canal de ese NVR (ch1) sin querer.
+  const ipTrim = String(form.ip || '').trim()
+  const nvrAtIp = !isNvr && !isAlarm && ipTrim
+    ? allDevices.find((x) => x.id !== id && String(x.ip || '').trim() === ipTrim && x.type === 'nvr')
+    : null
+  const chNow = form.channel === '' || form.channel == null ? null : Number(form.channel)
+  const dupChannel = ipTrim && chNow != null
+    ? allDevices.find((x) => x.id !== id && String(x.ip || '').trim() === ipTrim && Number(x.channel) === chNow && x.type !== 'nvr')
+    : null
   useEffect(() => {
     if (isNew) return
     let alive = true
@@ -412,21 +423,34 @@ export default function DeviceEdit() {
 
   if (loading) return <Loading label="Cargando dispositivo…" />
 
+  // Contadores para los badges numéricos de cada pestaña. Los baratos salen del
+  // form (relés, medios); logs/usuarios llegan async cuando su tab carga.
+  const relayCount = Array.isArray(form.relays) ? form.relays.length : 0
+  const mediosCount = isNvr ? nvrChannels.length : ['streamUrl', 'snapshotUrl', 'rtspUrl'].filter((k) => String(form[k] || '').trim()).length
+  const alertsOnCount = (() => {
+    const a = form.alerts
+    if (!a || a.enabled === false) return null
+    const t = a.types && typeof a.types === 'object' ? a.types : null
+    if (!t) return null
+    const on = Object.values(t).filter((v) => v !== false).length
+    return on || null
+  })()
   const TABS = [
     { k: 'datos', icon: 'device', label: 'Datos' },
-    { k: 'reles', icon: isAlarm ? 'siren' : 'route', label: isAlarm ? 'Central y relés' : (isAccess || isIntercom ? 'Relés / Puertas' : 'Relés / Puertas'), hide: !hasRelays },
-    { k: 'alertas', icon: 'bell', label: 'Alertas' },
-    { k: 'medios', icon: 'video', label: isNvr ? 'Canales' : 'Medios de video', hide: isAlarm },
+    { k: 'reles', icon: isAlarm ? 'siren' : 'route', label: isAlarm ? 'Central y relés' : (isAccess || isIntercom ? 'Relés / Puertas' : 'Relés / Puertas'), hide: !hasRelays, badge: relayCount || null },
+    { k: 'alertas', icon: 'bell', label: 'Alertas', badge: alertsOnCount },
+    { k: 'medios', icon: 'video', label: isNvr ? 'Canales' : 'Medios de video', hide: isAlarm, badge: mediosCount || null },
     { k: 'salud', icon: 'gauge', label: 'Salud' },
-    { k: 'logs', icon: 'rules', label: 'Logs' },
-    { k: 'usuarios', icon: 'operators', label: 'Usuarios', hide: !isIntercom },
+    { k: 'logs', icon: 'rules', label: 'Logs', badge: tabCounts.logs },
+    { k: 'usuarios', icon: 'operators', label: 'Usuarios', hide: !isIntercom, badge: tabCounts.usuarios, accent: true },
   ]
 
   const tabsEl = (
     <div className="subtabs dev-tabs">
       {TABS.filter((t) => !t.hide && (!gated || t.k === 'datos')).map((t) => (
-        <button type="button" key={t.k} className={`subtab${tab === t.k ? ' is-on' : ''}`} onClick={() => setTab(t.k)}>
+        <button type="button" key={t.k} className={`subtab${tab === t.k ? ' is-on' : ''}${t.accent ? ' subtab--accent' : ''}`} onClick={() => setTab(t.k)}>
           <Icon name={t.icon} size={15} /> {t.label}
+          {t.badge != null && t.badge !== '' && <span className="subtab__badge">{t.badge}</span>}
         </button>
       ))}
     </div>
@@ -604,6 +628,16 @@ export default function DeviceEdit() {
                   <Switch checked={form.enabled} onChange={(enabled) => setForm((f) => ({ ...f, enabled }))} label={form.enabled ? 'Activo' : 'Deshabilitado'} />
                 </Field>
               </div>
+              {nvrAtIp && (
+                <div className="dev-notice dev-notice--warn">
+                  <Icon name="alert" size={17} />
+                  <div className="dev-notice__body">
+                    <b>Esta IP ya es del NVR «{nvrAtIp.name}».</b>
+                    <p>Guardado así, {isIntercom ? 'este portero' : 'esta cámara'} queda como el <b>canal #{chNow ?? 1}</b> de ese NVR. Si es una cámara del grabador, elegí bien el <b>Canal</b> arriba; si es un equipo <b>independiente</b>, poné su propia IP. Para dar de alta las cámaras del NVR de una, abrí el NVR «{nvrAtIp.name}» y usá <b>«Descubrir cámaras del NVR»</b>.</p>
+                    {dupChannel && <p className="dev-notice__dup"><Icon name="alert" size={13} /> El canal #{chNow} de esta IP ya existe: «{dupChannel.name}» — lo estarías duplicando.</p>}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="dev-card">
@@ -653,6 +687,39 @@ export default function DeviceEdit() {
                 </Field>
                 <Field label={<><Icon name="pin" size={14} /> Zona</>} hint="Etiqueta de ubicación (p. ej. «Acceso Norte»).">
                   <TextInput value={form.zone || ''} onChange={set('zone')} placeholder="Acceso Norte" />
+                </Field>
+              </div>
+              <Field label={<><Icon name="shield" size={14} /> Ubicación en el muro</>} className="u-mt-12"
+                hint="En la verificación en vivo agrupa las cámaras: «Interior» a la izquierda del Hero, «Perímetro» a la derecha.">
+                <Select value={form.area || ''} onChange={set('area')}>
+                  <option value="">— Sin clasificar —</option>
+                  <option value="interior">Interior</option>
+                  <option value="perimeter">Perímetro</option>
+                </Select>
+              </Field>
+              <div className="dev-grid dev-grid--2 u-mt-12">
+                <Field label={<><Icon name="video" size={14} /> Fuente de video (vivo)</>}
+                  hint="Auto: prueba la IP directa y cae al NVR si no la alcanza. Directo: siempre por la IP de la cámara. Por NVR: siempre por el restream del NVR (IP alcanzable + canal).">
+                  <Select value={form.liveSource || 'auto'} onChange={set('liveSource')}>
+                    <option value="auto">Auto (recomendado)</option>
+                    <option value="direct">Directo a la cámara</option>
+                    <option value="nvr">Por el NVR</option>
+                  </Select>
+                </Field>
+                <Field label={<><Icon name="play" size={14} /> Fuente de grabaciones</>}
+                  hint="Por NVR: las grabaciones se leen del NVR (lo normal). SD de la cámara: para cámaras con grabación local (edge).">
+                  <Select value={form.playbackSource || 'nvr'} onChange={set('playbackSource')}>
+                    <option value="nvr">Por el NVR</option>
+                    <option value="direct">SD de la cámara</option>
+                  </Select>
+                </Field>
+                <Field label={<><Icon name="gauge" size={14} /> Procesamiento del vivo</>}
+                  hint="Hardware GPU (VAAPI): transcodifica por la iGPU → CPU ~0 y escala a muchos canales (requiere GPU en el server). Copy: reenvía el H264 sin re-encodar, el más ligero, si la cámara se ve bien. Transcode CPU: libx264, compatible con todo — úsalo en fisheye/H.264+ que se ven rotas.">
+                  <Select value={form.videoMode || 'transcode'} onChange={set('videoMode')}>
+                    <option value="transcode">Transcode CPU (compatible)</option>
+                    <option value="hw">Hardware GPU · VAAPI (recomendado)</option>
+                    <option value="copy">Copy (sin transcode · el más ligero)</option>
+                  </Select>
                 </Field>
               </div>
             </div>
@@ -820,7 +887,7 @@ export default function DeviceEdit() {
           <p className="section-label"><Icon name="rules" size={14} /> Logs — registro del dispositivo
             <InfoHint side="right" content={<>Linea de tiempo del equipo: en porteros Akuvox, las aperturas (tarjeta/PIN/rostro/QR) y llamadas leidas por su HTTP API; en todos, los eventos de EventOS de este dispositivo, fusionados en una sola vista.</>} /></p>
           <p className="help-block">Movimientos del equipo (aperturas, llamadas) fusionados con los eventos de EventOS de este dispositivo.</p>
-          <DeviceLogs device={form} isNew={isNew} />
+          <DeviceLogs device={form} isNew={isNew} onCount={(n) => setTabCounts((c) => (c.logs === n ? c : { ...c, logs: n }))} />
         </div>
       )}
 
@@ -830,7 +897,7 @@ export default function DeviceEdit() {
           <p className="section-label"><Icon name="operators" size={14} /> Usuarios cargados en el portero
             <InfoHint side="right" content={<>Todo lo que el portero tiene dentro por persona: nombre, tarjeta RFID, PIN privado y rostro. Se lee directo del equipo por su HTTP API (user/get). Los rostros se muestran vía proxy del server.</>} /></p>
           <p className="help-block">Nombre, tarjeta, PIN y rostro de cada usuario, leídos directo del equipo. Buscá, paginá y revelá los PIN cuando lo necesites.</p>
-          <AkuvoxUsers deviceId={id} isNew={isNew} />
+          <AkuvoxUsers deviceId={id} isNew={isNew} onCount={(n) => setTabCounts((c) => (c.usuarios === n ? c : { ...c, usuarios: n }))} />
         </div>
       )}
 

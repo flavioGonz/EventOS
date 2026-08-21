@@ -460,14 +460,47 @@
    ============================================================ */
 .evpopup {
   --accent-prio: var(--p5);
-  width: 100%;
-  max-width: min(1024px, 82vw);
-  max-height: 78vh;
+  /* Tamaño ESTÁNDAR con proporción cercana a 16:10 — estable en todas las tabs
+     (no colapsa al ocultar la columna de operación) y con buen tamaño de video. */
+  width: min(1180px, 94vw);
+  max-width: min(1180px, 94vw);
+  height: min(80vh, 800px);
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   animation: pop-in var(--dur-2) var(--ease-spring) both;
+  position: relative;
 }
+
+/* Sin barra de título: la ventana ES el video. Cierre FLOTANTE arriba a la der. */
+.evpopup__close {
+  position: absolute; top: 12px; right: 12px; z-index: 30;
+  display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18); background: rgba(8,11,17,.68); color: #fff;
+  cursor: pointer; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(0,0,0,.4); transition: background .14s, transform .12s;
+}
+.evpopup__close:hover { background: rgba(220,38,38,.85); }
+.evpopup__close:active { transform: scale(.92); }
+/* Navegación por la cola (‹ N/total ›) — arriba a la derecha, al lado del cierre */
+.evpopup__nav { position: absolute; top: 12px; right: 52px; z-index: 30; display: inline-flex; align-items: center; gap: 2px;
+  padding: 3px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: rgba(8,11,17,.68);
+  -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 4px 14px rgba(0,0,0,.4); }
+.evpopup__nav button { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 999px; border: 0; background: transparent; color: #fff; cursor: pointer; transition: background .12s; }
+.evpopup__nav button:hover:not(:disabled) { background: rgba(255,255,255,.14); }
+.evpopup__nav button:disabled { opacity: .35; cursor: default; }
+.evpopup__navpos { color: #dfe6ef; font-size: 11.5px; font-weight: 700; padding: 0 5px; min-width: 46px; text-align: center; }
+/* En vivo, la barra de vistas deja lugar al cierre (esquina) */
+.evpopup .camwall__bar { right: 56px; }
+
+/* Panel de tab con transición suave al cambiar (fade + leve subida) */
+.evpopup__pane { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+  animation: evpane .32s var(--ease-out) both; }
+@keyframes evpane { from { opacity: 0; transform: translateY(8px) scale(.995); } to { opacity: 1; transform: none; } }
+
+/* Grilla flotante: aire entre tarjetas y respecto al borde de la ventana */
+.camwall__mosaic { gap: 12px; padding: 12px; }
 
 .evpopup__head {
   display: flex;
@@ -500,6 +533,11 @@
   min-height: 0;
   flex: 1;
 }
+/* En vivo / Grabación: el muro de video ocupa todo el ancho (sin columna op).
+   minmax(0,1fr) evita que el contenido del muro ensanche el modal. */
+.evpopup__body--wide { grid-template-columns: minmax(0, 1fr); }
+.evpopup__body--wide .evpopup__op { display: none; }
+.evpopup__body--wide .evpopup__wall { border-right: 0; min-width: 0; }
 .evpopup__wall {
   padding: 12px;
   overflow: hidden;
@@ -674,9 +712,12 @@
   align-content: start;
   animation: pop-in var(--dur-2) var(--ease-spring) both;
 }
-.camwall__mosaic--2x2 { grid-template-columns: repeat(2, 1fr); }
-.camwall__mosaic--3x3 { grid-template-columns: repeat(3, 1fr); }
-.camwall__mosaic .camtile { aspect-ratio: 16 / 9; }
+/* La grilla llena el alto disponible con celdas iguales (filas 1fr) → cada canal
+   queda bien escalado al tamaño de su celda, sin desbordar ni recortar. */
+.camwall__mosaic { align-content: stretch; }
+.camwall__mosaic--2x2 { grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); }
+.camwall__mosaic--3x3 { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); }
+.camwall__mosaic .camtile { aspect-ratio: auto; min-height: 0; }
 
 /* ---------- CameraTile ---------- */
 .camtile {
@@ -861,6 +902,36 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+/* Resolver rápido dentro del grupo de acciones: real (rojo) / falsa (verde). */
+.evpopup__resolve--real { color: var(--crit, #e5484d) !important; border-color: color-mix(in srgb, var(--crit, #e5484d) 42%, transparent) !important; }
+.evpopup__resolve--real:hover:not(:disabled) { background: color-mix(in srgb, var(--crit, #e5484d) 15%, transparent) !important; }
+.evpopup__resolve--false { color: var(--ok, #34d399) !important; border-color: color-mix(in srgb, var(--ok, #34d399) 40%, transparent) !important; }
+.evpopup__resolve--false:hover:not(:disabled) { background: color-mix(in srgb, var(--ok, #34d399) 15%, transparent) !important; }
+/* Resolver con disposición, dentro del grupo Gestión del evento. */
+.evpopup__resolverow { display: flex; gap: 8px; align-items: stretch; }
+.evpopup__resolverow > select { flex: 1; min-width: 0; }
+.evpopup__resolvebtn { white-space: nowrap; }
+
+/* ===== Modo INTERVENCIÓN (alarma real confirmada) ===== */
+.evpopup--intervene { box-shadow: 0 0 0 2px color-mix(in srgb, var(--crit, #e5484d) 70%, transparent), 0 40px 90px -30px rgba(0,0,0,.7); }
+.evintervene { border: 1px solid color-mix(in srgb, var(--crit, #e5484d) 45%, transparent); border-radius: var(--r);
+  background: color-mix(in srgb, var(--crit, #e5484d) 10%, transparent); padding: 12px 14px; margin: 2px 0 10px;
+  animation: evintervene-in .28s cubic-bezier(.2,.9,.2,1); }
+@keyframes evintervene-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.evintervene__hd { display: flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 800; letter-spacing: .01em; color: var(--crit, #e5484d); }
+.evintervene__hd svg { flex: 0 0 auto; }
+.evintervene__pulse { width: 9px; height: 9px; border-radius: 999px; background: var(--crit, #e5484d); animation: evintervene-pulse 1.2s infinite; }
+@keyframes evintervene-pulse { 0%,100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--crit,#e5484d) 55%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } }
+.evintervene__lead { margin: 8px 0 10px; font-size: 12.5px; line-height: 1.45; color: var(--text-dim); }
+.evintervene__lead b { color: var(--text); }
+.evintervene__acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.evintervene__act { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; font-size: 12px; font-weight: 650;
+  padding: 6px 11px; border-radius: 999px; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text-dim); }
+.evintervene__act:hover { color: var(--text); border-color: color-mix(in srgb, var(--text) 22%, transparent); }
+.evintervene__done { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; cursor: pointer;
+  font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--ok, #34d399) 40%, transparent);
+  background: color-mix(in srgb, var(--ok, #34d399) 15%, transparent); color: var(--ok, #34d399); }
+.evintervene__done:hover { background: color-mix(in srgb, var(--ok, #34d399) 24%, transparent); }
 .evpopup__noterow {
   display: flex;
   gap: 8px;
@@ -1330,6 +1401,111 @@
 .login .input--lg { padding: 12px 14px; font-size: 15px; border-radius: var(--r-sm); }
 .login__go { justify-content: center; width: 100%; margin-top: 4px; }
 .login__hint { margin: 2px 0 0; text-align: center; font-size: 11.5px; color: var(--text-faint); }
+
+/* ===== Login de doble panel: formulario (izq) + vista del sistema (der) ===== */
+.login2 {
+  min-height: calc(100vh - 24px);
+  display: grid;
+  grid-template-columns: minmax(340px, 44%) 1fr;
+  align-items: stretch;
+}
+.login2__left { display: grid; place-items: center; padding: 32px 24px; }
+.login2__left .login { max-width: 380px; }
+.login2__right {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  margin: 12px 12px 12px 0;
+  overflow: hidden;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border);
+  background:
+    radial-gradient(120% 110% at 100% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 55%),
+    linear-gradient(160deg, color-mix(in srgb, var(--accent) 14%, var(--bg-2)), color-mix(in srgb, var(--accent-2) 7%, var(--bg-2)));
+}
+/* Botón "Download for Windows" (estilo negro clásico) fijo abajo del panel */
+.login2__winwrap { position: absolute; left: 0; right: 0; bottom: 22px; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.wdlbtn { display: inline-flex; align-items: center; gap: 13px; padding: 11px 22px 11px 18px; border-radius: 12px;
+  text-decoration: none; color: #fff; background: #0b0b0d; border: 1px solid rgba(255,255,255,.14);
+  box-shadow: 0 12px 30px -12px rgba(0,0,0,.7); transition: transform .14s var(--ease-out), background .16s, box-shadow .16s; }
+.wdlbtn:hover { transform: translateY(-2px); background: #17171b; box-shadow: 0 18px 40px -14px rgba(0,0,0,.8); }
+.wdlbtn:active { transform: translateY(0) scale(.98); }
+.wdlbtn__logo { width: 34px; height: 34px; color: #fff; flex: none; }
+.wdlbtn__tx { display: flex; flex-direction: column; line-height: 1.02; }
+.wdlbtn__tx small { font-size: 13px; font-weight: 500; color: #d6d9df; letter-spacing: .01em; }
+.wdlbtn__tx b { font-size: 22px; font-weight: 700; letter-spacing: -.01em; margin-top: 1px; }
+.login2__winmeta { font-size: 10.5px; color: var(--text-faint); letter-spacing: .04em; }
+
+@media (max-width: 920px) {
+  .login2 { grid-template-columns: 1fr; }
+  .login2__right { display: none; }
+}
+
+/* Mock animado de la consola (decorativo) */
+.lshow { position: relative; width: 100%; max-width: 470px; display: flex; flex-direction: column; gap: 26px; }
+.lshow__glow { position: absolute; inset: -18% -10% auto -10%; height: 55%; pointer-events: none;
+  background: radial-gradient(50% 60% at 50% 0%, color-mix(in srgb, var(--accent) 42%, transparent), transparent 70%);
+  filter: blur(32px); opacity: .45; }
+.lshow__card { position: relative; border-radius: var(--r-lg); padding: 10px 12px;
+  box-shadow: 0 34px 80px -28px rgba(0,0,0,.55); }
+.lshow__bar { display: flex; align-items: center; gap: 7px; padding: 6px 6px 11px; border-bottom: 1px solid var(--border); }
+.lshow__dot { width: 9px; height: 9px; border-radius: 999px; background: color-mix(in srgb, var(--text) 16%, transparent); }
+.lshow__title { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 650; color: var(--text-dim); margin-left: 5px; }
+.lshow__title svg { color: var(--accent); }
+.lshow__livewrap { margin-left: auto; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; letter-spacing: .05em; color: var(--crit, #e5484d); }
+.lshow__livedot { width: 7px; height: 7px; border-radius: 999px; background: var(--crit, #e5484d); animation: lshow-blink 1.4s infinite; }
+@keyframes lshow-blink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+.lshow__rows { display: flex; flex-direction: column; gap: 6px; padding: 10px 2px; }
+.lshow__row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px;
+  background: color-mix(in srgb, var(--text) 4%, transparent); opacity: 0; transform: translateX(-8px);
+  animation: lshow-rowin .5s cubic-bezier(.2,.9,.2,1) forwards; }
+@keyframes lshow-rowin { to { opacity: 1; transform: none; } }
+.lshow__prio { width: 9px; height: 9px; border-radius: 999px; flex: 0 0 auto; }
+.lshow__prio--crit { background: var(--crit, #e5484d); animation: lshow-pulse 1.7s infinite; }
+.lshow__prio--hi { background: #f5a524; }
+.lshow__prio--mid { background: var(--accent); }
+@keyframes lshow-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--crit, #e5484d) 26%, transparent); }
+  50% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--crit, #e5484d) 4%, transparent); }
+}
+.lshow__ev { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.lshow__ev b { font-size: 12.5px; font-weight: 650; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lshow__ev small { font-size: 11px; color: var(--text-faint); }
+.lshow__sla { font-size: 11px; font-weight: 700; color: var(--text-dim); background: color-mix(in srgb, var(--text) 6%, transparent); padding: 2px 8px; border-radius: 999px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.lshow__sla--crit { color: var(--crit, #e5484d); background: color-mix(in srgb, var(--crit, #e5484d) 13%, transparent); }
+.lshow__sla--hi { color: #d98a12; background: color-mix(in srgb, #f5a524 16%, transparent); }
+.lshow__row--crit .lshow__sla { color: var(--crit, #e5484d); background: color-mix(in srgb, var(--crit, #e5484d) 13%, transparent); }
+
+/* Icono de evento (reemplaza al punto de prioridad), coloreado por severidad */
+.lshow__ic { display: grid; place-items: center; width: 28px; height: 28px; flex: 0 0 auto; border-radius: 8px; color: #fff; }
+.lshow__ic--crit { background: color-mix(in srgb, var(--crit, #e5484d) 82%, transparent); animation: lshow-pulse 1.7s infinite; }
+.lshow__ic--hi { background: color-mix(in srgb, #f5a524 82%, transparent); }
+.lshow__ic--mid { background: color-mix(in srgb, var(--accent) 80%, transparent); }
+.lshow__ic--low { background: color-mix(in srgb, var(--text) 30%, transparent); }
+
+/* Un evento que LLEGA: baja desde arriba con un flash de acento */
+.lshow__row.is-arriving { animation: lshow-arrive .6s cubic-bezier(.2,.9,.2,1) forwards; }
+@keyframes lshow-arrive {
+  0% { opacity: 0; transform: translateY(-14px) scale(.98); box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 45%, transparent); }
+  40% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
+  100% { opacity: 1; transform: none; box-shadow: 0 0 0 0 transparent; }
+}
+/* Un evento TOMADO / verificándose: borde de acento + "escaneo" */
+.lshow__row.is-taken { background: color-mix(in srgb, var(--accent) 9%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 32%, transparent); }
+.lshow__tag { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; font-weight: 800; letter-spacing: .02em; color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent); padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.lshow__tagdot { width: 6px; height: 6px; border-radius: 999px; background: var(--accent); animation: lshow-blink 1s infinite; }
+.lshow__selbar { display: flex; gap: 6px; padding: 9px 2px 3px; flex-wrap: wrap; }
+.lshow__pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 650; padding: 5px 10px;
+  border-radius: 999px; border: 1px solid var(--border); background: color-mix(in srgb, var(--text) 5%, transparent); color: var(--text-dim); }
+.lshow__pill--real { color: var(--crit, #e5484d); border-color: color-mix(in srgb, var(--crit, #e5484d) 34%, transparent); background: color-mix(in srgb, var(--crit, #e5484d) 12%, transparent); }
+.lshow__pill--false { color: var(--ok, #34d399); border-color: color-mix(in srgb, var(--ok, #34d399) 34%, transparent); background: color-mix(in srgb, var(--ok, #34d399) 12%, transparent); }
+.lshow__copy h2 { margin: 0 0 8px; font-size: 22px; font-weight: 720; letter-spacing: -.02em; color: var(--text); }
+.lshow__copy p { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--text-dim); max-width: 42ch; }
+.lshow__feats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.lshow__feats li { display: flex; align-items: center; gap: 9px; font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+.lshow__feats svg { color: var(--accent); flex: 0 0 auto; }
 .identity {
   width: 100%;
   max-width: 420px;
@@ -1543,8 +1719,12 @@
 .evpopup__videobtns { display: flex; }
 /* Playback NVR: el video llena el escenario, controles flotan como overlay. */
 /* Vista de evidencia (foto del evento) en el popup */
-.evidence { position: relative; flex: 1; min-height: 0; width: 100%; display: flex; align-items: center; justify-content: center; background: #000; border-radius: var(--r); overflow: hidden; }
-.evidence__img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.evidence { position: relative; flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; background: #000; border-radius: var(--r); overflow: hidden; }
+/* Escenario: centra el marco; el marco toma el aspecto REAL de la foto para que
+   la imagen NO se deforme y el overlay quede exactamente sobre el mismo cuadro. */
+.evidence__stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.evidence__frame { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 100%; }
+.evidence__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; display: block; }
 .evidence__cap { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: 12px; padding: 11px 14px;
   background: linear-gradient(to top, rgba(0,0,0,.82), transparent); color: #fff; font-size: 12.5px; }
 .evidence__tag { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; }
@@ -1589,6 +1769,38 @@
 .wallcell__btn { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 6px; cursor: pointer; background: rgba(255,255,255,.16); color: #fff; }
 .wallcell__btn.is-on { background: var(--accent); }
 .wallcell__live { position: absolute; top: 8px; left: 8px; color: #ff5b5b; font-size: 10px; font-weight: 800; letter-spacing: .05em; text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+/* ---------- Árbol de recursos (rail izquierdo del muro) ---------- */
+.wall__tree { width: 264px; flex: 0 0 264px; background: rgba(0,0,0,.5); border-right: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; min-height: 0; }
+.wall__treehead { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; color: #fff; font-size: 13px; font-weight: 700; border-bottom: 1px solid rgba(255,255,255,.08); }
+.wall__treettl { display: inline-flex; align-items: center; gap: 7px; }
+.wall__treehead button { background: none; border: 0; color: rgba(255,255,255,.7); cursor: pointer; display: grid; place-items: center; }
+.wall__treehead button:hover { color: #fff; }
+.wall__treesearch { display: flex; align-items: center; gap: 7px; margin: 8px 8px 4px; padding: 6px 9px; border-radius: 8px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); color: rgba(255,255,255,.6); }
+.wall__treesearch input { flex: 1; min-width: 0; background: none; border: 0; outline: none; color: #fff; font-size: 12.5px; }
+.wall__treesearch input::placeholder { color: rgba(255,255,255,.4); }
+.wall__treesearch button { background: none; border: 0; color: rgba(255,255,255,.5); cursor: pointer; display: grid; place-items: center; }
+.wall__treelist { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 6px 10px; }
+.wall__treegrp { margin-bottom: 2px; }
+.wall__treesite { width: 100%; display: flex; align-items: center; gap: 6px; padding: 7px 8px; border: 0; border-radius: 8px; cursor: pointer;
+  background: transparent; color: rgba(255,255,255,.9); font-size: 12px; font-weight: 700; letter-spacing: .01em; }
+.wall__treesite:hover { background: rgba(255,255,255,.06); }
+.wall__treesitenm { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wall__treecount { font-size: 10.5px; font-weight: 800; color: rgba(255,255,255,.6); background: rgba(255,255,255,.08); padding: 2px 7px; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.wall__chev { display: grid; place-items: center; color: rgba(255,255,255,.5); transition: transform .16s ease; }
+.wall__chev.open { transform: rotate(90deg); }
+.wall__treecam { display: flex; align-items: center; gap: 8px; margin-left: 8px; padding: 6px 8px; border-radius: 7px; cursor: pointer; color: rgba(255,255,255,.82); font-size: 12px; }
+.wall__treecam:hover { background: rgba(47,155,255,.16); color: #fff; }
+.wall__treecam.is-off { opacity: .55; }
+.wall__treecam.is-used { background: rgba(47,155,255,.1); }
+.wall__treecam svg { color: rgba(255,255,255,.55); flex: 0 0 auto; }
+.wall__treecam:hover svg { color: var(--accent, #2f9bff); }
+.wall__treecamnm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wall__dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: rgba(255,255,255,.3); }
+.wall__dot.on { background: #38d996; box-shadow: 0 0 6px rgba(56,217,150,.6); }
+.wall__dot.off { background: #ff5a52; }
+.wall__dot.unk { background: rgba(255,255,255,.3); }
+.wall__treeempty { padding: 12px 10px; color: rgba(255,255,255,.5); font-size: 12px; }
+
 .wall__picker { width: 280px; background: rgba(0,0,0,.55); border-left: 1px solid rgba(255,255,255,.1); display: flex; flex-direction: column; }
 .wall__pickhead { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; color: #fff; font-size: 13px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,.08); }
 .wall__pickhead button { background: none; border: 0; color: #fff; cursor: pointer; }
@@ -1620,6 +1832,9 @@
 .nvrpb { position: relative; width: 100%; height: 100%; flex: 1; min-height: 0; background: #000; overflow: hidden; border-radius: inherit; }
 .nvrpb__vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
 .nvrpb__overlay { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 10px; color: var(--text-dim); background: rgba(0,0,0,.45); font-size: 13px; text-align: center; padding: 16px; z-index: 4; }
+/* Skeleton loader mientras carga la grabación (coherente con el resto de la app). */
+.nvrpb__skel { position: absolute; inset: 0; z-index: 4; background: #0a0d12; }
+.nvrpb__skel .nvrpb__skelfill { position: absolute; inset: 0; border-radius: 0; }
 .nvrpb__overlay--err { color: var(--warn); }
 .nvrpb__controls { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; display: flex; flex-direction: column; gap: 9px;
   padding: 34px 16px 13px; background: linear-gradient(to top, rgba(0,0,0,.78), rgba(0,0,0,.34) 55%, transparent); pointer-events: none; }
@@ -1638,6 +1853,29 @@
 .nvrpb__date { font-style: normal; font-size: 12px; color: rgba(255,255,255,.7); text-transform: capitalize; }
 .nvrpb__evcount { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; color: #f5b945;
   background: rgba(245,185,69,.16); padding: 4px 10px; border-radius: var(--r-pill); }
+
+/* Filtros de grabaciones como ICONOS DE ACCIÓN + popover de opciones */
+.nvrpb__flt { position: relative; display: inline-flex; align-items: center; gap: 4px; }
+.nvrpb__fbtn { display: inline-flex; align-items: center; gap: 5px; height: 30px; padding: 0 9px; border-radius: var(--r-pill);
+  border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.12); color: #fff; cursor: pointer;
+  -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); transition: background .13s, border-color .13s; }
+.nvrpb__fbtn:hover, .nvrpb__fbtn.is-open { background: rgba(255,255,255,.24); border-color: rgba(255,255,255,.3); }
+.nvrpb__fbadge { font-size: 11px; font-weight: 800; letter-spacing: .01em; }
+.nvrpb__pop { position: absolute; bottom: calc(100% + 8px); right: 0; z-index: 20; display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; border-radius: 12px; background: rgba(14,18,26,.96); border: 1px solid rgba(255,255,255,.16);
+  box-shadow: 0 12px 30px rgba(0,0,0,.5); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+.nvrpb__pop--dur { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; min-width: 210px; }
+.nvrpb__pop--dur button { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: rgba(255,255,255,.85);
+  font-size: 12px; font-weight: 700; padding: 7px 6px; border-radius: 8px; cursor: pointer; transition: background .12s, color .12s; }
+.nvrpb__pop--dur button:hover { background: rgba(255,255,255,.16); color: #fff; }
+.nvrpb__pop--dur button.is-active { background: #fff; color: #0b0e14; }
+.nvrpb__date-in { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px;
+  color: #fff; font-size: 12.5px; font-weight: 600; color-scheme: dark; outline: none; cursor: pointer; padding: 7px 9px; }
+.nvrpb__poprow { display: flex; gap: 6px; }
+.nvrpb__poprow button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: rgba(255,255,255,.85);
+  font-size: 11.5px; font-weight: 700; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.nvrpb__poprow button:hover { background: rgba(255,255,255,.16); color: #fff; }
 
 /* Time Machine v2 — línea de tiempo con marcas de hora + eventos */
 .nvrtl2 { display: flex; flex-direction: column; gap: 7px; }
@@ -1705,6 +1943,111 @@
 .tone-face  { background: #a855f7; box-shadow: 0 0 7px rgba(168,85,247,.65); }
 .tone-lpr   { background: #eab308; box-shadow: 0 0 7px rgba(234,179,8,.6); color: #2a2300; }
 .tone-mov   { background: #64748b; box-shadow: 0 0 6px rgba(100,116,139,.55); }
+
+/* ══════════ Playback con LÍNEA DE TIEMPO VERTICAL (scrubber tipo Protect) ══════════ */
+/* HUD abajo-CENTRO: reloj grande + transporte (rew/play/ff), en una barra. */
+.nvrpb__hud { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 6;
+  display: flex; flex-direction: row; align-items: center; gap: 12px; pointer-events: none; }
+.nvrpb__hud > * { pointer-events: auto; }
+.nvrpb--vt .nvrpb__clockbig { flex-direction: column; align-items: flex-start; gap: 1px;
+  background: rgba(8,11,17,.5); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  padding: 7px 13px; border-radius: 12px; border: 1px solid rgba(255,255,255,.1); }
+/* Reloj SOLO en la esquina inferior derecha, a la misma altura que el transporte. */
+.nvrpb__clockcorner { position: absolute; right: 16px; bottom: 16px; z-index: 6; display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  background: rgba(8,11,17,.52); -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px);
+  padding: 7px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,.12); }
+.nvrpb__clockcorner strong { font-size: 22px; font-weight: 780; color: #fff; letter-spacing: .01em; text-shadow: 0 1px 4px rgba(0,0,0,.8); }
+.nvrpb__clockcorner .nvrpb__date { font-style: normal; font-size: 12px; color: rgba(255,255,255,.72); text-transform: capitalize; }
+.nvrpb--vt .nvrpb__clockbig strong { font-size: 22px; }
+.nvrpb__transport { display: inline-flex; align-items: center; gap: 5px; padding: 5px; border-radius: var(--r-pill);
+  background: rgba(8,11,17,.6); border: 1px solid rgba(255,255,255,.14);
+  -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px); box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+.nvrpb__tb, .nvrpb__pp { display: inline-flex; align-items: center; gap: 2px; border: 0; cursor: pointer; color: #fff;
+  background: rgba(255,255,255,.08); border-radius: 999px; padding: 6px 9px; font-size: 10px; font-weight: 800;
+  transition: background .13s; }
+.nvrpb__tb:hover, .nvrpb__pp:hover { background: rgba(59,130,246,.8); }
+.nvrpb__tb--back svg { transform: rotate(180deg); }
+.nvrpb__pp { width: 40px; justify-content: center; background: #fff; color: #0b0e14; }
+.nvrpb__pp:hover { background: #dbe6ff; }
+
+/* Panel vertical de la línea de tiempo, flotante a la derecha. */
+/* Vidrio esmerilado (sin negro): deja ver el video difuminado por detrás.
+   Panel a la IZQUIERDA. */
+.nvrvt { position: absolute; top: 0; left: 0; right: auto; bottom: 0; z-index: 6; width: 150px; display: flex; flex-direction: column;
+  background: linear-gradient(90deg, rgba(255,255,255,.14), rgba(255,255,255,.05) 80%, rgba(255,255,255,.02));
+  -webkit-backdrop-filter: blur(18px) saturate(150%); backdrop-filter: blur(18px) saturate(150%);
+  border-right: 1px solid rgba(255,255,255,.16); box-shadow: 12px 0 40px -18px rgba(0,0,0,.5);
+  padding: 10px 8px 8px; user-select: none; }
+.nvrvt__head { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 2px 8px; }
+.nvrvt__title { font-size: 11px; color: rgba(255,255,255,.72); }
+.nvrvt__title b { color: #fff; font-weight: 800; }
+.nvrvt__count { display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 800; color: #fff;
+  background: rgba(59,130,246,.85); border-radius: 999px; padding: 2px 7px; }
+.nvrvt__count svg { color: #fff; }
+/* Zoom −/slider/+ */
+.nvrvt__zoom { display: flex; align-items: center; gap: 6px; padding: 0 2px 8px; }
+.nvrvt__zoom button { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border: 1px solid rgba(255,255,255,.16);
+  background: rgba(255,255,255,.08); color: #fff; border-radius: 7px; cursor: pointer; transition: background .13s; }
+.nvrvt__zoom button:hover { background: rgba(59,130,246,.8); }
+.nvrvt__zoom input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); cursor: pointer; }
+
+/* El carril: ocupa el alto restante; el tiempo se mapea con top%. */
+.nvrvt__rail { position: relative; flex: 1; min-height: 0; margin-top: 4px; cursor: ns-resize; touch-action: none;
+  overflow: hidden; -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 26px, #000 calc(100% - 10px), transparent 100%);
+          mask-image: linear-gradient(180deg, transparent 0, #000 26px, #000 calc(100% - 10px), transparent 100%); }
+/* La línea troncal (rieles) centrada. */
+.nvrvt__line { position: absolute; top: 0; bottom: 0; left: 50%; width: 3px; transform: translateX(-50%);
+  background: linear-gradient(180deg, rgba(59,130,246,.55), rgba(59,130,246,.14)); border-radius: 3px; }
+.nvrvt__played { position: absolute; top: 0; left: 50%; width: 3px; transform: translateX(-50%);
+  background: linear-gradient(180deg, #7cc0ff, #3b82f6); box-shadow: 0 0 8px rgba(59,130,246,.7); border-radius: 3px; pointer-events: none; }
+
+/* EN VIVO / ir a vivo, arriba del carril. */
+.nvrvt__live { position: absolute; top: 0; left: 50%; transform: translateX(-50%); z-index: 7; display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; font-weight: 800; letter-spacing: .04em; color: #fff; cursor: pointer; white-space: nowrap;
+  background: #3b82f6; border: 0; border-radius: 999px; padding: 3px 10px; box-shadow: 0 4px 12px rgba(59,130,246,.5); }
+.nvrvt__live:hover { filter: brightness(1.1); }
+.nvrvt__live.is-live { background: #e5484d; box-shadow: 0 4px 12px rgba(229,72,77,.5); }
+.nvrvt__livedot { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: blink 1.4s infinite; }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+/* Marcas de hora: etiqueta a la izquierda del riel + guion. */
+.nvrvt__tick { position: absolute; left: 0; right: 0; transform: translateY(-50%); pointer-events: none; display: flex; align-items: center; }
+.nvrvt__tick b { position: absolute; left: 4px; font-size: 10px; font-weight: 600; color: rgba(255,255,255,.6); white-space: nowrap; text-shadow: 0 1px 2px rgba(0,0,0,.7); }
+.nvrvt__tick i { position: absolute; left: 50%; transform: translateX(-50%); width: 14px; height: 1px; background: rgba(255,255,255,.22); }
+
+/* Evento como ÍCONO sobre el riel. */
+.nvrvt__ev { position: absolute; left: 50%; transform: translate(-50%,-50%); z-index: 5; display: grid; place-items: center;
+  width: 22px; height: 22px; margin: 0; padding: 0; border: 2px solid rgba(6,9,14,.85); border-radius: 8px; color: #fff; cursor: pointer;
+  transition: transform .12s ease; }
+.nvrvt__ev svg { width: 13px; height: 13px; }
+.nvrvt__ev:hover { transform: translate(-50%,-50%) scale(1.35); z-index: 8; }
+.nvrvt__ev.is-active { box-shadow: 0 0 0 2px #fff, 0 0 12px rgba(255,255,255,.5); }
+/* Marca de la alarma que abrió el playback. */
+.nvrvt__evmark { position: absolute; left: 50%; transform: translate(-50%,-50%); z-index: 4; width: 15px; height: 15px;
+  border-radius: 50%; background: var(--crit); box-shadow: 0 0 0 3px rgba(229,72,77,.28), 0 0 12px var(--crit); pointer-events: none; }
+
+/* Cabezal de reproducción: línea horizontal + burbuja de hora. */
+.nvrvt__playhead { position: absolute; left: 0; right: 0; transform: translateY(-50%); z-index: 9; pointer-events: none; display: flex; align-items: center; }
+.nvrvt__phline { position: absolute; left: 0; right: 0; height: 2px; background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.9); }
+.nvrvt__phbubble { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: #fff; color: #111;
+  border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,.45); white-space: nowrap; }
+
+/* Pie: ir a fecha/hora. */
+.nvrvt__foot { position: relative; padding-top: 8px; }
+.nvrvt__go { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.08); color: #fff; font-size: 11.5px; font-weight: 700;
+  padding: 7px 8px; border-radius: 9px; transition: background .13s; }
+.nvrvt__go:hover, .nvrvt__go.is-open { background: rgba(59,130,246,.8); }
+.nvrvt__pop { position: absolute; bottom: calc(100% + 6px); right: 0; left: 0; z-index: 20; display: flex; flex-direction: column; gap: 6px;
+  padding: 8px; border-radius: 12px; background: rgba(14,18,26,.97); border: 1px solid rgba(255,255,255,.16); box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+.nvrvt__pop input { background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); border-radius: 8px;
+  color: #fff; font-size: 12px; font-weight: 600; color-scheme: dark; outline: none; cursor: pointer; padding: 7px 8px; }
+.nvrvt__poprow { display: flex; gap: 6px; }
+.nvrvt__poprow button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: rgba(255,255,255,.85);
+  font-size: 11.5px; font-weight: 700; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+.nvrvt__poprow button:hover { background: rgba(255,255,255,.16); color: #fff; }
+@media (max-width: 560px) { .nvrvt { width: 118px; } }
 
 /* Timeline "Time Machine" del playback (sobre el overlay) */
 .nvrtl { display: flex; align-items: center; gap: 10px; }
@@ -1833,6 +2176,15 @@
 
 /* ===== Reproductor go2rtc (WebRTC/MSE) — vivo robusto ===== */
 .go2view { position: absolute; inset: 0; width: 100%; height: 100%; background: #000; }
+/* Mientras conecta el vivo (aún no reproduce), un skeleton shimmer evita el
+   recuadro NEGRO: el operador ve "cargando" al instante, no una pantalla vacía.
+   El snapshot-póster y luego el video lo tapan apenas llegan. */
+.go2view:not(.go2view--playing)::before {
+  content: ""; position: absolute; inset: 0; z-index: 0;
+  background: linear-gradient(100deg, #0b0f17 30%, #161c28 50%, #0b0f17 70%);
+  background-size: 200% 100%; animation: camskel 1.25s ease-in-out infinite;
+}
+.go2view__snap, .go2view__video, .go2view video, .go2view__mjpeg, .go2view video-stream, .go2view .anov { position: relative; z-index: 1; }
 /* video-stream SIEMPRE visible (transparente hasta pintar → el póster de abajo se
    ve mientras conecta); no depender de --playing evita que quede invisible. */
 .go2view video-stream { display: block; width: 100%; height: 100%; opacity: 1; }
@@ -1852,6 +2204,13 @@
   font: 700 10px var(--font); letter-spacing: .05em; z-index: 4; }
 .go2view__badge::before { content: "\25CF"; color: #f5b945; }
 .go2view__badge.is-err::before { color: #f5b945; }
+/* Badge de decodificación por canal: GPU (hardware) vs CPU (software) */
+.decbadge { position: absolute; top: 8px; right: 8px; z-index: 5; display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px 2px 5px; border-radius: var(--r-pill); font: 800 9.5px var(--font); letter-spacing: .04em;
+  backdrop-filter: blur(4px); border: 1px solid transparent; pointer-events: none; }
+.decbadge svg { width: 11px; height: 11px; }
+.decbadge--gpu { color: #34d399; background: rgba(6, 78, 59, .55); border-color: rgba(52, 211, 153, .4); }
+.decbadge--cpu { color: #fbbf24; background: rgba(69, 46, 6, .55); border-color: rgba(251, 191, 36, .38); }
 .go2view__ov { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 10px; color: #e7ebf0; background: rgba(0,0,0,.42); pointer-events: none; }
 .go2view__ov.is-err { color: #ff8d8d; }
@@ -1961,8 +2320,10 @@
 
 
 /* ===== Popup: analítica (línea/zona) dibujada sobre la FOTO de evidencia ===== */
-.evidence__anabox { position: absolute; pointer-events: none; z-index: 2; }
-.evidence__anatag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; background: rgba(245,185,69,.22); color: #ffd27a; font-weight: 600; }
+.evidence__anabox { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+.evidence__anatag { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; border: 1px solid transparent; background: color-mix(in srgb, #f5b945 12%, transparent); color: #d7a24a; font-weight: 600; font-size: inherit; cursor: pointer; opacity: .8; transition: opacity var(--dur-1), background var(--dur-1), color var(--dur-1); }
+.evidence__anatag:hover { opacity: 1; }
+.evidence__anatag.is-on { background: rgba(245,185,69,.22); color: #ffd27a; border-color: rgba(245,185,69,.4); opacity: 1; }
 
 
 /* ===== ClientPanel: 911 como escalación secundaria (compacto, sin pulso) ===== */
@@ -1980,12 +2341,18 @@
 .opbar__navlink.is-active { background: var(--accent); color: #fff; }
 
 .alarmc { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 10px 14px 12px; }
-.alarmc__tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--hairline); }
+.alarmc__tabs { display: flex; align-items: center; gap: 4px; border-bottom: 1px solid var(--hairline); flex-wrap: wrap; }
 .alarmc__tab { appearance: none; background: none; border: 0; padding: 8px 14px; font-size: 13px; font-weight: 650; color: var(--text-dim); cursor: pointer; border-bottom: 2px solid transparent; display: inline-flex; align-items: center; gap: 7px; }
 .alarmc__tab.is-active { color: var(--text); border-bottom-color: var(--accent); }
 .alarmc__count { background: var(--surface-2); border-radius: 999px; padding: 0 7px; font-size: 11px; font-weight: 700; }
+.alarmc__tabsep { width: 1px; align-self: center; height: 18px; background: var(--hairline); margin: 0 4px; }
+.alarmc__tab--prio { padding: 8px 11px; }
+.alarmc__tab--prio.prio-1.is-active { border-bottom-color: #e0352b; }
+.alarmc__tab--prio.prio-2.is-active { border-bottom-color: #f59e0b; }
+.alarmc__tab--prio.prio-3.is-active { border-bottom-color: #eab308; }
+.alarmc__tab--prio.prio-4.is-active { border-bottom-color: var(--text-dim); }
 .alarmc__tab.is-active .alarmc__count { background: var(--accent); color: #fff; }
-.alarmc__toolbar { display: flex; align-items: center; gap: 8px; padding: 9px 2px; flex-wrap: wrap; }
+.alarmc__toolbar { display: flex; align-items: center; gap: 8px; padding: 4px 0; margin-left: auto; flex-wrap: wrap; }
 .alarmc__act { display: inline-flex; align-items: center; gap: 6px; padding: 6px 11px; border-radius: var(--r); border: 1px solid var(--hairline); background: var(--surface-1); color: var(--text); font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .alarmc__act:hover:not(:disabled) { background: var(--surface-2); }
 .alarmc__act:disabled { opacity: .45; cursor: default; }
@@ -2000,14 +2367,57 @@
 .alarmc__menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 9px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font-size: 12.5px; cursor: pointer; text-align: left; }
 .alarmc__menu-item:hover { background: var(--surface-2); }
 .alarmc__tablewrap { flex: 1; min-height: 120px; overflow: auto; border: 1px solid var(--hairline); border-radius: var(--r-lg); }
+/* Con los paneles inferiores ocultos, la tabla se queda con todo el alto. */
+.alarmc__tablewrap--tall { min-height: 260px; }
+
+/* ── Barra de acciones contextual (aparece al seleccionar filas) ── */
+/* Barra flotante de acciones: anclada abajo-centro (aparece desde el bottom). */
+/* Barra de acciones en lote: baja DESDE ARRIBA al marcar eventos en la tabla. */
+.selbar { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 60;
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 8px 7px 14px; border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-1, #141a24) 92%, transparent); border: 1px solid var(--line, rgba(255,255,255,.12));
+  box-shadow: 0 18px 50px -10px rgba(0,0,0,.75), 0 2px 8px rgba(0,0,0,.4); backdrop-filter: blur(10px);
+  animation: selbar-in .22s cubic-bezier(.2,.9,.2,1); }
+@keyframes selbar-in { from { opacity: 0; transform: translate(-50%, -16px); } to { opacity: 1; transform: translate(-50%, 0); } }
+.selbar__count { font-size: 12.5px; font-weight: 600; color: var(--text-dim); white-space: nowrap; }
+.selbar__count b { color: var(--text); }
+.selbar__div { width: 1px; height: 20px; background: var(--line, rgba(255,255,255,.14)); margin: 0 2px; }
+.selbar__act { display: inline-flex; align-items: center; gap: 6px; border: 1px solid transparent; background: color-mix(in srgb, var(--text) 8%, transparent);
+  color: var(--text); font: 700 12.5px var(--font); padding: 7px 12px; border-radius: 999px; cursor: pointer; white-space: nowrap;
+  transition: background var(--dur-1), border-color var(--dur-1), transform var(--dur-1); }
+.selbar__act:hover { background: color-mix(in srgb, var(--text) 15%, transparent); transform: translateY(-1px); }
+.selbar__act svg { opacity: .85; }
+.selbar__act--real { background: color-mix(in srgb, var(--crit, #e5484d) 22%, transparent); color: var(--crit, #ff6b6b); border-color: color-mix(in srgb, var(--crit, #e5484d) 40%, transparent); }
+.selbar__act--real:hover { background: color-mix(in srgb, var(--crit, #e5484d) 32%, transparent); }
+.selbar__act--false { background: color-mix(in srgb, var(--ok, #34d399) 20%, transparent); color: var(--ok, #34d399); border-color: color-mix(in srgb, var(--ok, #34d399) 38%, transparent); }
+.selbar__act--false:hover { background: color-mix(in srgb, var(--ok, #34d399) 30%, transparent); }
+.selbar__close { display: inline-grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--text-dim); cursor: pointer; }
+.selbar__close:hover { background: color-mix(in srgb, var(--text) 12%, transparent); color: var(--text); }
+/* La consola necesita position para anclar la barra flotante. */
+.console--center { position: relative; }
 .alarmc__table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .alarmc__table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface-1); text-align: left; padding: 9px 10px; font-size: 11px; font-weight: 700; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--hairline); }
 .alarmc__th-sel { width: 30px; }
-.alarmc__row { cursor: pointer; border-bottom: 1px solid var(--hairline); }
+/* Alto FIJO de fila = ROW_H en AlarmCenter.jsx (virtualización de la lista). Con
+   nowrap el contenido queda en una línea y el alto no cambia → la ventana virtual
+   calza exacto. */
+.alarmc__row { cursor: pointer; border-bottom: 1px solid var(--hairline); height: 44px; }
 .alarmc__row:hover { background: var(--surface-1); }
 .alarmc__row.is-sel { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.alarmc__row td { padding: 8px 10px; vertical-align: middle; }
+.alarmc__row td { padding: 6px 10px; vertical-align: middle; white-space: nowrap; }
+.alarmc__spacer, .alarmc__spacer td { padding: 0 !important; border: 0 !important; background: none !important; }
+.alarmc__spacer:hover { background: none !important; }
 .alarmc__row.prio-1 { box-shadow: inset 3px 0 0 #ef4444; }
+/* ALARMA REAL abierta: la fila entera parpadea en rojo tenue hasta cerrar el
+   procedimiento (disuasión / aviso / etc.), momento en que pasa a Evidencias. */
+.alarmc__row.is-real { animation: alarmc-real 1.25s ease-in-out infinite; }
+.alarmc__row.is-real td:first-child { box-shadow: inset 3px 0 0 #e0352b; }
+.alarmc__row.is-real:hover { background: color-mix(in srgb, #e0352b 16%, transparent); }
+@keyframes alarmc-real {
+  0%, 100% { background: color-mix(in srgb, #e0352b 8%, transparent); }
+  50% { background: color-mix(in srgb, #e0352b 26%, transparent); }
+}
 .alarmc__row.prio-2 { box-shadow: inset 3px 0 0 #f59e0b; }
 .alarmc__dim { color: var(--text-dim); }
 .alarmc__name { display: flex; align-items: center; gap: 7px; font-weight: 600; }
@@ -2018,6 +2428,17 @@
 .alarmc__ops { display: flex; gap: 4px; }
 .alarmc__ops button { display: inline-flex; align-items: center; gap: 4px; padding: 4px 7px; border: 1px solid var(--hairline); border-radius: 7px; background: var(--surface-1); color: var(--text-dim); cursor: pointer; font-size: 11.5px; }
 .alarmc__ops button:hover { background: var(--surface-2); color: var(--text); }
+
+/* Columna de acciones completa: todas las acciones posibles por fila */
+.alarmc__actbar { display: inline-flex; gap: 3px; flex-wrap: nowrap; }
+.alarmc__act { display: grid; place-items: center; width: 28px; height: 26px; padding: 0; border: 1px solid var(--hairline);
+  border-radius: 7px; background: var(--surface-1); color: var(--text-dim); cursor: pointer; transition: background .13s, color .13s, border-color .13s; }
+.alarmc__act:hover { background: var(--surface-2); color: var(--text); }
+.alarmc__act--take:hover { border-color: color-mix(in srgb, var(--accent) 60%, var(--hairline)); color: var(--accent); }
+.alarmc__act--esc:hover { border-color: color-mix(in srgb, #f59e0b 60%, var(--hairline)); color: #d97706; }
+.alarmc__act--real:hover { border-color: color-mix(in srgb, #dc2626 60%, var(--hairline)); color: #dc2626; }
+.alarmc__act--false:hover { border-color: color-mix(in srgb, #16a34a 60%, var(--hairline)); color: #16a34a; }
+.alarmc__act--mute:hover { color: var(--text-faint); }
 .alarmc__target--human { color: #16a34a; }
 .alarmc__target--vehicle { color: #2563eb; }
 .alarmc__empty { display: grid; place-items: center; gap: 8px; padding: 34px; color: var(--text-dim); font-size: 12.5px; }
@@ -2087,6 +2508,11 @@
 .alarmc__sla--ok { background:rgba(22,163,74,.15); color:#16a34a; }
 .alarmc__sla--warn { background:rgba(245,158,11,.20); color:#b45309; }
 .alarmc__sla--crit { background:rgba(239,68,68,.20); color:#ef4444; }
+/* Badge "Reasignada" en la fila (evento transferido/reasignado). */
+.alarmc__retag { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; padding: 1px 7px; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: .02em; vertical-align: middle;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 13%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent); }
+.alarmc__retag svg { opacity: .9; }
 .alarmc__cli { font-weight:600; }
 .alarmc__row.p1 td:first-child { box-shadow: inset 3px 0 0 #ef4444; }
 .alarmc__row.p2 td:first-child { box-shadow: inset 3px 0 0 #f59e0b; }
@@ -2208,8 +2634,16 @@
 .evpopup__wallsrc svg { color: var(--accent); flex: 0 0 auto; }
 
 
-/* Tabs del popup: mismo estilo que Hero/2x2/3x3 (componente Segmented), solo posicionado */
-.evpopup__tabs { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 8; }
+/* Tabs del popup (Evidencia / En vivo / Grabación): píldora sólida con fuerte
+   contraste sobre el video — antes se fundían con la imagen y no se leían. */
+.evpopup__tabs { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 8;
+  background: rgba(8,11,17,.82); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,.20); border-radius: 12px; padding: 3px; box-shadow: 0 6px 20px rgba(0,0,0,.45); }
+.evpopup__tabs .segmented { background: transparent; border: 0; gap: 2px; padding: 0; }
+.evpopup__tabs .segmented__opt { color: rgba(255,255,255,.86); font-weight: 600; font-size: 12.5px;
+  padding: 6px 16px; border-radius: 9px; transition: background var(--dur-1), color var(--dur-1); }
+.evpopup__tabs .segmented__opt:hover { color: #fff; background: rgba(255,255,255,.12); }
+.evpopup__tabs .segmented__opt.is-active { background: #fff; color: #0b0e14; box-shadow: 0 1px 3px rgba(0,0,0,.35); }
 
 
 /* Canales en vivo (Hero): tira lateral con scroll VERTICAL en vez de horizontal */
@@ -2248,8 +2682,13 @@
 /* ===== Popup: superficie de video tipo reproductor (mas imagen, menos caja) ===== */
 .evpopup__wall { padding: 0; }
 .evidence { border-radius: 0; }
-.evidence__img { width: 100%; height: 100%; object-fit: cover; max-width: none; max-height: none; }
-.evidence--ana .evidence__img { width: auto; height: auto; max-width: 100%; max-height: 100%; object-fit: contain; }
+/* La foto SIEMPRE llena el `evidence__frame`, que ya adopta el aspecto REAL de la
+   imagen (aspectRatio inline). Así object-fit:contain rellena exacto (sin franjas ni
+   recorte) y el overlay de analíticas (evidence__anabox, inset:0) cae EXACTO sobre la
+   imagen — antes, en modo analíticas la foto pasaba a width/height:auto y se
+   des-alineaba respecto de la caja del overlay. */
+.evidence__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; max-width: none; max-height: none; }
+.evidence--ana .evidence__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .evpopup__wall::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 66px; z-index: 6; pointer-events: none;
   background: linear-gradient(rgba(0,0,0,.5), transparent); }
 .evidence__cap { background: linear-gradient(transparent, rgba(0,0,0,.82)); padding: 26px 16px 13px; }
@@ -2285,15 +2724,31 @@
 .wallcell__hothint { position:absolute; top:8px; left:50%; transform:translateX(-50%); pointer-events:none;
   display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px;
   background:rgba(10,14,26,.7); color:#fff; font-size:11px; font-weight:600; white-space:nowrap; }
+/* Hotspot de seguimiento: SÓLO el ícono de cámara por defecto (un círculo discreto
+   sobre el video). Al pasar el mouse se despliega la etiqueta con nombre + canal del
+   NVR. Clic → salta a esa cámara. */
 .wallhot { position:absolute; transform:translate(-50%,-50%); pointer-events:auto;
-  display:inline-flex; align-items:center; gap:5px; padding:4px 9px 4px 7px; border:1px solid rgba(255,255,255,.35);
+  display:inline-flex; align-items:center; padding:5px; border:1px solid rgba(255,255,255,.35);
   border-radius:999px; background:rgba(10,14,26,.62); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);
   color:#fff; font-size:11px; font-weight:650; cursor:pointer; white-space:nowrap; box-shadow:0 2px 10px rgba(0,0,0,.45);
   transition:transform .12s, background .12s, border-color .12s; }
-.wallhot:hover { transform:translate(-50%,-50%) scale(1.08); background:var(--accent); border-color:var(--accent); }
+.wallhot:hover { transform:translate(-50%,-50%) scale(1.06); background:var(--accent); border-color:var(--accent); z-index:8; }
 .wallhot svg { color:var(--accent); flex:0 0 auto; }
 .wallhot:hover svg { color:#fff; }
-.wallhot__lbl { max-width:130px; overflow:hidden; text-overflow:ellipsis; }
+.wallhot__lbl { max-width:0; opacity:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  transition:max-width .18s ease, opacity .12s, margin-left .18s ease; }
+.wallhot:hover .wallhot__lbl { max-width:180px; opacity:1; margin-left:6px; }
+/* Badge de actividad reciente (eventos en los últimos 15 min) sobre el hotspot de
+   seguimiento: círculo rojo con el conteo, arriba-derecha del ícono de cámara. */
+.wallhot.has-events { border-color:rgba(239,68,68,.7); }
+.wallhot.has-events svg { color:#f87171; }
+.wallhot.has-events:hover svg { color:#fff; }
+.wallhot__badge { position:absolute; top:-7px; right:-7px; min-width:17px; height:17px; padding:0 4px;
+  display:inline-flex; align-items:center; justify-content:center; border-radius:999px;
+  background:#dc2626; color:#fff; font-size:10px; font-weight:800; line-height:1; letter-spacing:0;
+  border:1.5px solid rgba(10,14,26,.9); box-shadow:0 2px 6px rgba(220,38,38,.5);
+  animation:wallhot-badge 1.6s ease-in-out infinite; pointer-events:none; }
+@keyframes wallhot-badge { 0%,100% { transform:scale(1); } 50% { transform:scale(1.12); } }
 .wallcell__hot.is-edit .wallhot { border-color:rgba(255,120,120,.6); }
 .wallcell__hot.is-edit .wallhot:hover { background:var(--crit); border-color:var(--crit); }
 .wallcell__hot.is-edit .wallhot:hover svg { color:#fff; }
@@ -2396,10 +2851,57 @@
 /* popup rediseño paso 1 */
 .evpopup__actions .btn { transition: transform .08s ease, filter .15s ease; }
 .evpopup__actions .btn:active:not(:disabled) { transform: scale(.95); }
-.evpopup__wall .evpopup__relays { position: absolute; left: 14px; bottom: 14px; z-index: 8; margin: 0; display: flex; align-items: center; gap: 8px; background: rgba(10,13,18,.74); backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,.16); border-radius: 12px; padding: 7px 10px; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
-.evpopup__wall .evpopup__relays .evpopup__sec-lbl { color: rgba(255,255,255,.72); margin: 0; white-space: nowrap; }
-.evpopup__wall .evpopup__relay-row { margin: 0; }
-.evpopup__wall .evpopup__relay-msg { color: #fff; }
+/* Control de puertas/relés: columna flotante en el borde DERECHO, debajo de la
+   barra de vistas. Antes vivía abajo-izquierda y tapaba los mini-canales; ahora
+   deja el borde inferior libre para la tira de cámaras. */
+/* Relés en la columna de operación (ya no flotando sobre el video). */
+#evpopup-relays { margin-top: 12px; }
+/* Relés en la columna de operación: sigue el theme (claro/oscuro), no overlay. */
+.evrelays { display: flex; flex-direction: column; align-items: stretch; gap: 7px;
+  background: var(--surface-1, color-mix(in srgb, var(--text) 4%, transparent));
+  border: 1px solid var(--separator, var(--border)); border-radius: 12px; padding: 10px; }
+.evrelays__hd { display: inline-flex; align-items: center; gap: 6px; font-size: 10.5px; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase; color: var(--text-faint); padding: 0 2px; }
+.evrelays__hd svg { color: var(--accent); }
+.evrelays__list { display: flex; flex-direction: column; gap: 7px; }
+.evrelay { display: flex; }
+
+/* Botón-icono de puerta: se anima al presionarlo (escala) y al terminar (pulso). */
+.evrelay__btn { display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 11px 8px 8px;
+  border: 1px solid var(--separator, var(--border)); border-radius: 11px; background: var(--bg-elev, var(--surface-2)); color: var(--text);
+  cursor: pointer; text-align: left; transition: transform .12s var(--ease-out), background .16s, border-color .16s, box-shadow .16s; }
+.evrelay__btn:hover:not(:disabled) { border-color: color-mix(in srgb, var(--accent) 55%, var(--separator)); box-shadow: 0 4px 14px -6px rgba(0,0,0,.4); }
+.evrelay__btn:active:not(:disabled) { transform: scale(.94); }
+.evrelay__btn:disabled { opacity: .5; cursor: not-allowed; }
+.evrelay__ic { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 9px;
+  background: color-mix(in srgb, var(--accent) 26%, transparent); color: #fff; transition: background .2s, transform .2s; }
+.evrelay__lbl { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.evrelay.is-busy .evrelay__ic { animation: evrelaySpin .9s linear infinite; }
+.evrelay.is-done .evrelay__ic { background: #16a34a; animation: evrelayPop .4s var(--ease-out); }
+.evrelay.is-done .evrelay__btn { border-color: #16a34a; }
+
+/* Confirmación inline: ¿Abrir? ✓ ✕ — entra animada, reemplaza al botón. */
+.evrelay__confirm { display: flex; align-items: center; gap: 7px; width: 100%; min-width: 148px; padding: 5px 6px 5px 11px;
+  border: 1px solid color-mix(in srgb, var(--accent) 60%, rgba(255,255,255,.16)); border-radius: 11px;
+  background: rgba(9,12,18,.9); animation: evrelaySlide .18s var(--ease-out); }
+.evrelay__q { font-size: 12px; font-weight: 700; color: #fff; margin-right: auto; white-space: nowrap; }
+.evrelay__yes, .evrelay__no { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border: 0;
+  border-radius: 9px; cursor: pointer; color: #fff; transition: transform .1s, filter .15s; }
+.evrelay__yes { background: #16a34a; }
+.evrelay__no { background: rgba(255,255,255,.16); }
+.evrelay__yes:hover, .evrelay__no:hover { filter: brightness(1.12); }
+.evrelay__yes:active, .evrelay__no:active { transform: scale(.9); }
+.evrelay__msg { display: block; margin-top: 2px; font-size: 11.5px; font-weight: 700; text-align: center;
+  padding: 4px 8px; border-radius: 8px; }
+.evrelay__msg.is-ok { color: #dcfce7; background: rgba(22,163,74,.35); }
+.evrelay__msg.is-err { color: #fee2e2; background: rgba(220,38,38,.35); }
+@keyframes evrelaySpin { to { transform: rotate(360deg); } }
+@keyframes evrelayPop { 0% { transform: scale(.6); } 60% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes evrelaySlide { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+
+/* Con tira de mini-canales presente, subí el rótulo del hero para que no quede
+   tapado por la tira (borde inferior queda exclusivo para las cámaras). */
+.camwall__stage:has(.camwall__rail) .camwall__big .camtile__bottom { bottom: 88px; background: linear-gradient(0deg, rgba(0,0,0,.45), transparent); }
 
 
 /* ===== Miniaturas como overlay sobre el hero (rediseno modal 2026-08) ===== */
@@ -2490,6 +2992,26 @@
 
 /* ===== DeviceLogs — pestaña Logs del dispositivo ===== */
 .devlogs { display: flex; flex-direction: column; gap: 10px; }
+/* Registro centrado en una columna cómoda (la tab ya usa todo el ancho de la
+   tarjeta, pero una bitácora larga se lee mejor acotada y centrada). */
+.devlogs--wrap { max-width: 1080px; margin: 0 auto; width: 100%; }
+/* Estado de carga: skeleton animado (shimmer) en vez de un spinner suelto. */
+.devlogs__loading { display: flex; flex-direction: column; gap: 10px; }
+.devlogs__loading-lbl { display: inline-flex; align-items: center; gap: 8px; justify-content: center;
+  font-size: 13px; font-weight: 600; color: var(--text-2, #9aa4b2); padding: 4px 0 2px; }
+.devlogs__skel { pointer-events: none; }
+.devlog--skel { opacity: 0; animation: devlog-skel-in .5s var(--ease-out, ease-out) forwards; }
+.devlog--skel .sk { display: inline-block; height: 12px; border-radius: 6px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--text) 7%, transparent) 30%,
+    color-mix(in srgb, var(--text) 15%, transparent) 50%, color-mix(in srgb, var(--text) 7%, transparent) 70%);
+  background-size: 200% 100%; animation: devlog-shimmer 1.25s linear infinite; }
+.devlog--skel .sk--ic { width: 26px; height: 26px; border-radius: 7px; flex: 0 0 auto; }
+.devlog--skel .sk--time { width: 52px; }
+.devlog--skel .sk--title { min-width: 120px; }
+.devlog--skel .sk--src { width: 46px; }
+.devlog--skel .sk--ago { width: 40px; }
+@keyframes devlog-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes devlog-skel-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .devlogs__bar { display: flex; align-items: center; gap: 10px; }
 .devlogs__count { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; color: var(--text-dim); }
 .devlogs__count svg { color: var(--accent); }
@@ -2516,8 +3038,17 @@
 
 /* ===== CameraWall hero v2: cámara del evento grande + mini-canales al borde ===== */
 .camwall__stage { position: relative; flex: 1 1 auto; min-height: 260px; width: 100%; border-radius: var(--r); overflow: hidden; background: #05070d; }
-.camwall__big { position: absolute; inset: 0; }
+.camwall__big { position: absolute; inset: 0; display: grid; place-items: center; }
 .camwall__big .camtile { width: 100%; height: 100%; }
+/* Hero con vivo: el tile adopta el aspecto real del stream y se centra → el video
+   llena el cuadro y el overlay de analíticas coincide (sin desfase ni estirado). */
+/* El tile adopta el aspecto del stream vía `aspect-ratio` inline. TODO su contenido
+   real (frame/video/overlays) es position:absolute → NO aporta tamaño de contenido;
+   con width/height:auto la caja aspect-ratio colapsaba a 0×0 (Hero en negro pese a
+   recibir el flujo). Anclamos height:100% (definido por el grid del stage) → el
+   aspect-ratio deriva un ancho no-nulo y el video se ve; max-width:100% evita
+   desborde en stages angostos (el object-fit:contain del video letterboxea). */
+.camwall__big .camtile--fit { width: auto; height: 100%; max-width: 100%; max-height: 100%; }
 .camwall__big .camtile img, .camwall__big .camtile video, .camwall__big .camtile canvas { width: 100%; height: 100%; object-fit: contain; }
 .camwall__rail {
   position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
@@ -2553,6 +3084,154 @@
   border-radius: 4px; background: var(--accent); color: #fff;
 }
 @media (max-width: 900px) { .camwall__mini { flex-basis: 108px; width: 108px; height: 62px; } }
+
+/* ---------- Seguimiento visual: hotspots sobre el tile (hero del muro) ---------- */
+.camtile__hots { position: absolute; inset: 0; z-index: 6; pointer-events: none; }
+.camtile__hots .wallhot { pointer-events: auto; z-index: 6; }
+
+/* ---------- Overlay de alerta por canal (eventos recientes) ---------- */
+.camtile--alerted { z-index: 1; }
+.camtile__alertring { position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: inherit;
+  box-shadow: inset 0 0 0 2px #ef4444, 0 0 0 1px rgba(239,68,68,.5); animation: camalert 1.15s ease-in-out infinite; }
+.camtile__alertchip { position: absolute; top: 6px; left: 6px; z-index: 5; display: inline-flex; align-items: center; gap: 4px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: .02em; padding: 2px 7px; border-radius: 999px;
+  background: #dc2626; color: #fff; box-shadow: 0 2px 8px rgba(220,38,38,.5); animation: camalertchip 1.15s ease-in-out infinite; }
+.camtile__alertchip svg { color: #fff; }
+.camtile--sm .camtile__alertchip { font-size: 8px; padding: 1px 5px; top: 3px; left: 3px; }
+@keyframes camalert { 0%, 100% { box-shadow: inset 0 0 0 2px rgba(239,68,68,.35), 0 0 0 1px rgba(239,68,68,.2); }
+  50% { box-shadow: inset 0 0 0 3px #ef4444, 0 0 14px 2px rgba(239,68,68,.55); } }
+@keyframes camalertchip { 0%, 100% { opacity: .82; } 50% { opacity: 1; } }
+
+/* ---------- Paginador de la grilla (slide de canales) ---------- */
+.camwall__pager { display: inline-flex; align-items: center; gap: 2px; background: rgba(10,14,26,.55);
+  -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px); border: 1px solid rgba(255,255,255,.13);
+  border-radius: var(--r-pill); padding: 3px; }
+.camwall__pgbtn { display: grid; place-items: center; width: 26px; height: 24px; border: 0; border-radius: 7px;
+  background: transparent; color: rgba(255,255,255,.9); cursor: pointer; transition: background .14s; }
+.camwall__pgbtn:hover:not(:disabled) { background: rgba(255,255,255,.16); }
+.camwall__pgbtn:disabled { opacity: .35; cursor: default; }
+.camwall__pgbtn svg { transform: rotate(90deg); }
+.camwall__pgbtn--next svg { transform: rotate(-90deg); }
+.camwall__pglbl { font-size: 11.5px; font-weight: 700; color: rgba(255,255,255,.9); min-width: 34px; text-align: center;
+  padding: 4px 8px; border-radius: var(--r-pill); background: rgba(10,14,26,.55);
+  -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px); border: 1px solid rgba(255,255,255,.13); }
+
+/* Flechas de paginación de canales del NVR: FUERA de la grilla, en los bordes
+   izquierdo y derecho, para pasar entre los canales del equipo del evento. */
+.camwall__edge { position: absolute; top: 50%; transform: translateY(-50%); z-index: 12;
+  display: grid; place-items: center; width: 46px; height: 76px; border: 1px solid rgba(255,255,255,.16);
+  background: rgba(8,11,17,.62); color: #fff; cursor: pointer; -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.45); transition: background .15s, transform .12s; }
+.camwall__edge:hover:not(:disabled) { background: rgba(59,130,246,.8); }
+.camwall__edge:active:not(:disabled) { transform: translateY(-50%) scale(.94); }
+.camwall__edge:disabled { opacity: .25; cursor: default; }
+.camwall__edge--prev { left: 2px; border-radius: 0 14px 14px 0; }
+.camwall__edge--next { right: 2px; border-radius: 14px 0 0 14px; }
+.camwall__edge--prev svg { transform: rotate(90deg); }
+.camwall__edge--next svg { transform: rotate(-90deg); }
+
+/* ---------- Hero con columnas laterales de canales (Interior / Perímetro) ---------- */
+.camwall__stage--cols { position: relative; }
+.camwall__col { position: absolute; top: 10px; bottom: 10px; z-index: 9; width: 150px; display: flex; flex-direction: column; gap: 8px;
+  padding: 8px; border-radius: 14px; background: rgba(6,9,14,.5); -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px);
+  border: 1px solid rgba(255,255,255,.08); box-shadow: 0 10px 30px rgba(0,0,0,.4); animation: colin .3s var(--ease-out) both; }
+.camwall__col--left { left: 10px; }
+.camwall__col--right { right: 10px; }
+@keyframes colin { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.camwall__col-lbl { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: rgba(255,255,255,.72); padding: 2px 4px; flex: none; }
+.camwall__col-lbl svg { color: var(--accent); }
+/* Cabecera de columna como botón (contrae) */
+.camwall__col-lbl--btn { justify-content: space-between; width: 100%; cursor: pointer; border: 0; background: none;
+  border-radius: 8px; padding: 4px 6px; transition: background .14s; }
+.camwall__col-lbl--btn:hover { background: rgba(255,255,255,.08); color: #fff; }
+.camwall__col-n { font-size: 10px; font-weight: 800; color: #fff; background: var(--accent); border-radius: 999px; padding: 1px 6px; }
+.camwall__col-x { display: inline-flex; color: rgba(255,255,255,.7); }
+.camwall__col--left .camwall__col-x svg { transform: rotate(180deg); }
+
+/* Pestaña colapsada: botón vertical en el borde que despliega su columna. Mientras
+   está colapsada NO se renderiza ninguna miniatura → cero snapshots, video más rápido. */
+.camwall__coltab { position: absolute; top: 50%; transform: translateY(-50%); z-index: 11; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 7px;
+  border: 1px solid rgba(255,255,255,.16); background: rgba(8,11,17,.6); color: #fff;
+  -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px); box-shadow: 0 8px 24px rgba(0,0,0,.45);
+  transition: background .14s, transform .12s; }
+.camwall__coltab:hover { background: rgba(59,130,246,.8); }
+.camwall__coltab:active { transform: translateY(-50%) scale(.96); }
+.camwall__coltab svg { color: var(--accent); }
+.camwall__coltab:hover svg { color: #fff; }
+.camwall__coltab-tx { writing-mode: vertical-rl; text-orientation: mixed; font-size: 11px; font-weight: 800;
+  letter-spacing: .1em; text-transform: uppercase; }
+.camwall__coltab-n { font-size: 10px; font-weight: 800; color: #fff; background: var(--accent); border-radius: 999px; padding: 1px 6px; }
+.camwall__coltab--left { left: 0; border-radius: 0 12px 12px 0; border-left: 0; }
+.camwall__coltab--right { right: 0; border-radius: 12px 0 0 12px; border-right: 0; }
+.camwall__col-scroll { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; overflow-x: hidden; min-height: 0;
+  scrollbar-width: none; -ms-overflow-style: none; }
+.camwall__col-scroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/* Mini-canal vertical en columna (override del rail horizontal) */
+.camwall__col .camwall__mini { flex: 0 0 auto; width: 100%; height: auto; aspect-ratio: 16 / 9; }
+/* El recuadro grande deja aire a los lados para que las columnas no lo tapen */
+.camwall__stage--cols .camwall__big { left: 0; right: 0; }
+/* Las columnas Interior/Perímetro (150px, z-9) flotan sobre los bordes del video.
+   Los rótulos y controles del Hero (nombre/zona, LIVE·EVENTO, caption, botón de
+   destacar) NO deben quedar ocultos detrás de ellas: se corren al canal central
+   con padding lateral = ancho de columna + aire. El video sigue a sangre completa. */
+.camwall__stage--cols .camwall__big .camtile__top,
+.camwall__stage--cols .camwall__big .camtile__bottom { padding-left: 60px; padding-right: 60px; }
+/* Sólo cuando una columna está DESPLEGADA se corre el rótulo de ese lado (150px). */
+.camwall__stage--cols.is-open-interior .camwall__big .camtile__top,
+.camwall__stage--cols.is-open-interior .camwall__big .camtile__bottom { padding-left: 172px; }
+.camwall__stage--cols.is-open-perimeter .camwall__big .camtile__top,
+.camwall__stage--cols.is-open-perimeter .camwall__big .camtile__bottom { padding-right: 172px; }
+
+/* Dock inferior: selector de vista (Hero/2×2/3×3) + toggle HD/SD, juntos */
+.camwall__dock { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
+  display: inline-flex; align-items: center; gap: 8px; padding: 4px; border-radius: var(--r-pill);
+  background: rgba(8,11,17,.62); border: 1px solid rgba(255,255,255,.14);
+  -webkit-backdrop-filter: blur(9px); backdrop-filter: blur(9px); box-shadow: 0 8px 22px rgba(0,0,0,.4); }
+.camwall__dock .segmented { background: transparent; border: 0; }
+.camwall__dock .segmented__opt { color: rgba(255,255,255,.82); font-weight: 600; font-size: 12px; padding: 5px 13px; border-radius: 999px; }
+.camwall__dock .segmented__opt:hover { color: #fff; background: rgba(255,255,255,.1); }
+.camwall__dock .segmented__opt.is-active { background: #fff; color: #0b0e14; }
+/* Toggle de calidad (HD/SD → main/sub) — hijo del dock */
+.camwall__qtoggle { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 800; letter-spacing: .03em;
+  color: #fff; padding: 6px 11px; border-radius: 999px; background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.16); cursor: pointer; transition: background .14s; }
+.camwall__qtoggle:hover { background: rgba(59,130,246,.75); }
+.camwall__qtoggle svg { color: var(--accent); }
+.camwall__qtoggle:hover svg { color: #fff; }
+
+/* ---------- Celdas "bare": tarjeta flotante, video bien escalado ---------- */
+/* Cada canal es una TARJETA que flota sobre el fondo (sombra + borde sutil), con
+   el video ESCALADO COMPLETO (contain → nada recortado, analíticas alineadas) y
+   skeleton mientras carga. Nombre/tags solo al hover. */
+.camtile--bare { border-radius: 12px; background: #05070c;
+  box-shadow: 0 6px 20px -8px rgba(0,0,0,.75), 0 0 0 1px rgba(255,255,255,.06);
+  transition: box-shadow .18s var(--ease-out), transform .18s var(--ease-out); }
+.camtile--bare:hover { box-shadow: 0 12px 32px -10px rgba(0,0,0,.85), 0 0 0 1px color-mix(in srgb, var(--accent) 40%, rgba(255,255,255,.08)); transform: translateY(-1px); }
+.camtile--bare .camtile__frame { border-radius: inherit; overflow: hidden; }
+/* Video/imagen ESCALAN completos dentro de la tarjeta (contain). */
+.camtile--bare .go2view, .camtile--bare .go2view video, .camtile--bare .go2view__snap,
+.camtile--bare .camtile__media, .camtile--bare .go2view__mjpeg { object-fit: contain !important; width: 100%; height: 100%; }
+/* La capa de analíticas SÍ debe estirarse al recuadro del video (no contain). */
+.camtile--bare .anov { object-fit: fill !important; }
+/* Skeleton loader (shimmer) de fondo, visible hasta que la imagen/vivo lo tapa. */
+.camtile--bare .camtile__frame::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; border-radius: inherit;
+  background: linear-gradient(100deg, #0d1017 30%, #171c27 50%, #0d1017 70%);
+  background-size: 200% 100%; animation: camskel 1.25s ease-in-out infinite;
+}
+.camtile--bare.has-feed .camtile__frame > * { position: relative; z-index: 1; }
+/* Barras superior/inferior ocultas por defecto, se revelan al hover. */
+.camtile--bare .camtile__top, .camtile--bare .camtile__bottom { opacity: 0; transition: opacity .16s var(--ease-out); }
+.camtile--bare:hover .camtile__top, .camtile--bare:hover .camtile__bottom { opacity: 1; }
+@keyframes camskel { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* ---------- Menos "negro" en el Hero: matte suave + video enmarcado ---------- */
+.camwall__stage { background: radial-gradient(120% 120% at 50% 40%, #0b0f18 0%, #05070d 100%); }
+.evpopup__body--wide .camwall__big .camtile--fit {
+  box-shadow: 0 10px 40px -10px rgba(0,0,0,.7); border-radius: 10px; overflow: hidden;
+}
 
 
 /* ===== Alertas: tabla de tipos + layout 2 columnas + panel de analíticas ===== */
@@ -2610,7 +3289,7 @@
 
 
 /* ===== Alertas: panel de vivo con analíticas dibujadas (3ra columna) ===== */
-.alertcfg--3col { grid-template-columns: minmax(0, 1fr) minmax(258px, 288px) minmax(300px, 1.2fr); }
+.alertcfg--3col { grid-template-columns: minmax(0, 1fr) minmax(258px, 300px) minmax(360px, 1.5fr); }
 .alertcfg--3col .alertcfg__preview {
   grid-column: 3; align-self: start; position: sticky; top: 8px;
   aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #05070d;
@@ -2629,7 +3308,12 @@
 
 
 /* ===== Portero Akuvox: tabla de usuarios (tarjeta/PIN/rostro) ===== */
-.akusers__stat { margin-left: 12px; display: inline-flex; align-items: center; gap: 4px; color: var(--text-2, #9aa4b2); font-weight: 600; }
+.akusers__stat { margin-left: 8px; display: inline-flex; align-items: center; gap: 4px; color: var(--text-2, #9aa4b2);
+  font-weight: 600; font-size: 12.5px; border: 1px solid transparent; background: transparent; border-radius: 999px;
+  padding: 2px 9px; cursor: pointer; transition: background var(--dur-1), border-color var(--dur-1), color var(--dur-1); }
+.akusers__stat:hover { border-color: var(--line); color: var(--text-1, inherit); }
+.akusers__stat.is-on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.akusers__stat.is-on svg { color: #fff; }
 .akutable { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
 .akutable th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .03em; color: var(--text-2, #9aa4b2); font-weight: 700; padding: 7px 10px; border-bottom: 1px solid var(--line); }
 .akutable td { padding: 6px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
@@ -2640,3 +3324,37 @@
 .akutable__name { font-weight: 600; }
 .akutable__uid { color: var(--text-2, #9aa4b2); font-weight: 400; font-size: 11px; margin-left: 2px; }
 .akutable .muted { color: var(--text-2, #9aa4b2); }
+/* Acciones por fila (editar / borrar). */
+.akutable__act { width: 72px; white-space: nowrap; text-align: right; }
+.akutable__btn { border: 1px solid transparent; background: transparent; color: var(--text-2, #9aa4b2);
+  cursor: pointer; padding: 5px; border-radius: 7px; display: inline-grid; place-items: center;
+  transition: background var(--dur-1), color var(--dur-1), border-color var(--dur-1); }
+.akutable__btn:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 30%, transparent); }
+.akutable__btn--del:hover { background: color-mix(in srgb, var(--crit) 14%, transparent); color: var(--crit); border-color: color-mix(in srgb, var(--crit) 34%, transparent); }
+.akutable__btn:disabled { opacity: .4; cursor: default; }
+/* Mensaje de éxito de aprovisionamiento. */
+.akusers__ok { color: var(--ok, #34d399); display: flex; align-items: center; gap: 6px; }
+/* Formulario de alta/edición de usuario del portero. */
+.akuform { border: 1px solid var(--line); border-radius: var(--r, 12px); padding: 14px 16px; margin: 6px 0 4px;
+  background: color-mix(in srgb, var(--accent) 4%, transparent); }
+.akuform__hd { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--text-1, inherit); margin-bottom: 12px; }
+.akuform__hd svg { color: var(--accent); }
+.akuform__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.akuform__f { display: flex; flex-direction: column; gap: 5px; }
+.akuform__f > span { font-size: 12px; font-weight: 600; color: var(--text-2, #9aa4b2); }
+.akuform__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.akuform__note { margin-top: 10px; }
+/* Nota automática cuando el equipo no expone rostros. */
+.akusers__facenote { display: flex; align-items: center; gap: 7px; color: var(--text-2, #9aa4b2); }
+.akusers__facenote svg { color: var(--text-faint); flex: 0 0 auto; }
+/* Miniatura de rostro clickeable en la fila. */
+.akutable__facebtn { border: 0; padding: 0; background: none; cursor: zoom-in; display: block; line-height: 0; border-radius: 8px; }
+.akutable__facebtn img { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; display: block; background: #0b0f1a; transition: transform var(--dur-1), box-shadow var(--dur-1); }
+.akutable__facebtn:hover img { transform: scale(1.06); box-shadow: 0 0 0 2px var(--accent); }
+/* Modal SIN BORDES para ampliar el rostro. */
+.akuzoom { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 4vmin;
+  background: rgba(3,5,10,.82); backdrop-filter: blur(6px); cursor: zoom-out; animation: akuzoom-in .16s ease-out; }
+.akuzoom__img { max-width: min(90vw, 720px); max-height: 90vh; border-radius: 4px; object-fit: contain; cursor: default;
+  box-shadow: 0 30px 80px rgba(0,0,0,.7); animation: akuzoom-pop .2s cubic-bezier(.2,.9,.2,1); }
+@keyframes akuzoom-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes akuzoom-pop { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }

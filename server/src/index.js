@@ -12,6 +12,12 @@ import { load as loadConfigStore } from "./config/store.js";
 import { startAlertStreams } from "./ingest/alertStream.js";
 import { startPanelIngest } from "./ingest/panels.js";
 import { sweepEvidence } from "./evidence/retention.js";
+import { startHealthSampler } from "./health/history.js";
+import { startStatusSampler } from "./health/status.js";
+import { initDb, migrate } from "./db/pg.js";
+import { backfillPg, hydrateFromPg } from "./dispatch/store.js";
+import { loadFromPg as loadConfigFromPg } from "./config/store.js";
+import { hydrateSessions } from "./auth/session.js";
 
 import apiRouter from "./http/api.js";
 import ingestRouter from "./http/ingest.js";
@@ -96,6 +102,28 @@ async function main() {
 
   // Retencion de evidencia: limpia fotos viejas segun config (barrido horario).
   try { sweepEvidence(); const _t = setInterval(sweepEvidence, 3600000); _t.unref && _t.unref(); } catch (e) { log.warn(`retencion evidencia no arranco: ${e?.message || e}`); }
+
+  // Histórico de salud de NVR: muestreo periódico persistido (para la gráfica comparativa).
+  try { startHealthSampler(); } catch (e) { log.warn(`health sampler no arrancó: ${e?.message || e}`); }
+  try { startStatusSampler(); } catch (e) { log.warn(`status sampler no arrancó: ${e?.message || e}`); }
+
+  // PostgreSQL (migración incremental de datos): crea el esquema y vuelca a la DB los
+  // eventos ya existentes en memoria/JSON. Tolerante: si PG no está o falla, el server
+  // sigue funcionando con el estado en memoria/JSON (write-through best-effort en vivo).
+  ;(async () => {
+    try {
+      if (initDb()) {
+        await migrate();
+        await loadConfigFromPg();               // inventario: carga desde PG o backfill JSON→PG
+        const n = await backfillPg();           // eventos: vuelca los que ya están en memoria → PG
+        log.info(`PG: backfill de ${n} eventos existentes → Postgres`);
+        const h = await hydrateFromPg();        // eventos: rehidrata la cola en vivo desde PG
+        if (h && h.pg) log.info(`PG: cola hidratada desde Postgres → ${h.active} activos, ${h.resolved} resueltos (agregados: ${h.added} act / ${h.addedRes} res)`);
+        const ns = await hydrateSessions();     // sesiones: rehidrata las vigentes desde PG
+        log.info(`PG: sesiones rehidratadas desde Postgres → ${ns} vigentes`);
+      }
+    } catch (e) { log.warn(`PG setup no completó: ${e?.message || e}`); }
+  })();
 
   // Apagado limpio
   const shutdown = (sig) => {
