@@ -372,6 +372,8 @@ powershell -ExecutionPolicy Bypass -File isapi\tools\deploy-points.ps1
 
 - **No se versionan secretos ni datos**: `server/data/` (config con credenciales, eventos, evidencia, logs) está en `.gitignore`.
 - Las credenciales de dispositivos se almacenan server-side y se usan para componer RTSP/snapshot; **nunca** se exponen al cliente ni van en URLs.
+- **Cifrado en reposo** (v1.5.0): las contraseñas de equipos se guardan cifradas (**AES-256-GCM**) tanto en PostgreSQL como en el JSON de config. La clave vive en `ENC_KEY` (env); la caché en memoria queda en claro para los adaptadores. Retro-compatible: sin `ENC_KEY` funciona en texto plano como antes, y descifrar tolera valores viejos sin cifrar. ⚠️ Si se pierde `ENC_KEY`, los valores cifrados son irrecuperables — respaldá `eventos.env`.
+- **Endpoints protegidos**: la cola en vivo (`/api/events`), el historial (`/api/events/history`) y la metadata/captura de evidencia exigen sesión de operador (cookie) **o** `X-Admin-Token`. Las fotos en sí (`/api/evidence/:file`) siguen públicas para `<img src>`.
 - El control de relé / apertura de puerta es una **acción física**: requiere **confirmación explícita del operador**.
 - Tokens de admin/ingesta por variables de entorno.
 - **Aislamiento entre clientes:** la resolución de dispositivo filtra por sitio antes de desempatar por tags de fabricante, que no son únicos entre clientes.

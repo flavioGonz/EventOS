@@ -15,6 +15,44 @@ import { log } from "../logger.js";
 import { RULES as DEFAULT_RULES, PROCEDURES as DEFAULT_PROCEDURES } from "../rules/defaults.js";
 import { hashPin } from "../auth/pin.js";
 import { upsertItem, deleteItem, upsertKv, loadAll, backfillConfig } from "../db/configRepo.js";
+import { encrypt, decrypt, encEnabled, isEncrypted } from "../util/crypto.js";
+
+// ── Cifrado en reposo de secretos de equipos (device.password) ───────────────
+// La caché en memoria queda SIEMPRE en claro (los ~10 lectores del server no
+// cambian); solo ciframos al escribir a disco/PG y desciframos al cargar.
+// Con ENC_KEY sin definir, encrypt/decrypt son no-op → comportamiento previo.
+const SECRET_FIELDS = { devices: ["password"] };
+function encItem(name, item) {
+  const fields = SECRET_FIELDS[name];
+  if (!fields || !item) return item;
+  const out = { ...item };
+  for (const f of fields) if (out[f] != null && out[f] !== "") out[f] = encrypt(out[f]);
+  return out;
+}
+function decItem(name, item) {
+  const fields = SECRET_FIELDS[name];
+  if (!fields || !item) return item;
+  const out = { ...item };
+  for (const f of fields) if (out[f] != null) out[f] = decrypt(out[f]);
+  return out;
+}
+// Copia del doc con los secretos CIFRADOS (para escribir a disco/PG).
+function encDoc(doc) {
+  const out = { ...doc };
+  for (const name of Object.keys(SECRET_FIELDS)) {
+    if (Array.isArray(out[name])) out[name] = out[name].map((it) => encItem(name, it));
+  }
+  return out;
+}
+// Descifra EN SITIO los secretos de la caché (tras cargar de disco/PG).
+function decInPlace(doc) {
+  for (const name of Object.keys(SECRET_FIELDS)) {
+    const arr = doc && doc[name];
+    if (!Array.isArray(arr)) continue;
+    for (let i = 0; i < arr.length; i++) arr[i] = decItem(name, arr[i]);
+  }
+  return doc;
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // server/src/config → server/data
@@ -287,7 +325,7 @@ export function load() {
     if (fs.existsSync(CONFIG_PATH)) {
       const txt = fs.readFileSync(CONFIG_PATH, "utf8");
       const doc = JSON.parse(txt);
-      cache = normalizeDoc(doc);
+      cache = decInPlace(normalizeDoc(doc));
       log.info(`Config cargada desde ${CONFIG_PATH}`);
       return cache;
     }
@@ -307,7 +345,7 @@ export function save() {
   ensureDataDir();
   const tmp = CONFIG_PATH + ".tmp";
   try {
-    fs.writeFileSync(tmp, JSON.stringify(cache, null, 2), "utf8");
+    fs.writeFileSync(tmp, JSON.stringify(encDoc(cache), null, 2), "utf8");
     fs.renameSync(tmp, CONFIG_PATH);
   } catch (e) {
     log.error(`No se pudo guardar la config (${e.message})`);
@@ -457,7 +495,7 @@ export function create(name, data = {}) {
   const item = { ...data, id };
   d[name].push(item);
   save();
-  upsertItem(name, item).catch(() => {}); // write-through a Postgres (best-effort)
+  upsertItem(name, encItem(name, item)).catch(() => {}); // write-through a PG (secretos cifrados)
   return item;
 }
 
@@ -471,7 +509,7 @@ export function update(name, id, patch = {}) {
   const { id: _ignore, ...rest } = patch;
   d[name][idx] = { ...d[name][idx], ...rest, id };
   save();
-  upsertItem(name, d[name][idx]).catch(() => {}); // write-through a Postgres
+  upsertItem(name, encItem(name, d[name][idx])).catch(() => {}); // write-through a PG (secretos cifrados)
   return d[name][idx];
 }
 
@@ -521,14 +559,24 @@ export async function loadFromPg() {
     if (snap.kv.dispatch) doc.dispatch = snap.kv.dispatch;
     if (snap.kv.video) doc.video = snap.kv.video;
     if (snap.kv.evidence) doc.evidence = snap.kv.evidence;
-    cache = normalizeDoc(doc);
-    save(); // mantener el JSON en espejo por las dudas
+    cache = decInPlace(normalizeDoc(doc));
+    save(); // mantener el JSON en espejo por las dudas (save cifra los secretos)
+    // Migración a cifrado: si hay ENC_KEY y algún device venía en texto plano desde PG,
+    // re-guardarlo cifrado (una vez). Idempotente: los ya cifrados no se tocan.
+    if (encEnabled()) {
+      const rawPlain = new Set((snap.items.devices || []).filter((d) => d && d.password && !isEncrypted(d.password)).map((d) => d.id));
+      let migrated = 0;
+      for (const dev of cache.devices || []) {
+        if (rawPlain.has(dev.id)) { try { await upsertItem("devices", encItem("devices", dev)); migrated++; } catch { /* best-effort */ } }
+      }
+      if (migrated) log.info(`Config: ${migrated} contraseñas de equipos migradas a cifrado en PG`);
+    }
     log.info(`Config cargada desde Postgres: ${snap.total} items`);
     return { pg: true, loaded: snap.total };
   }
   // PG vacío → backfill del estado actual (JSON/seed) hacia PG.
   const cur = cache || load();
-  const n = await backfillConfig(cur, COLLECTIONS);
+  const n = await backfillConfig(encDoc(cur), COLLECTIONS); // secretos cifrados en reposo
   log.info(`Config backfill → Postgres: ${n} items`);
   return { pg: true, backfilled: n };
 }
