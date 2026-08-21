@@ -34,6 +34,7 @@ import {
 } from "../dispatch/engine.js";
 import { list as listConfig, getDispatch } from "../config/store.js";
 import { sessionFromHandshake } from "../auth/session.js";
+import { setConsoleNsp } from "./emitter.js";
 
 const QUEUE_TOP = 20;
 const SNAPSHOT_LIMIT = 100;
@@ -47,6 +48,7 @@ function queuePayload() {
 // Adjunta el namespace /console al servidor Socket.io
 export function attachConsole(io) {
   const nsp = io.of("/console");
+  setConsoleNsp(nsp); // permite emitir `access:read` (badge de accesos) desde la ingesta
 
   // Guardia de sesión: sólo operarios logueados (cookie eventos_sid) entran al
   // namespace. Sin sesión no hay snapshot ni acciones — evita que cualquiera en

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon, Segmented, Button } from '../ui/primitives.jsx'
 import { apiFetch } from '../lib/eventsApi.js'
+import AccessReadBadge from './AccessReadBadge.jsx'
 import { Go2RtcView } from './CameraLive.jsx'
 import NvrPlayback from './NvrPlayback.jsx'
 import { api, getAdminToken } from '../lib/adminApi.js'
@@ -324,6 +325,7 @@ export default function Videowall() {
   const followSelRef = useRef(followSel)
   useEffect(() => { followSelRef.current = followSel }, [followSel])
   const nrm = (v) => (v == null ? '' : String(v).trim().toLowerCase())
+  const [focusedSite, setFocusedSite] = useState(null) // sitio en foco → filtra el badge de accesos
   const focusSite = useCallback((msg) => {
     const all = camerasRef.current
     if (!all || !all.length) { pendingFocus.current = msg; return }
@@ -338,6 +340,7 @@ export default function Videowall() {
       if (src && src.site) list = all.filter((c) => nrm(c.site) === nrm(src.site))
     }
     if (!list.length) return // no pudimos resolver el cliente → no tocamos el muro
+    setFocusedSite(list[0] ? list[0].site : null) // cliente en foco → badge de accesos
     const si = list.findIndex(isSrc)
     if (si > 0) { const [s] = list.splice(si, 1); list.unshift(s) } // fuente primero
     const lay = list.length <= 4 ? '2x2' : list.length <= 9 ? '3x3' : '4x4'
@@ -435,6 +438,9 @@ export default function Videowall() {
 
   return (
     <div className={`wall${isPopout ? ' wall--popout' : ''}`}>
+      {/* Badge efímero de lectura de acceso (portero del cliente en foco). Overlay
+          DOM: no toca el video. */}
+      <AccessReadBadge siteName={focusedSite} className="accbadges--wall" />
       <header className="wall__toolbar">
         {!isPopout && <a className="wall__back" href="/" title="Volver a la consola"><Icon name="console" size={16} /></a>}
         <span className="wall__brand"><Icon name="grid" size={16} /> Videowall{screen !== '1' ? ` · Monitor ${screen}` : ''}</span>

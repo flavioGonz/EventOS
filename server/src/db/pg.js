@@ -86,7 +86,28 @@ export async function migrate() {
       exp         timestamptz NOT NULL
     )`);
   await query(`CREATE INDEX IF NOT EXISTS sessions_exp_idx ON sessions (exp)`);
-  log.info("PG: esquema de eventos + inventario + sesiones listo (migrate)");
+
+  // Lecturas de acceso de porteros (tag/PIN/rostro válidos): histórico/auditoría.
+  // NO son alarmas de la cola; se muestran como badge efímero en el vivo y se
+  // registran acá para "quién entró, cuándo, por qué portero".
+  await query(`
+    CREATE TABLE IF NOT EXISTS access_reads (
+      id          text PRIMARY KEY,
+      ts          timestamptz NOT NULL,
+      vendor      text,
+      device_id   text,
+      site        text,
+      site_id     text,
+      method      text,
+      granted     boolean,
+      person_name text,
+      person_id   text,
+      photo_url   text,
+      doc         jsonb
+    )`);
+  await query(`CREATE INDEX IF NOT EXISTS access_reads_ts_idx ON access_reads (ts DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS access_reads_site_ts_idx ON access_reads (site_id, ts DESC)`);
+  log.info("PG: esquema eventos + inventario + sesiones + accesos listo (migrate)");
 }
 
 export async function ping() {

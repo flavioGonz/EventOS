@@ -8,6 +8,7 @@ import { config, tokensEqual } from "../config.js";
 import { log } from "../logger.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
 import * as store from "../config/store.js";
+import { isAkuvoxAccessRead, handleAkuvoxAccessRead } from "../ingest/access.js";
 
 const router = Router();
 
@@ -133,6 +134,12 @@ router.get("/akuvox", async (req, res) => {
     const q = { ...req.query, _via: "actionurl" };
     const dev = resolveDeviceByNet({ ip: q.ip || q.ipAddress, mac: q.mac });
     if (dev) { q.deviceId = dev.id; if (!q.site) q.site = dev.siteId || dev.site || undefined; }
+    // Lecturas de acceso CONCEDIDO (tag/PIN/rostro/QR válidos): NO son alarmas → no van
+    // a la cola. Se emiten como badge efímero al vivo + se registran (auditoría).
+    if (isAkuvoxAccessRead(q)) {
+      const ar = dev ? await handleAkuvoxAccessRead(q, dev) : null;
+      return res.status(200).json({ ok: true, accessRead: ar ? ar.id : null, badge: !!ar });
+    }
     const event = await ingestRaw("akuvox", q, {});
     if (event === null) return res.status(202).json({ ignored: true, reason: "echo" });
     log.info(`Ingesta akuvox[actionurl]: ${event.type} → ${event.id} (p${event.priority})`);

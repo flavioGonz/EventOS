@@ -7,6 +7,7 @@ import ClientPanel from './ClientPanel.jsx'
 import { useCameraAnalytics, AnalyticsOverlay } from './CameraLive.jsx'
 import { fetchProcedure, getProcedureFallback } from '../lib/procedures.js'
 import { apiFetch } from '../lib/eventsApi.js'
+import AccessReadBadge from './AccessReadBadge.jsx'
 import { Badge, Button, Icon, PriorityDot, Segmented, Select, TextInput } from '../ui/primitives.jsx'
 import {
   CATEGORY_LABEL,
@@ -232,6 +233,9 @@ export default function EventPopup({ event, operator, actions, onClose, supervis
         <div className={`evpopup__body${(mode !== 'evidence' && !intervene) ? ' evpopup__body--wide' : ''}`}>
           {/* IZQUIERDA — Muro de video (o playback del NVR) */}
           <div className="evpopup__wall">
+            {/* Badge efímero de lectura de acceso (portero del mismo cliente). Overlay
+                DOM: no toca el video. Filtra por el sitio del evento. */}
+            <AccessReadBadge siteName={event.source && event.source.site} />
             <div className="evpopup__tabs">
               <Segmented value={mode} onChange={setMode} options={[
                 { value: 'evidence', label: 'Evidencia' },

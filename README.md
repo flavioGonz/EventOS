@@ -9,7 +9,7 @@
 
 `Node.js` · `Express` · `Socket.io` · `Redis` · `PostgreSQL` · `React` · `Vite` · `Leaflet` · `go2rtc` · `multi-marca`
 
-**Versión 1.5.0**
+**Versión 1.5.1**
 
 </div>
 
@@ -140,6 +140,9 @@ Analítica de volumen de eventos en el tiempo, por prioridad, tipo, sitio, cáma
 ### 🔌 Alarmas y control de accesos
 Integración de **paneles de alarma Hikvision AX** y **control de relés** para **abrir puertas** (relé IP), con confirmación del operador. Recepción de eventos por **webhook HTTP** o **alertStream ISAPI**.
 
+### 🪪 Badge de acceso en vivo (v1.5.1)
+Cuando el operador está verificando un evento, si ese cliente tiene **porteros Akuvox**, cada lectura de acceso **concedido** (tarjeta / PIN / rostro / QR) aparece como un **badge animado y efímero** sobre el video en vivo — en el **popup** y en el **videowall** — mostrando el **nombre del usuario** que entró y por qué método. Las lecturas concedidas **no** son alarmas: no entran a la cola, se empujan por socket (`access:read`) como overlay DOM que **no toca el `<video>`** ni el pipeline de video, y se registran en PostgreSQL (`access_reads`) para auditoría (el PIN se enmascara). El diseño es **agnóstico de marca** — un objeto canónico `AccessRead` con adaptador por fabricante — listo para sumar otros porteros (Hikvision, etc.) sin tocar el badge.
+
 ### 📲 PWA instalable por rol
 Dos apps instalables desde un mismo código: **EventOS · Operador** (abre al Centro de alarmas) y **EventOS · Supervisor** (panel de supervisión + videowall). Ventana propia, sonido de alarma, *offline-shell* y **auto-update** desde el servidor (service worker). Página `/instalar` para instalar con un clic según el rol.
 
@@ -213,6 +216,8 @@ hidratación al arranque. **Si PG no está o cae, el server sigue funcionando co
   en vivo); `events.json` queda como espejo.
 - **Sesiones** — la cookie de operador se persiste en la tabla `sessions` → **sobreviven a un
   reinicio del server** (el operario no re-loguea).
+- **Accesos concedidos** — tabla `access_reads` (lecturas de tag/PIN/rostro/QR de porteros)
+  para el badge en vivo y auditoría; keyset para una futura pestaña de accesos.
 - **Backups** — `pg_dump` nocturno comprimido (systemd timer, retención 14 días).
 
 `DATABASE_URL` en `/etc/eventos/eventos.env` activa PG; sin esa variable, arranca en modo
@@ -398,6 +403,7 @@ powershell -ExecutionPolicy Bypass -File isapi\tools\deploy-points.ps1
 - [x] **Panel de supervisor** con visibilidad completa: eventos clicables (popup solo-lectura con video/evidencia/bitacora), bitacora por operario, feed de actividad y reasignacion a grupo
 - [x] Catálogo ISAPI (941 endpoints) + verificación contra equipos reales
 - [x] Registro de puntos vendor-neutral: el evento nombra la zona real que disparó
+- [x] **Badge de acceso en vivo** (Akuvox): lectura de tag/PIN/rostro/QR concedido sobre el vivo (popup + videowall), efímero + histórico en `access_reads`, agnóstico de marca
 - [ ] Pintar en el popup **sólo** la zona que disparó (ya viaja en `event.point.geometry`)
 - [ ] Armado horario: leer `/ISAPI/Event/schedules/*` para detectar agujeros de cobertura nocturna
 - [ ] Audio bidireccional (disuasión por voz desde el popup) — verificado disponible en los NVR
@@ -405,6 +411,7 @@ powershell -ExecutionPolicy Bypass -File isapi\tools\deploy-points.ps1
 - [ ] Recepción de eventos de paneles **AX** (webhook / alertStream ISAPI)
 - [ ] Tipo de dispositivo **parlante SIP** dedicado
 - [ ] Más fabricantes (Dahua, etc.) — vía adaptador, sin tocar el núcleo
+- [ ] Adaptador de acceso **Hikvision** (`AccessControllerEvent` → mismo modelo `AccessRead`) + foto del acceso en **MinIO/S3**
 - [ ] Video de cámaras *fisheye* (decodificación en navegador)
 
 ---

@@ -77,6 +77,14 @@ function playAlert(priority = 5) {
   } catch { /* audio bloqueado hasta gesto del usuario */ }
 }
 
+// --- Lecturas de acceso (badge en vivo) --------------------------------------
+// Pub/sub a nivel de módulo: `useConsole` recibe `access:read` por el socket ya
+// conectado y lo reemite a quien se suscriba (el badge del vivo), sin abrir otra
+// conexión ni threadear props. Efímero: el badge decide expiración y filtro por sitio.
+const _accessSubs = new Set()
+export function onAccessRead(cb) { _accessSubs.add(cb); return () => _accessSubs.delete(cb) }
+function _emitAccessRead(ar) { for (const cb of _accessSubs) { try { cb(ar) } catch { /* noop */ } } }
+
 // --- Hook principal de la consola --------------------------------------------
 //
 // Conecta al namespace /console, mantiene el estado local desde
@@ -178,6 +186,10 @@ export function useConsole(operator) {
     socket.on('operator:self', ({ stats } = {}) => {
       if (stats) setSelfStats(stats)
     })
+
+    // Lectura de acceso de portero (tag/PIN/rostro/QR válido): badge efímero en el
+    // vivo. NO es un evento de la cola; se reemite a los suscriptores del badge.
+    socket.on('access:read', (ar) => { if (ar && ar.id) _emitAccessRead(ar) })
 
     return () => {
       socket.removeAllListeners()
