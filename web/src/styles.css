@@ -2939,6 +2939,8 @@
 /* ===== Pestana Alertas de porteros Akuvox: 2 columnas (config + Action URLs) ===== */
 .dev-alerts2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 18px; align-items: start; }
 .dev-alerts2__side { position: sticky; top: 8px; }
+.accbadge-cfg { margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid color-mix(in srgb, var(--text) 8%, transparent); }
+.accbadge-cfg .segmented { margin-top: 6px; }
 @media (max-width: 900px) { .dev-alerts2 { grid-template-columns: 1fr; } }
 
 

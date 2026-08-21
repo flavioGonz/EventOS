@@ -137,8 +137,9 @@ router.get("/akuvox", async (req, res) => {
     // Lecturas de acceso CONCEDIDO (tag/PIN/rostro/QR válidos): NO son alarmas → no van
     // a la cola. Se emiten como badge efímero al vivo + se registran (auditoría).
     if (isAkuvoxAccessRead(q)) {
-      const ar = dev ? await handleAkuvoxAccessRead(q, dev) : null;
-      return res.status(200).json({ ok: true, accessRead: ar ? ar.id : null, badge: !!ar });
+      const hr = dev ? await handleAkuvoxAccessRead(q, dev) : null;
+      const ar = hr && hr.ar ? hr.ar : null;
+      return res.status(200).json({ ok: true, accessRead: ar ? ar.id : null, badge: !!(hr && hr.emitted), recorded: !!ar });
     }
     const event = await ingestRaw("akuvox", q, {});
     if (event === null) return res.status(202).json({ ignored: true, reason: "echo" });

@@ -51,11 +51,28 @@ async function resolveAkuvoxName(dev) {
   } catch { return null; }
 }
 
-// Adaptador Akuvox → AccessRead. Emite el badge + persiste. Devuelve el AccessRead o null.
+// ¿Se muestra el badge en vivo para este portero? Toggle por-portero con fallback
+// al sitio/cliente; ON por defecto. La lectura SIEMPRE se registra (auditoría); el
+// toggle sólo decide si se emite el badge efímero al vivo.
+//   device.accessBadge === false → OFF (gana el equipo)
+//   device.accessBadge === true  → ON  (gana el equipo)
+//   sin valor en el equipo → hereda del sitio (site.accessBadge)
+//   sin valor en ninguno → ON (default)
+function badgeEnabled(dev, site) {
+  if (dev && dev.accessBadge === false) return false;
+  if (dev && dev.accessBadge === true) return true;
+  if (site && site.accessBadge === false) return false;
+  if (site && site.accessBadge === true) return true;
+  return true;
+}
+
+// Adaptador Akuvox → AccessRead. Persiste SIEMPRE (auditoría) y emite el badge sólo
+// si el toggle del portero/sitio lo permite. Devuelve { ar, emitted } o null.
 export async function handleAkuvoxAccessRead(q, dev) {
   const spec = AKUVOX_READS[String(q.event || "").toLowerCase()];
   if (!spec || !dev) return null;
   const site = store.get("sites", dev.siteId) || null;
+  const emitted = badgeEnabled(dev, site);
   const personName = await resolveAkuvoxName(dev);
   const ar = {
     id: `acc_${randomUUID().replace(/-/g, "").slice(0, 12)}`,
@@ -73,9 +90,9 @@ export async function handleAkuvoxAccessRead(q, dev) {
     raw: { event: q.event, card: q.card || null, code: q.code ? "***" : null },
   };
   insertAccessRead(ar).catch(() => {});
-  emitAccessRead(ar);
-  log.info(`acceso[akuvox] ${dev.name || dev.id}: ${spec.method}${personName ? " · " + personName : ""} → badge`);
-  return ar;
+  if (emitted) emitAccessRead(ar);
+  log.info(`acceso[akuvox] ${dev.name || dev.id}: ${spec.method}${personName ? " · " + personName : ""} ${emitted ? "→ badge" : "(badge off, sólo auditoría)"}`);
+  return { ar, emitted };
 }
 
 export default { isAkuvoxAccessRead, handleAkuvoxAccessRead };

@@ -9,7 +9,7 @@
 
 `Node.js` · `Express` · `Socket.io` · `Redis` · `PostgreSQL` · `React` · `Vite` · `Leaflet` · `go2rtc` · `multi-marca`
 
-**Versión 1.5.1**
+**Versión 1.5.2**
 
 </div>
 
@@ -142,6 +142,8 @@ Integración de **paneles de alarma Hikvision AX** y **control de relés** para 
 
 ### 🪪 Badge de acceso en vivo (v1.5.1)
 Cuando el operador está verificando un evento, si ese cliente tiene **porteros Akuvox**, cada lectura de acceso **concedido** (tarjeta / PIN / rostro / QR) aparece como un **badge animado y efímero** sobre el video en vivo — en el **popup** y en el **videowall** — mostrando el **nombre del usuario** que entró y por qué método. Las lecturas concedidas **no** son alarmas: no entran a la cola, se empujan por socket (`access:read`) como overlay DOM que **no toca el `<video>`** ni el pipeline de video, y se registran en PostgreSQL (`access_reads`) para auditoría (el PIN se enmascara). El diseño es **agnóstico de marca** — un objeto canónico `AccessRead` con adaptador por fabricante — listo para sumar otros porteros (Hikvision, etc.) sin tocar el badge.
+
+**Toggle por portero / cliente (v1.5.2):** el badge se puede mostrar u ocultar por **portero** (ficha del equipo → «Mostrar / Ocultar / Heredar del cliente») con *fallback* al **default del cliente/sitio** (ficha del sitio); activo por defecto. El toggle **sólo** controla el aviso visual: la lectura **siempre se registra** en `access_reads` para auditoría.
 
 ### 📲 PWA instalable por rol
 Dos apps instalables desde un mismo código: **EventOS · Operador** (abre al Centro de alarmas) y **EventOS · Supervisor** (panel de supervisión + videowall). Ventana propia, sonido de alarma, *offline-shell* y **auto-update** desde el servidor (service worker). Página `/instalar` para instalar con un clic según el rol.

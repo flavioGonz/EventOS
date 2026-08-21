@@ -1,7 +1,7 @@
 // Sitio — página de edición dedicada (cliente + lista de llamada + parlantes SIP + mapa).
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Button, IconButton, Field, TextInput, Textarea, Icon, Glass, Spinner, Select } from '../ui/primitives.jsx'
+import { Button, IconButton, Field, TextInput, Textarea, Icon, Glass, Spinner, Select, Switch, InfoHint } from '../ui/primitives.jsx'
 import { collectionApi, unwrap } from '../lib/adminApi.js'
 import { Loading, useToast } from './_shared.jsx'
 import SiteMap from '../components/SiteMap.jsx'
@@ -212,6 +212,12 @@ export default function SiteEdit() {
           <Field label={<><Icon name="text" size={14} /> Notas</>}>
             <Textarea value={form.notes} onChange={set('notes')} placeholder="Información adicional…" />
           </Field>
+
+          <p className="section-label"><Icon name="user" size={14} /> Badge de acceso en vivo (porteros)
+            <InfoHint side="right" content={<>Valor por defecto para todos los porteros de este cliente: cuando alguien entra por un portero (tarjeta / PIN / rostro / QR), mostrar un aviso efímero con su nombre sobre el video en vivo. Cada portero puede sobreescribir esto en su ficha. La lectura <b>siempre se registra</b> para auditoría.</>} /></p>
+          <Switch checked={form.accessBadge !== false}
+            onChange={(v) => setForm((f) => ({ ...f, accessBadge: v }))}
+            label={form.accessBadge !== false ? 'Mostrar badge de acceso en el vivo' : 'Ocultar badge de acceso'} />
         </div>
 
         <aside className="site-modal__side">

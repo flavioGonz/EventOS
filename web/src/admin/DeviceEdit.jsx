@@ -1,7 +1,7 @@
 // Dispositivo — página de edición dedicada (antes era un modal).
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Field, TextInput, Select, Combobox, Switch, Button, Icon, InfoHint } from '../ui/primitives.jsx'
+import { Field, TextInput, Select, Combobox, Switch, Segmented, Button, Icon, InfoHint } from '../ui/primitives.jsx'
 import { collectionApi, unwrap, DEVICE_TYPES, webhookHint, testDeviceAlert, normalizeDeviceType, getReception } from '../lib/adminApi.js'
 import { deviceTypeLabel, priorityLabel, DEVICE_TYPE_ICON } from '../lib/labels.js'
 import { EditPage, Loading, useToast } from './_shared.jsx'
@@ -863,6 +863,15 @@ export default function DeviceEdit() {
               </div>
               {isIntercom && !isNew && (
                 <div className="dev-alerts2__side">
+                  <div className="accbadge-cfg">
+                    <p className="section-label"><Icon name="user" size={14} /> Badge de acceso en vivo
+                      <InfoHint side="right" content={<>Cuando alguien entra por este portero (tarjeta / PIN / rostro / QR válido), mostrar un aviso efímero con su nombre sobre el video en vivo (popup y videowall). La lectura <b>siempre se registra</b> para auditoría; este toggle sólo controla el aviso visual.<span className="tt__eg">«Heredar del cliente» usa el valor del sitio; por defecto está activo.</span></>} /></p>
+                    <p className="help-block">Aviso efímero con el nombre de quien entra, sobre el vivo. No afecta el registro/auditoría.</p>
+                    <Segmented
+                      value={form.accessBadge === true ? 'on' : form.accessBadge === false ? 'off' : 'inherit'}
+                      onChange={(v) => setForm((f) => ({ ...f, accessBadge: v === 'on' ? true : v === 'off' ? false : null }))}
+                      options={[{ value: 'inherit', label: 'Heredar del cliente' }, { value: 'on', label: 'Mostrar' }, { value: 'off', label: 'Ocultar' }]} />
+                  </div>
                   <AkuvoxActionUrls deviceId={id} />
                 </div>
               )}
