@@ -103,7 +103,8 @@ El corazón de la operación. Al abrir un evento, el operador ve:
 - **Galería de fotos del caso** + captura on-demand + descarga.
 - **La zona exacta que disparó**, dibujada sobre la imagen (línea de cruce / zona de intrusión), con su nombre real — «Carga · zona», no «Región 1».
 - **Panel de respuesta**: protocolo de actuación, lista de llamada priorizada, parlantes SIP y escalación a emergencias.
-- **Atajos de teclado** (T=Tomar · A=Acuse · P=En curso · E=Escalar · Esc) y barra de acciones fija para resolver rápido.
+- **Atajos de teclado para todo** (T Tomar · A Acuse · P En curso · E Escalar · R Alarma real · F Falsa · N Nota · 1/2/3 vistas · ←/→ navegar la cola · Esc cerrar), con **leyenda visible** de las teclas, y barra de acciones alineada en grilla pareja para resolver rápido.
+- **Navegación tipo visor**: flechas estilizadas **a los lados del popup** (fuera de la ficha) para pasar de un evento al siguiente de la cola sin cerrar, con contador de posición.
 
 <!-- 📸 docs/img/popup.png -->
 ![Centro de Verificación](docs/img/popup.png)

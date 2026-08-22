@@ -163,27 +163,28 @@ function EventPopup({ event, operator, actions, onClose, supervise = false, queu
     }
   }, [event && event.id, event && event.procedureId])
 
-  // Atajos de teclado para acción ÁGIL (foco en procesar rápido): Esc cierra,
-  // T=Tomar, A=Acuse, P=En curso, E=Escalar. Se ignoran si el foco está en un
-  // campo de texto (para escribir notas sin disparar acciones).
+  // Atajos de teclado PRO: todas las acciones mapeadas. Esc/flechas siempre; el
+  // resto se ignora si el foco está en un campo de texto (para escribir notas). El
+  // mapa real (kbd.current.keymap) se arma abajo con los handlers ya calculados, así
+  // no hay closures viejos y el efecto se registra una sola vez.
   const kbd = useRef({})
   useEffect(() => {
     function onKey(e) {
-      if (e.key === 'Escape') { onClose(); return }
-      if (supervise) return // supervisión = solo lectura, sin atajos de acción
-      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const k = kbd.current || {}
+      if (e.key === 'Escape') { e.preventDefault(); k.close && k.close(); return }
       const el = document.activeElement
-      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
-      const k = kbd.current
-      if (!k || !k.actions) return
-      const key = (e.key || '').toLowerCase()
-      const note = ((k.getNote && k.getNote()) || '').trim() || undefined
-      if (key === 't' && !k.closed && !k.mine && !k.assignedToOther) { e.preventDefault(); k.actions.claim(k.id); k.actions.progress(k.id) }
-      else if (key === 'e' && !k.closed) { e.preventDefault(); k.actions.escalate(k.id, note) }
+      const typing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)
+      if (!typing && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        if (k.nav) { e.preventDefault(); k.nav(e.key === 'ArrowLeft' ? -1 : 1) }
+        return
+      }
+      if (typing || e.metaKey || e.ctrlKey || e.altKey) return
+      const fn = k.keymap && k.keymap[(e.key || '').toLowerCase()]
+      if (fn) { e.preventDefault(); fn() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [])
 
   if (!event) return null
 
@@ -192,7 +193,6 @@ function EventPopup({ event, operator, actions, onClose, supervise = false, queu
   const mine = event.assignedTo && operator && event.assignedTo === operator.operatorId
   const assignedToOther = !!event.assignedTo && !mine
   const closed = event.status === 'resolved' // los escalados SÍ se pueden atender/resolver
-  kbd.current = { actions, id: event.id, mine, assignedToOther, closed, getNote: () => note }
 
   function sendNote() {
     const text = note.trim()
@@ -201,9 +201,59 @@ function EventPopup({ event, operator, actions, onClose, supervise = false, queu
     setNote('')
   }
 
+  // Handlers de acción (compartidos por botones y atajos de teclado).
+  const noteArg = () => note.trim() || undefined
+  const doTake = () => { if (closed || mine || assignedToOther) return; actions.claim(event.id); actions.progress(event.id, noteArg()) }
+  const doAck = () => { if (closed || assignedToOther) return; if (!mine) actions.claim(event.id); actions.ack(event.id) }
+  const doProgress = () => { if (closed || assignedToOther) return; if (!mine) actions.claim(event.id); actions.progress(event.id, noteArg()) }
+  const doEscalate = () => { if (closed) return; actions.escalate(event.id, noteArg()) }
+  const doReal = () => {
+    if (closed || intervene) return
+    if (!mine && !assignedToOther) actions.claim(event.id)
+    actions.progress && actions.progress(event.id)
+    actions.note(event.id, 'Alarma confirmada REAL — intervención iniciada')
+    setIntervene(true)
+  }
+  const doFalse = () => { if (closed) return; actions.resolve(event.id, 'false_alarm', noteArg()); onClose() }
+  const doResolveDisp = () => { if (closed || !disposition) return; actions.resolve(event.id, disposition, noteArg()); onClose() }
+  const focusNote = () => { try { const el = document.getElementById('evpopup-note'); el && el.focus() } catch { /* noop */ } }
+
+  // Mapa de teclas: en supervisión (solo lectura) sólo navegar/cerrar.
+  const keymap = supervise ? {} : {
+    t: doTake, a: doAck, p: doProgress, e: doEscalate,
+    r: doReal, f: doFalse, n: focusNote,
+    1: () => setMode('evidence'),
+    ...(hasCamera ? { 2: () => setMode('live'), 3: () => setMode('rec') } : {}),
+  }
+  kbd.current = { keymap, close: onClose, nav: onNav || null }
+
+  // Leyenda de atajos visible (sólo operación).
+  const SHORTCUTS = [
+    ['T', 'Tomar'], ['A', 'Acuse'], ['P', 'En curso'], ['E', 'Escalar'],
+    ['R', 'Real'], ['F', 'Falsa'], ['N', 'Nota'],
+    ...(hasCamera ? [['1/2/3', 'Vistas']] : [['1', 'Evidencia']]),
+    ['←/→', 'Navegar'], ['Esc', 'Cerrar'],
+  ]
+
   return createPortal(
     // El clic fuera NO cierra el Centro de Verificación: solo la cruz (o Escape).
     <div className="modal-scrim">
+      {/* Navegación por la cola: flechas ESTILIZADAS a los lados, FUERA del popup
+          (como un visor tipo lightbox). Pasan de un evento al siguiente sin cerrar. */}
+      {queuePos && onNav && (
+        <>
+          <button type="button" className="evpopup__navout evpopup__navout--prev"
+            onClick={() => onNav(-1)} disabled={queuePos.index <= 0}
+            title="Evento anterior (←)" aria-label="Evento anterior">
+            <Icon name="chevronleft" size={30} />
+          </button>
+          <button type="button" className="evpopup__navout evpopup__navout--next"
+            onClick={() => onNav(1)} disabled={queuePos.index >= queuePos.total - 1}
+            title="Evento siguiente (→)" aria-label="Evento siguiente">
+            <Icon name="chevronright" size={30} />
+          </button>
+        </>
+      )}
       <div
         className={`glass glass--strong modal modal--xl evpopup${intervene ? ' evpopup--intervene' : ''}`}
         style={{ '--accent-prio': `var(--${pc})` }}
@@ -211,13 +261,9 @@ function EventPopup({ event, operator, actions, onClose, supervise = false, queu
         aria-modal="true"
         aria-label="Centro de Verificación en Vivo"
       >
-        {/* Navegación por la cola (‹ N/total ›): procesar eventos sin cerrar el modal. */}
+        {/* Contador de posición en la cola (pill), sin las flechas (van afuera). */}
         {queuePos && onNav && (
-          <div className="evpopup__nav" role="group" aria-label="Navegar en la cola">
-            <button type="button" onClick={() => onNav(-1)} disabled={queuePos.index <= 0} title="Anterior" aria-label="Anterior"><Icon name="chevronleft" size={16} /></button>
-            <span className="evpopup__navpos tnum">{queuePos.index + 1}/{queuePos.total}</span>
-            <button type="button" onClick={() => onNav(1)} disabled={queuePos.index >= queuePos.total - 1} title="Siguiente" aria-label="Siguiente"><Icon name="chevronright" size={16} /></button>
-          </div>
+          <div className="evpopup__navpill tnum" title="Posición en la cola">{queuePos.index + 1}/{queuePos.total}</div>
         )}
         {/* Cierre FLOTANTE (sin barra de título): la ventana es el video mismo. */}
         <button
@@ -309,53 +355,53 @@ function EventPopup({ event, operator, actions, onClose, supervise = false, queu
             )}
 
             {!supervise && (<>
-            <p className="evpopup__sec-lbl"><Icon name="bolt" size={13} /> Gestión del evento
-              <span className="evpopup__kbdhint" title="Atajos: T Tomar (pasa a en curso) · E Escalar · Esc Cerrar"><b>T</b><b>E</b></span>
-            </p>
-            {/* Acciones agrupadas: Tomar · Escalar · Alarma real · Falsa alarma.
-                Resolver (real/falsa) cierra el popup y vuelve a la lista. */}
-            <div className={`evpopup__actions${(!mine && !assignedToOther && !closed) ? ' evpopup__actions--take' : ''}`}>
+            <p className="evpopup__sec-lbl"><Icon name="bolt" size={13} /> Gestión del evento</p>
+            {/* Leyenda de atajos PRO: todas las acciones tienen tecla. */}
+            <div className="evpopup__kbdbar" aria-label="Atajos de teclado">
+              {SHORTCUTS.map(([k, lbl]) => (
+                <span className="evpopup__kbd" key={k}><kbd>{k}</kbd>{lbl}</span>
+              ))}
+            </div>
+            {/* Acciones agrupadas en grilla pareja (mismo alto/alineación):
+                Tomar (ancho) · Escalar / Alarma real · Falsa alarma (ancho). */}
+            <div className="evpopup__actions">
               <Button
                 variant="primary"
                 icon="check"
                 className="evpopup__take"
                 data-tip="Te asignás el evento (queda a tu nombre) y pasa a EN CURSO · atajo T"
                 disabled={closed || mine || assignedToOther}
-                onClick={() => { actions.claim(event.id); actions.progress(event.id, note.trim() || undefined) }}
+                onClick={doTake}
               >
                 {mine ? 'En curso' : assignedToOther ? 'Tomado por otro' : 'Tomar'}
               </Button>
               <Button
                 variant="danger"
                 icon="alert"
+                className="evpopup__act evpopup__act--escalate"
                 data-tip="Derivás el evento a supervisión / lo escalás · atajo E"
                 disabled={closed}
-                onClick={() => actions.escalate(event.id, note.trim() || undefined)}
+                onClick={doEscalate}
               >
                 Escalar
               </Button>
               <Button
                 variant="secondary"
                 icon="alert"
-                className="evpopup__resolve evpopup__resolve--real"
-                data-tip="Confirmar ALARMA REAL y pasar a modo intervención (disuasión / llamada)"
+                className="evpopup__act evpopup__resolve evpopup__resolve--real"
+                data-tip="Confirmar ALARMA REAL y pasar a modo intervención (disuasión / llamada) · atajo R"
                 disabled={closed || intervene}
-                onClick={() => {
-                  if (!mine && !assignedToOther) actions.claim(event.id)
-                  actions.progress && actions.progress(event.id)
-                  actions.note(event.id, 'Alarma confirmada REAL — intervención iniciada')
-                  setIntervene(true)
-                }}
+                onClick={doReal}
               >
                 {intervene ? 'En intervención' : 'Alarma real'}
               </Button>
               <Button
                 variant="secondary"
                 icon="check"
-                className="evpopup__resolve evpopup__resolve--false"
-                data-tip="Resolver como FALSA alarma y cerrar"
+                className="evpopup__act evpopup__resolve evpopup__resolve--false"
+                data-tip="Resolver como FALSA alarma y cerrar · atajo F"
                 disabled={closed}
-                onClick={() => { actions.resolve(event.id, 'false_alarm', note.trim() || undefined); onClose() }}
+                onClick={doFalse}
               >
                 Falsa alarma
               </Button>
@@ -363,8 +409,9 @@ function EventPopup({ event, operator, actions, onClose, supervise = false, queu
 
             <div className="evpopup__noterow">
               <TextInput
+                id="evpopup-note"
                 type="text"
-                placeholder="Añadir nota a la bitácora…"
+                placeholder="Añadir nota a la bitácora… (N)"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendNote()}
@@ -388,7 +435,7 @@ function EventPopup({ event, operator, actions, onClose, supervise = false, queu
                 className="evpopup__resolvebtn"
                 data-tip={disposition ? 'Resolver el evento con la disposición elegida y cerrar' : 'Elegí una disposición para resolver'}
                 disabled={closed || !disposition}
-                onClick={() => { actions.resolve(event.id, disposition, note.trim() || undefined); onClose() }}
+                onClick={doResolveDisp}
               >
                 Resolver
               </Button>

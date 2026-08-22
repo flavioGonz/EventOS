@@ -484,6 +484,30 @@
 .evpopup__close:hover { background: rgba(220,38,38,.85); }
 .evpopup__close:active { transform: scale(.92); }
 /* Navegación por la cola (‹ N/total ›) — arriba a la derecha, al lado del cierre */
+/* Navegación de la cola: flechas estilizadas FUERA del popup (visor tipo lightbox). */
+.evpopup__navout {
+  position: fixed; top: 50%; transform: translateY(-50%); z-index: 1010;
+  width: 52px; height: 52px; display: grid; place-items: center; cursor: pointer;
+  border-radius: 999px; color: #fff;
+  background: color-mix(in srgb, #0b0f16 66%, transparent);
+  border: 1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 10px 30px -8px rgba(0,0,0,.6);
+  transition: background .14s, transform .1s, opacity .14s;
+}
+.evpopup__navout:hover:not(:disabled) { background: color-mix(in srgb, var(--accent, #1f6feb) 62%, #0b0f16); }
+.evpopup__navout:active:not(:disabled) { transform: translateY(-50%) scale(.92); }
+.evpopup__navout:disabled { opacity: .28; cursor: default; }
+.evpopup__navout--prev { left: 22px; }
+.evpopup__navout--next { right: 22px; }
+@media (max-width: 1100px) { .evpopup__navout { width: 44px; height: 44px; } .evpopup__navout--prev { left: 8px; } .evpopup__navout--next { right: 8px; } }
+/* Contador de posición (pill) dentro del popup, arriba a la derecha junto a la X. */
+.evpopup__navpill {
+  position: absolute; top: 14px; right: 56px; z-index: 30;
+  padding: 4px 11px; border-radius: 999px; font-size: 12px; font-weight: 800; color: #eaf1fb;
+  background: color-mix(in srgb, #0b0f16 55%, transparent); border: 1px solid rgba(255,255,255,.16);
+  backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+}
 .evpopup__nav { position: absolute; top: 12px; right: 52px; z-index: 30; display: inline-flex; align-items: center; gap: 2px;
   padding: 3px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: rgba(8,11,17,.68);
   -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 4px 14px rgba(0,0,0,.4); }
@@ -898,9 +922,23 @@
 }
 
 .evpopup__actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+/* Botones parejos: mismo alto y centrado, sin importar el largo del texto. */
+.evpopup__actions .btn { width: 100%; min-height: 42px; justify-content: center; font-weight: 650; }
+/* Tomar (primaria) y Falsa alarma ocupan toda la fila; Escalar / Alarma real quedan pareados. */
+.evpopup__take { grid-column: 1 / -1; }
+.evpopup__resolve--false { grid-column: 1 / -1; }
+/* Leyenda de atajos de teclado (chips) */
+.evpopup__kbdbar { display: flex; flex-wrap: wrap; gap: 6px 10px; margin: 2px 0 10px; }
+.evpopup__kbd { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text-dim); }
+.evpopup__kbd kbd {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 5px; font-size: 10px; font-weight: 800; font-family: inherit;
+  background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--text) 14%, transparent); border-bottom-width: 2px;
 }
 /* Resolver rápido dentro del grupo de acciones: real (rojo) / falsa (verde). */
 .evpopup__resolve--real { color: var(--crit, #e5484d) !important; border-color: color-mix(in srgb, var(--crit, #e5484d) 42%, transparent) !important; }
@@ -2088,15 +2126,12 @@
 .evpopup__transfer-row { display: flex; gap: 8px; align-items: stretch; }
 .evpopup__transfer-row .select { flex: 1; }
 
-/* Acción primaria: cuando el evento aún no es tuyo, "Tomar" domina visualmente */
-.evpopup__actions--take .evpopup__take {
-  flex: 1 1 100%;
-  justify-content: center;
-  padding-top: 11px; padding-bottom: 11px;
-  font-size: 15px; font-weight: 650;
+/* Acción primaria: "Tomar" domina visualmente (ocupa la fila completa arriba). */
+.evpopup__take {
+  min-height: 46px !important;
+  font-size: 15px;
   box-shadow: 0 2px 14px color-mix(in srgb, var(--accent) 35%, transparent), var(--shadow-1);
 }
-.evpopup__actions--take .evpopup__take + .btn { flex: 1; justify-content: center; }
 
 /* Llamada de emergencia / policía — el botón más visible del panel */
 .emergency-call {
