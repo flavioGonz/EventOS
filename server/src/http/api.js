@@ -18,6 +18,7 @@ import { logs as hikLogs, axStatus as hikAxStatus } from "../discovery/hikvision
 import { openDoor, listOutputs, outputStatus } from "../ingest/doors.js";
 import { verifyPin, hashPin } from "../auth/pin.js";
 import { createSession, destroySession, sessionFromReq, cookieOptions, SESSION_COOKIE } from "../auth/session.js";
+import { rateHit, rateReset, clientIp } from "../util/ratelimit.js";
 import { config } from "../config.js";
 
 // Rol normalizado del operario (escalonado): agente | supervisor | admin.
@@ -57,11 +58,39 @@ const PROTECTED = [
   /^\/events\/history$/, // el historial COMPLETO (PG) exige sesión — no exponerlo público
   /^\/events\/[^/]+\/evidence(\/capture)?$/, // metadata de evidencia + captura on-demand
   // (POST con efecto). Las FOTOS en sí siguen en /api/evidence/:file, público (van por <img src>).
+  // Datos de cliente / inventario / operativa — NO exponer PII ni topología a anónimos.
+  /^\/sites$/,
+  /^\/client$/,
+  /^\/clientGroups$/,
+  /^\/operators$/,
+  /^\/groups$/,
+  /^\/procedures\//,
+  /^\/video-settings$/,
+  /^\/camera\/[^/]+\/(info|analytics)$/,
+  /^\/cameras\/analytics-flags$/,
+  /^\/device\/[^/]+\/(logs|door-events)$/,
+  // Gestión de usuarios del portero (tarjetas/PIN/rostros) — credenciales físicas.
+  /^\/device\/[^/]+\/akuvox-(users|raw|face|user)/,
+  // NOTA: /roster y /avatars/:file quedan PÚBLICOS a propósito (los usa el login
+  // antes de autenticar); /health, /auth/*, /desktop/* y /evidence/:file también.
+];
+// Rutas que exigen rol ELEVADO (supervisor o admin), no sólo sesión: provisión de
+// credenciales físicas en el portero (alta/baja de tarjeta/PIN/rostro) y flags de config.
+const ELEVATED = [
+  /^\/device\/[^/]+\/akuvox-user(\/|$)/, // POST alta / DELETE baja de usuario del portero
+  /^\/cameras\/analytics-flags$/,
 ];
 router.use((req, res, next) => {
   if (!PROTECTED.some((rx) => rx.test(req.path))) return next();
+  const needsElevated = ELEVATED.some((rx) => rx.test(req.path));
   const s = sessionFromReq(req);
-  if (s) { req.operator = { id: s.operatorId, name: s.name, role: s.role }; return next(); }
+  if (s) {
+    req.operator = { id: s.operatorId, name: s.name, role: s.role };
+    if (needsElevated && opRole(s) !== "admin" && opRole(s) !== "supervisor") {
+      return res.status(403).json({ error: "forbidden", message: "requiere rol supervisor o admin" });
+    }
+    return next();
+  }
   // Alternativa: el token de admin (el panel admin usa X-Admin-Token, no cookie de
   // sesión). Es el privilegio más alto y ya ve todo el inventario, así que vale para
   // leer el historial de eventos. Video/<img> sigue exigiendo cookie (el header no viaja).
@@ -1456,6 +1485,11 @@ router.post("/auth/login", (req, res) => {
   const username = String(body.username || "").trim().toLowerCase();
   const password = body.password == null ? "" : String(body.password);
   if (!username || !password) return res.status(400).json({ ok: false, error: "missing_credentials" });
+  // Rate limit anti fuerza-bruta: por IP (20/5min) y por IP+usuario (8/5min).
+  const ip = clientIp(req);
+  if (!rateHit(`login:ip:${ip}`, 20) || !rateHit(`login:${ip}:${username}`, 8)) {
+    return res.status(429).json({ ok: false, error: "too_many_attempts", message: "demasiados intentos, esperá unos minutos" });
+  }
   let ops = [];
   try { ops = listConfig("operators"); } catch { /* store */ }
   const op = ops.find((o) => (o.username || "").toLowerCase() === username && o.active !== false);
@@ -1463,6 +1497,7 @@ router.post("/auth/login", (req, res) => {
   if (!op || !op.passwordHash || !verifyPin(password, op.passwordHash)) {
     return res.status(401).json({ ok: false, error: "bad_credentials" });
   }
+  rateReset(`login:${ip}:${username}`); // login OK → limpiar el contador de ese usuario
   const role = opRole(op);
   const sid = createSession({ operatorId: op.id, name: op.name || "Operario", role });
   res.cookie(SESSION_COOKIE, sid, cookieOptions(req));

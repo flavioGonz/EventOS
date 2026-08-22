@@ -20,16 +20,24 @@ if (!ingestToken) {
   log.warn(`INGEST_TOKEN no definido — generado uno temporal: ${ingestToken}`);
 }
 
-// Token de administración: si no se define, las rutas /api/admin quedan abiertas (modo dev)
+// Token de administración. En producción es OBLIGATORIO: sin él, /api/admin
+// quedaría abierto (dump de config con credenciales, CRUD de inventario, scan/SSRF).
+// Fail-closed: si falta en producción, abortamos el arranque en vez de exponer.
 const adminToken = (env.ADMIN_TOKEN && env.ADMIN_TOKEN.trim()) || undefined;
+const nodeEnv = env.NODE_ENV || "development";
 if (!adminToken) {
+  if (nodeEnv === "production" && env.ALLOW_OPEN_ADMIN !== "1") {
+    log.error("ADMIN_TOKEN no definido en producción — /api/admin quedaría ABIERTO. Abortando el arranque.");
+    log.error("Definí ADMIN_TOKEN en /etc/eventos/eventos.env (o, sólo para pruebas, ALLOW_OPEN_ADMIN=1).");
+    process.exit(1);
+  }
   log.warn("ADMIN_TOKEN no definido — las rutas /api/admin quedan ABIERTAS (modo dev)");
 }
 
 export const config = {
   host: env.HOST || "127.0.0.1",
   port: Number(env.PORT) || 4010,
-  nodeEnv: env.NODE_ENV || "development",
+  nodeEnv,
   redisUrl: (env.REDIS_URL && env.REDIS_URL.trim()) || "",
   ingestToken,
   adminToken,

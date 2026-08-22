@@ -9,6 +9,7 @@ import { log } from "../logger.js";
 import { ingestRaw } from "../dispatch/pipeline.js";
 import * as store from "../config/store.js";
 import { isAkuvoxAccessRead, handleAkuvoxAccessRead } from "../ingest/access.js";
+import { rateHit, clientIp } from "../util/ratelimit.js";
 
 const router = Router();
 
@@ -38,9 +39,15 @@ function maybeDump(vendor, req) {
 }
 
 // Middleware de autenticación de ingesta (comparación en tiempo constante).
+// Rate limit SOLO sobre intentos FALLIDOS (token inválido): frena la fuerza bruta
+// del token sin arriesgar jamás descartar una ingesta VÁLIDA (una alarma real).
 function requireToken(req, res, next) {
   const token = req.get("X-Ingest-Token") || req.query.token;
   if (!tokensEqual(token, config.ingestToken)) {
+    const ip = clientIp(req);
+    if (!rateHit(`ingest:bad:${ip}`, 30)) {
+      return res.status(429).json({ error: "too_many_attempts" });
+    }
     return res.status(401).json({ error: "unauthorized", message: "token de ingesta inválido" });
   }
   next();

@@ -35,6 +35,7 @@ import {
 import { list as listConfig, getDispatch } from "../config/store.js";
 import { sessionFromHandshake } from "../auth/session.js";
 import { setConsoleNsp } from "./emitter.js";
+import { config } from "../config.js";
 
 const QUEUE_TOP = 20;
 const SNAPSHOT_LIMIT = 100;
@@ -54,8 +55,12 @@ export function attachConsole(io) {
   // namespace. Sin sesión no hay snapshot ni acciones — evita que cualquiera en
   // internet escuche alarmas o resuelva eventos ajenos. La identidad la fija la
   // sesión, no el cliente. Se puede desactivar con EVENTOS_SOCKET_OPEN=1.
+  const SOCKET_OPEN = process.env.EVENTOS_SOCKET_OPEN === "1" && config.nodeEnv !== "production";
+  if (process.env.EVENTOS_SOCKET_OPEN === "1" && config.nodeEnv === "production") {
+    log.warn("EVENTOS_SOCKET_OPEN=1 IGNORADO en producción — el socket /console exige sesión.");
+  }
   nsp.use((socket, next) => {
-    if (process.env.EVENTOS_SOCKET_OPEN === "1") { socket.data.session = null; return next(); }
+    if (SOCKET_OPEN) { socket.data.session = null; return next(); }
     const s = sessionFromHandshake(socket.handshake);
     if (!s) return next(new Error("auth_required"));
     socket.data.session = s;

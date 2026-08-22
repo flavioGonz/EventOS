@@ -74,21 +74,29 @@ fi
 
 # ---------------------------------------------------------------- 3) TLS / firewall
 DO_TLS=false; TLS_EMAIL=""
-if yesno "¿Configurar HTTPS con Let's Encrypt (certbot) ahora?" "n"; then
+# HTTPS por defecto: una ARC en internet transmite credenciales y la cookie de
+# sesión — sin TLS quedan en claro. Recomendado SIEMPRE salvo LAN cerrada.
+if yesno "¿Configurar HTTPS con Let's Encrypt (certbot) ahora? (MUY recomendado)" "y"; then
   DO_TLS=true; TLS_EMAIL=$(ask "Email para Let's Encrypt" "")
 fi
 DO_UFW=false
 if yesno "¿Configurar firewall ufw (22/80/443; cerrar el resto)?" "n"; then DO_UFW=true; fi
 
 # ---------------------------------------------------------------- 4) Secretos
-# Se preservan los tokens existentes entre redeploys (no rotar en cada actualización).
+# Se preservan los secretos existentes entre redeploys (no rotar en cada actualización).
+# ENC_KEY cifra las contraseñas de equipos en reposo (AES-256-GCM). ⚠️ Si se pierde,
+# los valores cifrados son IRRECUPERABLES — por eso se preserva siempre.
 INGEST_TOKEN="ingest_$(gen 24)"
 ADMIN_TOKEN="admin_$(gen 24)"
+ENC_KEY="$(openssl rand -hex 32)"
 if [ -f "$ENV_FILE" ]; then
   EX_I=$(grep -E '^INGEST_TOKEN=' "$ENV_FILE" | cut -d= -f2- || true); [ -n "${EX_I:-}" ] && INGEST_TOKEN="$EX_I"
   EX_A=$(grep -E '^ADMIN_TOKEN=' "$ENV_FILE" | cut -d= -f2- || true); [ -n "${EX_A:-}" ] && ADMIN_TOKEN="$EX_A"
-  ok "Tokens existentes preservados desde $ENV_FILE"
+  EX_E=$(grep -E '^ENC_KEY=' "$ENV_FILE" | cut -d= -f2- || true); [ -n "${EX_E:-}" ] && ENC_KEY="$EX_E"
+  ok "Secretos existentes preservados desde $ENV_FILE"
 fi
+# Con TLS activo, forzar la cookie de sesión como Secure.
+SESSION_SECURE=0; $DO_TLS && SESSION_SECURE=1
 
 # ================================================================ Instalación
 say "Instalando paquetes base..."
@@ -155,6 +163,8 @@ NODE_ENV=production
 REDIS_URL=redis://127.0.0.1:6379
 INGEST_TOKEN=$INGEST_TOKEN
 ADMIN_TOKEN=$ADMIN_TOKEN
+ENC_KEY=$ENC_KEY
+SESSION_SECURE=$SESSION_SECURE
 CORS_ORIGIN=$CORS_ORIGIN
 EOF
 chmod 600 "$ENV_FILE"
