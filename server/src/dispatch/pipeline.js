@@ -5,9 +5,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { normalize } from "../events/normalize.js";
 import { applyRules } from "../rules/engine.js";
-import { addEvent } from "./store.js";
+import { addEvent, getEvent } from "./store.js";
 import { getProcedure, list as listConfig } from "../config/store.js";
 import { bus } from "../bus/redisBus.js";
+import { emitEventUpdate } from "../socket/emitter.js";
 import { log } from "../logger.js";
 import { appendJsonl, capFile } from "../util/jsonl.js";
 import { digestGetBuffer } from "../util/digestFetch.js";
@@ -73,6 +74,44 @@ function logFlowEvent(event) {
   }
 }
 
+// ── Deduplicación de tormentas ───────────────────────────────────────────────
+// Un mismo equipo repite la MISMA condición (una puerta abierta, un tamper que
+// rebota, un cruce que se re-dispara) muchas veces en segundos. Sin colapsar,
+// la central se satura sola: 40 filas por una sola puerta. Colapsamos los
+// duplicados de una ventana corta en el MISMO incidente vivo, con un contador.
+// Aplica a TODOS los caminos (webhook push incluido), no sólo a los ingesters de
+// polling que ya deduplican aguas arriba.
+const DEDUP_WINDOW_MS = 10000;
+const dedupSeen = new Map(); // key -> { id, ts }
+function dedupKey(ev) {
+  const s = ev.source || {};
+  return `${s.deviceId}|${ev.type}|${s.channel ?? ""}|${(ev.point && ev.point.pointId) ?? ""}`;
+}
+function dedupCollapse(ev) {
+  const key = dedupKey(ev);
+  const now = Date.now();
+  const prev = dedupSeen.get(key);
+  if (prev && now - prev.ts < DEDUP_WINDOW_MS) {
+    const live = getEvent(prev.id);
+    if (live && live.status !== "resolved" && live.status !== "discarded") {
+      live.dupCount = (live.dupCount || 1) + 1;
+      live.lastDupTs = new Date(now).toISOString();
+      prev.ts = now; // refresca la ventana apuntando al incidente vivo
+      addEvent(live);
+      bus.save(live).catch(() => {});
+      emitEventUpdate(live);
+      return live;
+    }
+  }
+  dedupSeen.set(key, { id: ev.id, ts: now });
+  return null;
+}
+// Poda periódica del mapa de dedup (no crece sin techo).
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of dedupSeen) if (now - v.ts > DEDUP_WINDOW_MS * 3) dedupSeen.delete(k);
+}, 30000).unref?.();
+
 // Procesa un payload crudo de un fabricante y devuelve el Event canónico creado.
 // El emit por socket y el enrutamiento (motor de dispatch) ocurren porque la capa
 // de socket está suscrita al bus (allí dispone de `io` para emisión dirigida).
@@ -84,6 +123,12 @@ export async function ingestRaw(vendor, raw, opts = {}) {
   // la consola, y emitirlo le entraria como alarma al que acaba de abrir.
   // Sin este corte, `event.type` reventaria dos lineas mas abajo.
   if (event === null) return null;
+  // 1b. Deduplicación: colapsar duplicados recientes del mismo equipo/tipo en el
+  // incidente vivo (con contador). No aplica a eventos de prueba ni sin dispositivo.
+  if (!opts.test && !opts.noDedup && event.source && event.source.deviceId) {
+    const collapsed = dedupCollapse(event);
+    if (collapsed) return collapsed;
+  }
   const { rule } = applyRules(event); // 2. aplicar reglas (prioridad + procedimiento)
   // Guardamos la regla que casó como campo interno (no canónico) para que el
   // motor de dispatch lea actions.dispatchMode/skills/operatorIds.
@@ -127,14 +172,12 @@ export async function ingestRaw(vendor, raw, opts = {}) {
       event.slaDeadline = new Date(new Date(event.ts).getTime() + event.slaSeconds * 1000).toISOString();
     }
   }
-  // 2b. Evidencia: si llegó la foto del evento (JPEG del multipart), la guardamos.
-  // Si NO llegó (los NVR de cesimco mandan alertas SIN imagen), capturamos el
-  // snapshot ISAPI de la cámara del evento en ese instante. Así el operador SIEMPRE
-  // ve la foto del momento en el popup y la búsqueda IA.
-  let image = opts.image && opts.image.length ? opts.image : null;
-  if (!image && event.source && event.source.deviceId) {
-    image = await captureDeviceSnapshot(event.source.deviceId);
-  }
+  // 2b. Evidencia: si llegó la foto del evento (JPEG del multipart), la guardamos
+  // ANTES de emitir. Si NO llegó, NO bloqueamos la emisión con la captura ISAPI
+  // (podía tardar ~1.8 s y, en el webhook, serializar la respuesta al equipo bajo
+  // tormenta → back-pressure y pérdida de recepción). La capturamos DIFERIDA y la
+  // adjuntamos por `event:update` (ver más abajo).
+  const image = opts.image && opts.image.length ? opts.image : null;
   if (image && image.length) {
     const url = saveEvidenceImage(event.id, image);
     if (url) {
@@ -146,6 +189,26 @@ export async function ingestRaw(vendor, raw, opts = {}) {
   addEvent(event); // 3. persistir en store
   logFlowEvent(event); // 3b. analítica de flujo → events.jsonl (no bloquea)
   await bus.publish(event); // 4. publicar en bus (→ socket: emit + routeNewEvent)
+
+  // 5. Snapshot DIFERIDO (fire-and-forget): si el evento no traía foto, la capturamos
+  // por fuera del hot-path y la adjuntamos con un update. El operador ve el evento al
+  // instante y la foto aparece 1-2 s después, sin retrasar la recepción.
+  if (!image && !opts.test && event.source && event.source.deviceId) {
+    const evId = event.id, devId = event.source.deviceId;
+    captureDeviceSnapshot(devId).then((buf) => {
+      if (!buf || !buf.length) return;
+      const url = saveEvidenceImage(evId, buf);
+      if (!url) return;
+      const ev = getEvent(evId);
+      if (!ev) return; // ya se resolvió/retiró
+      ev.media = ev.media || {};
+      ev.media.snapshotUrl = ev.media.snapshotUrl || url;
+      ev.media.evidenceUrl = ev.media.evidenceUrl || url;
+      addEvent(ev);          // re-persistir (store + PG)
+      bus.save(ev).catch(() => {}); // reflejar en `recent`
+      emitEventUpdate(ev);   // notificar a la consola (event:update)
+    }).catch(() => { /* tolerante: el evento queda sin foto */ });
+  }
   return event;
 }
 

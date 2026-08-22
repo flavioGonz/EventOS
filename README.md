@@ -225,6 +225,21 @@ hidratación al arranque. **Si PG no está o cae, el server sigue funcionando co
 `DATABASE_URL` en `/etc/eventos/eventos.env` activa PG; sin esa variable, arranca en modo
 memoria/JSON como antes.
 
+### Fiabilidad de recepción (no perder alarmas)
+
+- **Watchdog de inactividad** en los alertStream de NVR y de paneles AX: una conexión
+  "medio-abierta" (el equipo acepta el TCP pero deja de emitir) se detecta por ausencia de
+  datos y se reconecta — antes se colgaba en silencio y se perdían alarmas.
+- **Deduplicación de tormentas**: los duplicados recientes del mismo equipo/tipo se colapsan
+  en un único incidente vivo con contador (`dupCount`), en todos los caminos de ingesta
+  (webhook push incluido) — evita 40 filas por una sola puerta abierta.
+- **Snapshot diferido**: si el evento llega sin foto, se emite al instante y la captura ISAPI
+  se adjunta después por `event:update` — no retrasa la recepción bajo tormenta.
+- **Timeout de descarga** de playback (ContentMgmt): un NVR que acepta el socket pero no
+  responde ya no cuelga la request indefinidamente.
+- **Re-despacho tras hidratar PG**: al arrancar, los eventos recuperados desde PostgreSQL que
+  quedaron apropiados por operarios sin conexión se devuelven a la cola y se re-enrutan.
+
 ---
 
 ## 📚 Kit ISAPI — el catálogo Hikvision

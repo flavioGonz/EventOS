@@ -34,6 +34,7 @@ function xmlTag(xml, name) {
 const ALERT_PATH = "/ISAPI/Event/notification/alertStream";
 const DEDUP_MS = 45000;       // colapsa alertas repetidas de un mismo evento activo
 const RECONNECT_MS = 5000;
+const IDLE_MS = 75000; // sin datos del NVR en este lapso → conexión muerta, reconectar
 const key = (s) => String(s || "").trim().toLowerCase().replace(/[\s_-]/g, "");
 
 // Tipos ACCIONABLES (analíticas configuradas + alarmas). Se EXCLUYE el movimiento
@@ -206,14 +207,27 @@ function makeMultipartConsumer(nvr, boundary) {
 async function runNvr(nvr) {
   const url = `${nvr.https ? "https" : "http"}://${nvr.host}:${nvr.port}${ALERT_PATH}`;
   for (;;) {
+    // Watchdog de inactividad: una conexión "medio-abierta" (el NVR acepta el TCP
+    // pero deja de emitir) NO lanza error ni termina el stream — se colgaría para
+    // siempre y perderíamos alarmas EN SILENCIO. AbortController + timer reiniciable:
+    // sin datos en IDLE_MS abortamos y reconectamos.
+    const controller = new AbortController();
+    let idle = null;
+    const armIdle = () => {
+      if (idle) clearTimeout(idle);
+      idle = setTimeout(() => {
+        log.warn(`alertStream[${nvr.name}] sin datos ${IDLE_MS / 1000}s — conexión muerta, reconectando…`);
+        try { controller.abort(); } catch { /* noop */ }
+      }, IDLE_MS);
+    };
     try {
-      let res = await fetch(url);
+      let res = await fetch(url, { signal: controller.signal });
       if (res.status === 401) {
         const wa = res.headers.get("www-authenticate") || "";
         const authz = /digest/i.test(wa)
           ? digestAuth({ user: nvr.user, pass: nvr.pass, method: "GET", uri: ALERT_PATH, auth: parseAuthHeader(wa) })
           : "Basic " + Buffer.from(`${nvr.user}:${nvr.pass}`).toString("base64");
-        res = await fetch(url, { headers: { Authorization: authz } });
+        res = await fetch(url, { headers: { Authorization: authz }, signal: controller.signal });
       }
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
       // ¿multipart? → parser binario (XML + JPEG de evidencia). Si no, modo texto.
@@ -221,12 +235,14 @@ async function runNvr(nvr) {
       const bm = /boundary="?([^";]+)"?/i.exec(ctype);
       log.info(`alertStream[${nvr.name}] conectado (${nvr.host}:${nvr.port})${bm ? " [multipart+foto]" : ""}`);
       const reader = res.body.getReader();
+      armIdle();
       if (bm) {
         const consume = makeMultipartConsumer(nvr, bm[1].trim());
         let buf = Buffer.alloc(0);
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
+          armIdle();
           buf = Buffer.concat([buf, Buffer.from(value)]);
           buf = consume(buf);
         }
@@ -235,6 +251,7 @@ async function runNvr(nvr) {
         for (;;) {
           const { done, value } = await reader.read();
           if (done) break;
+          armIdle();
           buf += Buffer.from(value).toString("utf8");
           const re = /<EventNotificationAlert[\s\S]*?<\/EventNotificationAlert>/i;
           let m;
@@ -245,6 +262,8 @@ async function runNvr(nvr) {
       log.warn(`alertStream[${nvr.name}] stream terminó, reconectando…`);
     } catch (e) {
       log.warn(`alertStream[${nvr.name}] error: ${e.message}; reintento en ${RECONNECT_MS / 1000}s`);
+    } finally {
+      if (idle) clearTimeout(idle);
     }
     await new Promise((r) => setTimeout(r, RECONNECT_MS));
   }

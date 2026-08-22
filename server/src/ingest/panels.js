@@ -52,6 +52,7 @@ function _digestAuth({ user, pass, method, uri, auth }) {
 }
 
 const RECONNECT_MS = 10_000;
+const IDLE_MS = 90_000; // sin datos del panel en este lapso → conexión muerta, reconectar
 const DEDUP_MS = Number(process.env.EVENTOS_PANEL_DEDUP_MS || 5_000);
 const log = {
   info: (m) => console.log(`[panels] ${m}`),
@@ -148,7 +149,20 @@ function runAlertStream(panel, stop) {
       }
       log.info(`${panel.name}: alertStream conectado (${panel.host}:${panel.port})`);
       res.setEncoding("utf8");
+      // Watchdog de inactividad: un panel "medio-abierto" (acepta el TCP pero deja
+      // de reportar intrusión/sabotaje) se colgaría en silencio. Sin datos en
+      // IDLE_MS destruimos la request para forzar reconexión.
+      let idle = null;
+      const armIdle = () => {
+        if (idle) clearTimeout(idle);
+        idle = setTimeout(() => {
+          log.warn(`${panel.name}: alertStream sin datos ${IDLE_MS / 1000}s — conexión muerta, reconectando…`);
+          try { req.destroy(new Error("idle_timeout")); } catch { /* noop */ }
+        }, IDLE_MS);
+      };
+      armIdle();
       res.on("data", (c) => {
+        armIdle();
         buf += c;
         const alerts = splitAlerts(buf);
         if (alerts.length) {
@@ -160,7 +174,7 @@ function runAlertStream(panel, stop) {
         if (buf.length > 1_000_000) buf = buf.slice(-100_000);
       });
       // Reconexión fresca (sin auth) para renovar el nonce del digest.
-      res.on("end", () => setTimeout(() => connect(), RECONNECT_MS).unref?.());
+      res.on("end", () => { if (idle) clearTimeout(idle); setTimeout(() => connect(), RECONNECT_MS).unref?.(); });
     });
     req.on("error", (e) => {
       log.error(`${panel.name}: ${e.message}, reintento en ${RECONNECT_MS / 1000}s`);

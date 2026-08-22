@@ -146,14 +146,24 @@ export function openDownload(dev, playbackURI) {
     const wa = await probe(base, path);
     const auth = authHeader({ user: base.user, pass: base.pass, wa, method: "POST", uri: path });
     const body = `<downloadRequest version="2.0" xmlns="http://www.isapi.org/ver20/XMLSchema"><playbackURI>${playbackURI.replace(/&/g, "&amp;")}</playbackURI></downloadRequest>`;
+    let settled = false;
     const req = lib(base.secure).request(
       { host: base.host, port: base.port, path, method: "POST", agent: false, rejectUnauthorized: false,
         headers: { Authorization: auth, "Content-Type": "application/xml", "Content-Length": Buffer.byteLength(body), Connection: "close" } },
       (res) => {
+        settled = true;
         if (res.statusCode !== 200 && res.statusCode !== 206) { res.resume(); reject(new Error("download_status_" + res.statusCode)); return; }
         resolve({ stream: res, abort: () => { try { req.destroy(); } catch { /* noop */ } } });
       }
     );
+    // Timeout de conexión: si el NVR acepta el socket pero no responde headers,
+    // la Promise nunca resolvería y dejaría colgada la request de playback (con un
+    // ffmpeg ya spawneado). Cortamos a los 12 s si aún no llegó la respuesta.
+    req.setTimeout(12000, () => {
+      if (settled) return;
+      try { req.destroy(); } catch { /* noop */ }
+      reject(new Error("download_timeout"));
+    });
     req.on("error", reject);
     req.write(body);
     req.end();

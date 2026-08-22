@@ -12,4 +12,12 @@ export function emitAccessRead(payload) {
   try { nsp.emit("access:read", payload); return true; } catch { return false; }
 }
 
-export default { setConsoleNsp, emitAccessRead };
+// Emite un update de evento (p.ej. la foto capturada de forma diferida se adjunta
+// después de haber emitido el evento sin bloquear la ingesta). El cliente ya sabe
+// aplicar `event:update` (mismo canal que usan las acciones del operador).
+export function emitEventUpdate(event) {
+  if (!nsp || !event) return false;
+  try { nsp.emit("event:update", { event }); return true; } catch { return false; }
+}
+
+export default { setConsoleNsp, emitAccessRead, emitEventUpdate };

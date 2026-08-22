@@ -8,6 +8,7 @@ import { config } from "./config.js";
 import { log } from "./logger.js";
 import { bus } from "./bus/redisBus.js";
 import { attachConsole } from "./socket/console.js";
+import { redispatchOnBoot } from "./dispatch/engine.js";
 import { load as loadConfigStore } from "./config/store.js";
 import { startAlertStreams } from "./ingest/alertStream.js";
 import { startPanelIngest } from "./ingest/panels.js";
@@ -119,6 +120,12 @@ async function main() {
         log.info(`PG: backfill de ${n} eventos existentes → Postgres`);
         const h = await hydrateFromPg();        // eventos: rehidrata la cola en vivo desde PG
         if (h && h.pg) log.info(`PG: cola hidratada desde Postgres → ${h.active} activos, ${h.resolved} resueltos (agregados: ${h.added} act / ${h.addedRes} res)`);
+        // A1: los eventos rehidratados desde PG pueden venir apropiados por operarios
+        // (assigned/ack/in_progress) que ya no tienen socket. Se reejecuta el
+        // re-despacho de arranque DESPUÉS de hidratar para que vuelvan a la cola y se
+        // re-enruten (antes corría en attachConsole, ANTES de esta hidratación → se
+        // perdían). Idempotente: sólo toca los que quedaron sin dueño conectado.
+        try { redispatchOnBoot(); } catch (e) { log.warn(`redispatchOnBoot (post-hydrate): ${e?.message || e}`); }
         const ns = await hydrateSessions();     // sesiones: rehidrata las vigentes desde PG
         log.info(`PG: sesiones rehidratadas desde Postgres → ${ns} vigentes`);
       }
