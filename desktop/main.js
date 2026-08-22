@@ -14,6 +14,7 @@ const {
 } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
+const crypto = require('node:crypto');
 
 // ── Config ───────────────────────────────────────────────────────────────────
 const DEFAULTS = { url: '', kiosk: false, startMaximized: true, popupMinPriority: 3, popupSound: true, servers: [], disableGpu: false, autostart: true, video: { quality: 'auto', maxLive: 8 } };
@@ -462,7 +463,19 @@ async function downloadAndRunInstaller(latest) {
       if (now - lastSent > 120) { lastSent = now; const pct = total ? Math.round((recv / total) * 100) : null; js(`window.__progress && window.__progress(${pct === null ? 'null' : pct}, ${recv}, ${total})`); }
     }
     js(`window.__progress && window.__progress(100, ${recv}, ${total})`);
-    fs.writeFileSync(tmp, Buffer.concat(chunks));
+    const bin = Buffer.concat(chunks);
+    // Verificación de integridad ANTES de ejecutar: comparamos el SHA-256 del binario
+    // descargado con el que publica el server (/api/desktop/latest). Sin esto, un MITM
+    // o un server comprometido podría servir un instalador malicioso → RCE en la
+    // estación del operador. Si el server no publica sha256 (versión vieja), avisamos
+    // pero no rompemos el flujo de actualización obligatoria.
+    if (latest.sha256) {
+      const got = crypto.createHash('sha256').update(bin).digest('hex');
+      if (got.toLowerCase() !== String(latest.sha256).toLowerCase()) {
+        throw new Error('checksum_mismatch: el instalador no coincide con el publicado por el servidor');
+      }
+    }
+    fs.writeFileSync(tmp, bin);
   } catch (e) {
     js(`window.__phase && window.__phase('error')`);
     await new Promise((res) => setTimeout(res, 900));

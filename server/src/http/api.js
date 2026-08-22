@@ -1,6 +1,7 @@
 // api.js — /api/health, /api/events, /api/events/:id, /api/operators (CONTRACT §3)
 import fs from "node:fs";
 import net from "node:net";
+import crypto from "node:crypto";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -1603,6 +1604,20 @@ router.get("/avatars/:file", (req, res) => {
 // ── App de escritorio (Windows/Electron): descarga del instalador ────────────
 // Publicar una versión nueva = dejar el .exe en server/data/desktop/. El endpoint
 // toma automáticamente el .exe más reciente; el número de versión sale del nombre.
+// Cache del SHA-256 del instalador por (archivo, mtime, tamaño): evita releer el
+// .exe (~90 MB) en cada request. El cliente de escritorio lo usa para VERIFICAR el
+// binario descargado antes de ejecutarlo (evita RCE por MITM/servidor comprometido).
+const _exeHashCache = new Map();
+function exeSha256(fp, st) {
+  const key = `${fp}:${st.mtimeMs}:${st.size}`;
+  const hit = _exeHashCache.get(key);
+  if (hit) return hit;
+  try {
+    const h = crypto.createHash("sha256").update(fs.readFileSync(fp)).digest("hex");
+    _exeHashCache.set(key, h);
+    return h;
+  } catch { return null; }
+}
 function desktopInstaller() {
   try {
     if (!fs.existsSync(DESKTOP_DIR)) return null;
@@ -1612,7 +1627,8 @@ function desktopInstaller() {
     withStat.sort((a, b) => b.st.mtimeMs - a.st.mtimeMs); // más reciente primero
     const top = withStat[0];
     const m = top.f.match(/(\d+\.\d+\.\d+)/);
-    return { file: top.f, sizeBytes: top.st.size, builtAt: top.st.mtime.toISOString(), version: m ? m[1] : null };
+    const sha256 = exeSha256(path.join(DESKTOP_DIR, top.f), top.st);
+    return { file: top.f, sizeBytes: top.st.size, builtAt: top.st.mtime.toISOString(), version: m ? m[1] : null, sha256 };
   } catch { return null; }
 }
 
@@ -1620,7 +1636,7 @@ function desktopInstaller() {
 router.get("/desktop/latest", (req, res) => {
   const info = desktopInstaller();
   if (!info) return res.json({ available: false });
-  res.json({ available: true, version: info.version, filename: info.file, sizeBytes: info.sizeBytes, builtAt: info.builtAt, url: "/api/desktop/download" });
+  res.json({ available: true, version: info.version, filename: info.file, sizeBytes: info.sizeBytes, builtAt: info.builtAt, sha256: info.sha256, url: "/api/desktop/download" });
 });
 
 // Descarga del instalador (público, como evidencia/avatares).
