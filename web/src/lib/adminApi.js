@@ -6,13 +6,25 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 const LS_TOKEN = 'eventos.adminToken'
 const BASE = '/api/admin'
 
+// El token de admin da control total (config, relés). NO debe persistir de forma
+// indefinida: vive en sessionStorage (se borra al cerrar la pestaña), no en
+// localStorage. Migración transparente: si quedó en localStorage de una versión
+// anterior, lo movemos a sessionStorage y lo purgamos del almacenamiento persistente.
 export function getAdminToken() {
-  try { return localStorage.getItem(LS_TOKEN) || '' } catch { return '' }
+  try {
+    let t = sessionStorage.getItem(LS_TOKEN)
+    if (!t) {
+      const legacy = localStorage.getItem(LS_TOKEN)
+      if (legacy) { sessionStorage.setItem(LS_TOKEN, legacy); localStorage.removeItem(LS_TOKEN); t = legacy }
+    }
+    return t || ''
+  } catch { return '' }
 }
 export function setAdminToken(token) {
   try {
-    if (token) localStorage.setItem(LS_TOKEN, token)
-    else localStorage.removeItem(LS_TOKEN)
+    if (token) sessionStorage.setItem(LS_TOKEN, token)
+    else sessionStorage.removeItem(LS_TOKEN)
+    localStorage.removeItem(LS_TOKEN) // nunca dejar copia persistente
   } catch { /* ignore */ }
 }
 export function clearAdminToken() { setAdminToken('') }

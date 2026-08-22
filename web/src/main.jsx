@@ -6,12 +6,15 @@ import './ui/theme.css'
 import './styles.css'
 import App from './App.jsx'
 import { ThemeProvider } from './ui/ThemeProvider.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ThemeProvider>
       <BrowserRouter>
-        <App />
+        <ErrorBoundary title="La consola encontró un error">
+          <App />
+        </ErrorBoundary>
       </BrowserRouter>
     </ThemeProvider>
   </React.StrictMode>

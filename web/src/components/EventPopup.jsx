@@ -8,6 +8,7 @@ import { useCameraAnalytics, AnalyticsOverlay } from './CameraLive.jsx'
 import { fetchProcedure, getProcedureFallback } from '../lib/procedures.js'
 import { apiFetch } from '../lib/eventsApi.js'
 import AccessReadBadge from './AccessReadBadge.jsx'
+import ErrorBoundary from './ErrorBoundary.jsx'
 import { Badge, Button, Icon, PriorityDot, Segmented, Select, TextInput } from '../ui/primitives.jsx'
 import {
   CATEGORY_LABEL,
@@ -113,7 +114,7 @@ function EvidenceView({ event, url }) {
   )
 }
 
-export default function EventPopup({ event, operator, actions, onClose, supervise = false, queuePos = null, onNav = null }) {
+function EventPopup({ event, operator, actions, onClose, supervise = false, queuePos = null, onNav = null }) {
   const [procedure, setProcedure] = useState(() =>
     getProcedureFallback(event && event.procedureId)
   )
@@ -559,5 +560,31 @@ function RelayBar({ deviceId, closed, operatorId }) {
       </div>
       {msg && <span className={`evrelay__msg ${msg.ok ? 'is-ok' : 'is-err'}`}>{msg.t}</span>}
     </div>
+  )
+}
+
+// Envuelto en ErrorBoundary: si el render del popup falla por un evento malformado,
+// el operador pierde el popup (con opción de reintentar) pero la CONSOLA sigue viva
+// y no se queda ciego a las alarmas.
+export default function EventPopupSafe(props) {
+  return (
+    <ErrorBoundary
+      compact
+      title="No se pudo mostrar este evento"
+      fallback={(err, reset) => (
+        <div className="evpopup__errshell" role="alert">
+          <div className="evpopup__errcard">
+            <b>No se pudo mostrar este evento</b>
+            <p>{String((err && err.message) || err)}</p>
+            <div className="evpopup__erractions">
+              <button type="button" className="btn" onClick={reset}>Reintentar</button>
+              <button type="button" className="btn" onClick={() => props.onClose && props.onClose()}>Cerrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+    >
+      <EventPopup {...props} />
+    </ErrorBoundary>
   )
 }
