@@ -107,7 +107,26 @@ export async function migrate() {
     )`);
   await query(`CREATE INDEX IF NOT EXISTS access_reads_ts_idx ON access_reads (ts DESC)`);
   await query(`CREATE INDEX IF NOT EXISTS access_reads_site_ts_idx ON access_reads (site_id, ts DESC)`);
-  log.info("PG: esquema eventos + inventario + sesiones + accesos listo (migrate)");
+
+  // Bitácora de auditoría de ACCIONES SENSIBLES (no-repudio). Hoy registra las
+  // aperturas de puerta/relé (quién, qué equipo, salida, resultado, cuándo). El
+  // operatorId viene SIEMPRE de la sesión, nunca del body.
+  await query(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id            bigserial PRIMARY KEY,
+      ts            timestamptz NOT NULL DEFAULT now(),
+      action        text NOT NULL,
+      operator_id   text,
+      operator_name text,
+      device_id     text,
+      device_name   text,
+      detail        text,
+      result        text,
+      ip            text
+    )`);
+  await query(`CREATE INDEX IF NOT EXISTS audit_log_ts_idx ON audit_log (ts DESC)`);
+  await query(`CREATE INDEX IF NOT EXISTS audit_log_device_ts_idx ON audit_log (device_id, ts DESC)`);
+  log.info("PG: esquema eventos + inventario + sesiones + accesos + auditoría listo (migrate)");
 }
 
 export async function ping() {

@@ -19,6 +19,7 @@ import { openDoor, listOutputs, outputStatus } from "../ingest/doors.js";
 import { verifyPin, hashPin } from "../auth/pin.js";
 import { createSession, destroySession, sessionFromReq, cookieOptions, SESSION_COOKIE } from "../auth/session.js";
 import { rateHit, rateReset, clientIp } from "../util/ratelimit.js";
+import { auditLog } from "../db/auditRepo.js";
 import { config } from "../config.js";
 
 // Rol normalizado del operario (escalonado): agente | supervisor | admin.
@@ -118,18 +119,39 @@ router.post("/device/:id/relay", async (req, res) => {
   const dev = devices.find((d) => d.id === id);
   if (!dev) return res.status(404).json({ error: "no_device" });
   const b = req.body || {};
+  // La identidad SIEMPRE viene de la sesión (req.operator lo fija el guard PROTECTED),
+  // nunca del body — no se puede falsificar quién abrió la puerta.
+  const operatorId = (req.operator && req.operator.id) || null;
+  const operatorName = (req.operator && req.operator.name) || null;
+  const output = b.output != null ? b.output : 1;
+  const cmd = b.cmd || "open";
   try {
     const r = await openDoor(dev, {
-      output: b.output != null ? b.output : 1,
-      cmd: b.cmd || "open",
-      operatorId: b.operatorId || (req.operator && req.operator.id) || null,
+      output, cmd, operatorId,
       confirmed: b.confirmed === true,
       pulseMs: b.pulseMs != null ? Number(b.pulseMs) : undefined,
       dryRun: b.dryRun === true,
     });
+    // Bitácora durable de no-repudio (excepto dryRun): quién, qué equipo, salida, resultado.
+    if (b.dryRun !== true) {
+      auditLog({
+        action: "door_open", operatorId, operatorName,
+        deviceId: dev.id, deviceName: dev.name || null,
+        detail: `cmd=${cmd} output=${output}`,
+        result: r && r.ok === false ? "fail" : "ok",
+        ip: clientIp(req),
+      });
+    }
     if (r.ok === false) return res.status(502).json({ error: "relay_failed", ...r });
     res.json(r);
   } catch (e) {
+    if (b.dryRun !== true) {
+      auditLog({
+        action: "door_open", operatorId, operatorName,
+        deviceId: dev.id, deviceName: dev.name || null,
+        detail: `cmd=${cmd} output=${output}`, result: `error:${e.message}`, ip: clientIp(req),
+      });
+    }
     const code = ["not_confirmed", "no_operator", "bad_output", "no_creds"].includes(e.message) ? 400 : 502;
     res.status(code).json({ error: e.message });
   }

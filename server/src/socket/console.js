@@ -187,6 +187,39 @@ export function attachConsole(io) {
       return { operatorId, operatorName: op?.name || null };
     };
 
+    // A3 — Revalida la sesión EN VIVO (no sólo en el handshake): si el operario
+    // cerró sesión o venció el TTL, el token ya no existe en el store → cerramos el
+    // socket. Sin esto, una sesión revocada seguía operando la central hasta reconectar.
+    const sessionAlive = () => {
+      if (SOCKET_OPEN) return true; // modo dev/abierto (nunca en producción)
+      if (!session) return false;
+      const live = sessionFromHandshake(socket.handshake);
+      if (!live) {
+        try { socket.emit("session:expired"); socket.disconnect(true); } catch { /* noop */ }
+        return false;
+      }
+      return true;
+    };
+
+    // A2 — ¿Puede este operario actuar sobre ESTE evento? Libre → cualquiera lo toma;
+    // propio → sí; ajeno (asignado a otro) → sólo supervisor/admin. Evita que un
+    // operario resuelva/silencie/escale una alarma de otro y corrompa el no-repudio.
+    const myRole = () => String((session && session.role) || "").toLowerCase();
+    const isSupervisor = () => ["admin", "administrador", "supervisor", "supervisora"].includes(myRole());
+    const canActOn = (ev) => {
+      if (!ev) return false;
+      if (SOCKET_OPEN) return true;
+      if (!ev.assignedTo) return true;             // libre
+      if (ev.assignedTo === operatorId) return true; // propio
+      return isSupervisor();                        // ajeno → sólo supervisión
+    };
+    const denyIfNotOwner = (eventId) => {
+      const ev = getEvent(eventId);
+      if (canActOn(ev)) return false;
+      try { socket.emit("event:action:denied", { eventId, message: "El evento está asignado a otro operario." }); } catch { /* noop */ }
+      return true;
+    };
+
     // ── Cliente → Servidor ──────────────────────────────────────────────
 
     socket.on("operator:hello", (payload = {}) => {
@@ -236,6 +269,7 @@ export function attachConsole(io) {
 
     socket.on("event:claim", ({ eventId } = {}) => {
       if (!eventId || !operatorId) return;
+      if (!sessionAlive()) return;
       // Compare-and-set: solo se puede tomar si está libre o ya es tuyo. Evita la
       // doble-asignación cuando dos operarios pulsan "Tomar" casi a la vez.
       const cur = getEvent(eventId);
@@ -261,6 +295,7 @@ export function attachConsole(io) {
 
     socket.on("event:ack", ({ eventId } = {}) => {
       if (!eventId) return;
+      if (!sessionAlive() || denyIfNotOwner(eventId)) return;
       const a = actor();
       mutate(eventId, {
         status: "ack",
@@ -272,6 +307,7 @@ export function attachConsole(io) {
 
     socket.on("event:progress", ({ eventId, note = "" } = {}) => {
       if (!eventId) return;
+      if (!sessionAlive() || denyIfNotOwner(eventId)) return;
       const a = actor();
       mutate(eventId, {
         status: "in_progress",
@@ -282,12 +318,14 @@ export function attachConsole(io) {
 
     socket.on("event:note", ({ eventId, note = "" } = {}) => {
       if (!eventId) return;
+      if (!sessionAlive() || denyIfNotOwner(eventId)) return;
       const a = actor();
       mutate(eventId, { logEntry: { ...a, action: "note", note } });
     });
 
     socket.on("event:resolve", ({ eventId, disposition, note = "" } = {}) => {
       if (!eventId) return;
+      if (!sessionAlive() || denyIfNotOwner(eventId)) return;
       const a = actor();
       // Tiempo de atención: desde el primer log "receive" hasta ahora (ms).
       const before = getEvent(eventId);
@@ -313,6 +351,7 @@ export function attachConsole(io) {
 
     socket.on("event:escalate", ({ eventId, note = "" } = {}) => {
       if (!eventId) return;
+      if (!sessionAlive() || denyIfNotOwner(eventId)) return;
       const a = actor();
       mutate(eventId, {
         status: "escalated",
@@ -326,6 +365,7 @@ export function attachConsole(io) {
     // miembros online del grupo para que aparezca en su consola.
     socket.on("event:transfer", ({ eventId, groupId } = {}) => {
       if (!eventId || !groupId) return;
+      if (!sessionAlive() || denyIfNotOwner(eventId)) return;
       let group = null;
       try { group = listConfig("groups").find((g) => g.id === groupId) || null; } catch { /* store */ }
       if (!group) return;
@@ -346,6 +386,7 @@ export function attachConsole(io) {
     // Registra en la bitácora que el operario llamó a un contacto del sitio.
     socket.on("event:call", ({ eventId, contactName, phone } = {}) => {
       if (!eventId) return;
+      if (!sessionAlive() || denyIfNotOwner(eventId)) return;
       const a = actor();
       const who = contactName || "contacto";
       const tel = phone ? ` (${phone})` : "";
@@ -354,8 +395,10 @@ export function attachConsole(io) {
       });
     });
 
-    // Heartbeat opcional para mantener lastSeen
+    // Heartbeat opcional para mantener lastSeen. Aprovechamos para revalidar la
+    // sesión en vivo: si fue revocada/expiró, se cierra el socket (A3).
     socket.on("operator:heartbeat", () => {
+      if (!sessionAlive()) return;
       if (operatorId) heartbeat(operatorId);
     });
 

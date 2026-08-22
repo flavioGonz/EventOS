@@ -399,7 +399,8 @@ powershell -ExecutionPolicy Bypass -File isapi\tools\deploy-points.ps1
 - **Fail-closed de administración**: en producción, si falta `ADMIN_TOKEN` el server **aborta el arranque** en vez de dejar `/api/admin` abierto (override sólo con `ALLOW_OPEN_ADMIN=1` para pruebas). `EVENTOS_SOCKET_OPEN=1` se **ignora** en producción.
 - **Rate limiting** anti fuerza-bruta en `/auth/login` (por IP y por IP+usuario) y en intentos fallidos del token de ingesta.
 - **TLS**: el instalador ofrece HTTPS (Let's Encrypt) por defecto y fija `SESSION_SECURE=1`; la cookie de sesión es `Secure` detrás de un proxy HTTPS.
-- El control de relé / apertura de puerta es una **acción física**: requiere **confirmación explícita del operador**.
+- El control de relé / apertura de puerta es una **acción física**: requiere **confirmación explícita del operador**. Cada apertura se registra en una **bitácora de auditoría durable** (`audit_log`: quién —de la sesión, nunca del body—, qué equipo, salida, resultado, IP) para no-repudio.
+- **Autorización por evento en el socket**: un operario sólo puede accionar (tomar/ack/en curso/nota/resolver/escalar/transferir/llamar) sobre eventos **libres o propios**; los ajenos sólo los toca un **supervisor/admin**. La sesión se **revalida en vivo** en cada acción y en el heartbeat: si se cerró sesión o venció, el socket se desconecta.
 - Tokens de admin/ingesta por variables de entorno.
 - **Aislamiento entre clientes:** la resolución de dispositivo filtra por sitio antes de desempatar por tags de fabricante, que no son únicos entre clientes.
 - Los datos de campo (`isapi/reports/`, `server/data/`) **no se versionan**: llevan nombres de cámara, IPs y topología de cliente.
